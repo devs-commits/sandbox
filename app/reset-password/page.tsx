@@ -1,5 +1,7 @@
+"use client";
+
 import { useState } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { AuthCard } from "../components/auth/AuthCard";
 import { AuthInput } from "../components/auth/AuthInput";
 import { Button } from "../components/ui/button";
