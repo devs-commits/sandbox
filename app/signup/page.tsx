@@ -1,13 +1,15 @@
+"use client";
+
 import { useState, useMemo } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import Link from "next/link";
-import { AuthCard } from "../../components/auth/AuthCard";
-import { AuthInput } from "../../components/auth/AuthInput";
-import { AuthSelect } from "../../components/auth/AuthSelect";
-import { RoleToggle } from "../../components/auth/RoleToggle";
-import { PaymentMethodSelector } from "../../components/auth/PaymentMethodSelector";
-import { Button } from "../../components/ui/button";
+import { AuthCard } from "../components/auth/AuthCard";
+import { AuthInput } from "../components/auth/AuthInput";
+import { AuthSelect } from "../components/auth/AuthSelect";
+import { RoleToggle } from "../components/auth/RoleToggle";
+import { PaymentMethodSelector } from "../components/auth/PaymentMethodSelector";
+import { Button } from "../components/ui/button";
 import countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
 
@@ -22,7 +24,7 @@ const tracks = [
 ];
 
 
-const SignUp = () => {
+const Page = () => {
   const router = useRouter();
   const [role, setRole] = useState<"student" | "recruiter">("student");
   const [fullName, setFullName] = useState("");
@@ -123,4 +125,4 @@ const SignUp = () => {
   );
 };
 
-export default SignUp;
+export default Page;

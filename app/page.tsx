@@ -1,5 +1,4 @@
-"use client";
-import Landing from "./pages/Landing";
+import Landing from "./Landing/page";
 import "./globals.css";
 
 export default function Home() {
