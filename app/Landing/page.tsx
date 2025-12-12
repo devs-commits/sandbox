@@ -1,8 +1,18 @@
 import { Button } from "../components/ui/button";
 import Link from "next/link";
+import wdcLogo from "../../public/wdc-logo.jpg";
+import Image from "next/image";
 
 const Landing = () => {
   return (
+    <div>  
+    <header className="relative z-10 w-full px-6 py-4">
+        <div className="max-w-7xl mx-auto">
+          <Link href="/" className="inline-block">
+            <Image src={wdcLogo} alt="WDC Labs" className="h-8" />
+          </Link>
+        </div>
+      </header>
     <main className="min-h-screen hero-gradient flex items-center justify-center p-4 sm:p-6 lg:p-8">
       {/* Hero Card */}
       <div className="w-full max-w-4xl card-gradient rounded-2xl p-8 sm:p-12 lg:p-16 card-shadow border border-border/30 animate-scale-in">
@@ -40,6 +50,7 @@ const Landing = () => {
         </div>
       </div>
     </main>
+    </div>
   );
 };
 
