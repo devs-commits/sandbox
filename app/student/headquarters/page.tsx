@@ -62,10 +62,10 @@ export default function page() {
             <span className="text-sm font-semibold text-red-500">3 Recruiters viewing</span>
           </div>
           <div className="bg-purple-500/20 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
-            <User className="text-pink-500" size={18} />
+            <User className="text-purple-400" size={18} />
             <div>
-              <span className="text-sm text-purple-400">Profile Stats: </span>
-              <span className="text-sm font-semibold text-purple-400">32 Views</span>
+              <span className="text-sm text-purple-500">Profile Stats: </span>
+              <span className="text-sm font-semibold text-purple-500">32 Views</span>
             </div>
           </div>
         </div>
