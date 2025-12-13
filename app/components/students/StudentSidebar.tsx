@@ -61,7 +61,7 @@ export const StudentSidebar = () => {
                 <span className="text-sm font-medium">{item.label}</span>
               </div>
               {item.badge && (
-                <span className="bg-green-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
+                <span className="bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
                   {item.badge}
                 </span>
               )}
