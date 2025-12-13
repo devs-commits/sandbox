@@ -43,29 +43,29 @@ export default function page() {
       <div className="p-4 lg:p-6 space-y-6">
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="bg-muted-foreground/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <FileText className="text-muted-foreground" size={18} />
             <div>
               <span className="text-sm text-muted-foreground">Tasks Done: </span>
-              <span className="text-sm font-semibold text-foreground">14/24</span>
+              <span className="text-sm font-semibold text-muted-foreground">14/24</span>
             </div>
           </div>
-          <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
-            <Clock className="text-green-500" size={18} />
+          <div className="bg-green-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
+            <Clock className="text-green-400/60" size={18} />
             <div>
-              <span className="text-sm text-muted-foreground">Streak: </span>
-              <span className="text-sm font-semibold text-green-500">Active</span>
+              <span className="text-sm text-green-400/60">Streak: </span>
+              <span className="text-sm font-semibold text-green-400/60">Active</span>
             </div>
           </div>
-          <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 animate-pulse">
+          <div className="bg-red-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3 animate-pulse">
             <Eye className="text-red-500" size={18} />
             <span className="text-sm font-semibold text-red-500">3 Recruiters viewing</span>
           </div>
-          <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="bg-purple-500/20 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <User className="text-pink-500" size={18} />
             <div>
-              <span className="text-sm text-muted-foreground">Profile Stats: </span>
-              <span className="text-sm font-semibold text-pink-500">32 Views</span>
+              <span className="text-sm text-purple-400">Profile Stats: </span>
+              <span className="text-sm font-semibold text-purple-400">32 Views</span>
             </div>
           </div>
         </div>
