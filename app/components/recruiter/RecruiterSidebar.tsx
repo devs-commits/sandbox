@@ -17,7 +17,7 @@ import { useState } from "react";
 
 const navItems = [
   { label: "Talent Markets", path: "/recruiter/talent-market", icon: LayoutGrid },
-  { label: "Recruiter Wallet", path: "/recruiter/wallet", icon: Wallet },
+  { label: "Recruiter Wallet", path: "npm run build", icon: Wallet },
   { label: "Bounty Hunter", path: "/recruiter/bounty", icon: Target },
   { label: "Hiring Preferences", path: "/recruiter/preferences", icon: SlidersHorizontal },
 ];
