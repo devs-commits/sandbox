@@ -3,7 +3,7 @@ interface EnterpriseHeaderProps {
   subtitle?: string;
 }
 
-export const EnterpriseHeader = ({ title }: EnterpriseHeaderProps) => {
+export const EnterpriseHeader = ({ title, subtitle }: EnterpriseHeaderProps) => {
   return (
     <header className="px-4 lg:px-6 py-4 flex items-center justify-between border-b border-border">
       {/* Left side - Title */}
