@@ -1,9 +1,9 @@
 interface AdminHeaderProps {
   title: string;
-  subtitle: string;
+  subtitle ?: string;
 }
 
-export const AdminHeader = ({ title }: AdminHeaderProps) => {
+export const AdminHeader = ({ title, subtitle}: AdminHeaderProps) => {
   return (
     <header className="px-4 lg:px-6 py-4 flex items-center justify-between border-b border-border">
       {/* Left side - Title */}
