@@ -28,7 +28,7 @@ const tasks = [
     category: "PR & COMMS",
     categoryColor: "bg-gray-600",
     level: "Hard",
-    levelColor: "bg-red-500",
+    levelColor: "bg-red-500/20",
     title: "Crisis Comms: Server Outage",
     description: "App is down. Twitter is toxic. Draft a push notification that apologizes without admitting liability, and a thread for the CEO.",
     assets: "No Assets",
@@ -93,7 +93,7 @@ export default function page() {
           {/* Progress bar */}
           <div className="mb-4">
             <div className="w-full bg-muted rounded-full h-2">
-              <div className="bg-purple-400 h-2 rounded-full" style={{ width: '45%' }} />
+              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '45%' }} />
             </div>
             <p className="text-xs text-muted-foreground text-right mt-1">12 Weeks Internship</p>
           </div>
@@ -140,7 +140,7 @@ export default function page() {
             {tasks.map((task) => (
               <div key={task.id} className="bg-card border border-border rounded-xl p-4 flex flex-col">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className={`${task.categoryColor} text-purple-500 text-xs px-2 py-0.5 rounded`}>
+                  <span className={`${task.categoryColor} text-foreground-500 text-xs px-2 py-0.5 rounded`}>
                     {task.category}
                   </span>
                   <span className={`${task.levelColor} text-purple-500 text-xs px-2 py-0.5 rounded ml-auto`}>
