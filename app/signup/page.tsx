@@ -23,6 +23,7 @@ const tracks = [
   { value: "product-design", label: "Product Design", price: "₦ 25,000" },
 ];
 
+const RECRUITER_PRICE = "₦ 35,500";
 
 const Page = () => {
   const router = useRouter();
