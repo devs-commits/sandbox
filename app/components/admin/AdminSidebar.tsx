@@ -17,6 +17,7 @@ import { useState } from "react";
 const navItems = [
   { label: "Admin Dashboard", path: "/admin/dashboard", icon: LayoutGrid },
   { label: "User Base", path: "/admin/user-base", icon: Wallet },
+  {label: "Bounty Management", path:"/admin/bounty", icon: Wallet},
   { label: "Revenue", path: "/admin/revenue", icon: Target },
 ];
 
