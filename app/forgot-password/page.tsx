@@ -1,21 +1,23 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { AuthCard } from "@/components/auth/AuthCard";
-import { AuthInput } from "@/components/auth/AuthInput";
-import { AuthSelect } from "@/components/auth/AuthSelect";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import { AuthCard } from "../components/auth/AuthCard";
+import { AuthInput } from "../components/auth/AuthInput";
+import { AuthSelect } from "../components/auth/AuthSelect";
+import { Button } from "../components/ui/button";
+import {useAuth} from "../contexts/AuthContexts";
 import { toast } from "sonner";
 import { Loader2, CheckCircle } from "lucide-react";
+import Link from "next/link";
 
 const roles = [
   { value: "student", label: "Student" },
   { value: "recruiter", label: "Recruiter" },
   { value: "admin", label: "Admin" },
+  { value: "enterprise", label: "Enterprise" },
 ];
 
 const ForgotPassword = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { forgotPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("student");
@@ -49,7 +51,7 @@ const ForgotPassword = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <AuthCard title="Check Your Email" onClose={() => navigate("/login")}>
+          <AuthCard title="Check Your Email" onClose={() => router.push("/login")}>
             <div className="text-center space-y-4">
               <div className="flex justify-center">
                 <CheckCircle className="h-16 w-16 text-green-500" />
@@ -61,7 +63,7 @@ const ForgotPassword = () => {
                 Didn't receive the email?{" "}
                 <button onClick={() => setIsSuccess(false)} className="text-primary hover:underline">try again</button>
               </p>
-              <Link to="/login" className="inline-block text-sm text-primary hover:underline">Back to Login</Link>
+              <Link href="/login" className="inline-block text-sm text-primary hover:underline">Back to Login</Link>
             </div>
           </AuthCard>
         </div>
@@ -74,7 +76,7 @@ const ForgotPassword = () => {
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold text-foreground mb-6">Forgot Password</h1>
         
-        <AuthCard title="Forgot Password" onClose={() => navigate("/login")}>
+        <AuthCard title="Forgot Password" onClose={() => router.push("/login")}>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-lg">
@@ -101,7 +103,7 @@ const ForgotPassword = () => {
             </Button>
             
             <p className="text-center">
-              <Link to="/login" className="text-sm text-primary hover:underline">Back to Login</Link>
+              <Link href="/login" className="text-sm text-primary hover:underline">Back to Login</Link>
             </p>
           </form>
         </AuthCard>
