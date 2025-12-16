@@ -1,4 +1,5 @@
 import EnterpriseSidebar from "../components/enterprise/EnterpriseSidebar";
+import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 
 export default function page({
   children,
@@ -6,11 +7,13 @@ export default function page({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background flex w-full">
-      <EnterpriseSidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <ProtectedRoute allowedRoles={["enterprise"]}>
+      <div className="min-h-screen bg-background flex w-full">
+        <EnterpriseSidebar />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
+    </ProtectedRoute>
   );
 }

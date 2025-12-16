@@ -27,9 +27,12 @@ const navItems = [
   { label: "Squad", icon: Users, path: "/student/squad" },
 ];
 
+import { useAuth } from "../../contexts/AuthContexts";
+
 export const StudentSidebar = () => {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { logout } = useAuth();
 
   const SidebarContent = () => (
     <>
@@ -93,14 +96,16 @@ export const StudentSidebar = () => {
 
       {/* Logout */}
       <div className="px-3 pb-4">
-        <Link
-          href="/login"
-          onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+        <button
+          onClick={() => {
+            setMobileOpen(false);
+            logout();
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
         >
           <LogOut size={18} />
           <span className="text-sm font-medium">Log out</span>
-        </Link>
+        </button>
       </div>
     </>
   );

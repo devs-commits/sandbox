@@ -1,4 +1,5 @@
 import { StudentSidebar } from "../components/students/StudentSidebar";
+import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 
 export default function StudentLayout({
   children,
@@ -6,11 +7,13 @@ export default function StudentLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-background flex w-full">
-      <StudentSidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <ProtectedRoute allowedRoles={["student"]}>
+      <div className="min-h-screen bg-background flex w-full">
+        <StudentSidebar />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
+    </ProtectedRoute>
   );
 }

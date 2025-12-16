@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // Now insert the profile data into your public table
     if (data.user) {
       const { error: dbError } = await supabase
-        .from('users') // ⚠️ Make sure your table name is correct
+        .from('users')
         .insert({
           // We let the database generate its own primary 'id' (e.g. 1, 2, 3 or uuid)
           // We store the Auth ID in a separate column (Foreign Key)
