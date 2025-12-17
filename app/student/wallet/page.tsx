@@ -29,7 +29,6 @@ type ModalType = "locked" | "eligible" | "granted" | null;
 
 export default function GlobalWallet() {
   const [modalType, setModalType] = useState<ModalType>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const loanProgress = (walletData.earnedTotal / walletData.loanTarget) * 100;
   const isEligible = walletData.earnedTotal >= walletData.loanTarget;
 
@@ -54,10 +53,10 @@ export default function GlobalWallet() {
       <main className="flex-1 p-4 lg:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Main Wallet Card */}
-          <div className="bg-gradient-to-br from-[#0A3D3D] to-[#0D2F2F] rounded-xl p-6 border border-primary/30">
+          <div className="gradient-bg rounded-xl p-6 border border-primary/30">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <p className="text-primary text-xs font-medium uppercase tracking-wider mb-2">
+                <p className="text-[hsla(145,100%,39%,1)] text-xs font-bold uppercase tracking-wider mb-2">
                   TOTAL BALANCE (NGN EQUIV)
                 </p>
                 <h2 className="text-4xl font-bold text-foreground">
@@ -111,7 +110,7 @@ export default function GlobalWallet() {
               </div>
             </div>
 
-            <Button className="w-full bg-green hover:bg-green/90 text-white">
+            <Button className="w-full bg-[hsla(145,100%,39%,1)] hover:bg-green/90 text-white">
               Withdraw
             </Button>
           </div>
@@ -119,7 +118,7 @@ export default function GlobalWallet() {
           {/* Side Cards */}
           <div className="space-y-4">
             {/* Inflation Hedge */}
-            <div className="bg-card rounded-xl p-5 border border-border">
+            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-cyan/20 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Shield className="w-5 h-5 text-cyan" />
@@ -134,7 +133,7 @@ export default function GlobalWallet() {
             </div>
 
             {/* Career Support Loan */}
-            <div className="bg-card rounded-xl p-5 border border-border">
+            <div className="bg-[hsla(261,56%,20%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3 mb-4">
                 <div className="w-10 h-10 bg-purple/20 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Gift className="w-5 h-5 text-purple" />
@@ -148,7 +147,7 @@ export default function GlobalWallet() {
               </div>
 
               <div className="mb-2">
-                <Progress value={loanProgress} className="h-2" />
+                <Progress value={loanProgress} className="h-2 bg-[hsla(0,0%,72%,1)]" />
               </div>
               <p className="text-right text-sm text-muted-foreground mb-4">
                 You've earned: ₦{walletData.earnedTotal.toLocaleString()} / ₦{walletData.loanTarget.toLocaleString()}
@@ -156,7 +155,7 @@ export default function GlobalWallet() {
 
               <Button
                 variant="outline"
-                className="w-full border-coral/50 text-coral hover:bg-coral/10 hover:text-coral"
+                className="w-full border-coral/50 text-coral hover:bg-coral/10 hover:text-coral bg-[hsla(0,0%,82%,1)]"
                 onClick={handleRequestLoan}
               >
                 <Lock className="w-4 h-4 mr-2" />
