@@ -8,7 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "../../components/ui/dialog";
 
 // Mock data - replace with backend integration
 const walletData = {
@@ -46,10 +46,9 @@ export default function GlobalWallet() {
 
   return (
     <>
-      <Header
+      <StudentHeader
         title="Global Payroll Wallet"
         subtitle="The smartest way for African talent to receive, hold, and spend global income."
-        onMenuClick={() => setSidebarOpen(true)}
       />
       <main className="flex-1 p-4 lg:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
