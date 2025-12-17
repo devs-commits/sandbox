@@ -8,7 +8,6 @@ import { Clock, X } from "lucide-react";
 interface Bounty {
   id: string;
   type: string;
-  typeColor: string;
   duration: string;
   title: string;
   description: string;
@@ -23,7 +22,6 @@ const bounties: Bounty[] = [
   {
     id: "1",
     type: "QA TESTING",
-    typeColor: "bg-yellow text-background",
     duration: "30 mins",
     title: "App Testing: Kuda Beta",
     description: "Test the new Kuda Beta mobile app and evaluate performance, UI flow, and basic functionality. You will be required to identify bugs, usability issues, and UX inconsistencies.",
@@ -46,7 +44,6 @@ const bounties: Bounty[] = [
   {
     id: "2",
     type: "AI TRAINING",
-    typeColor: "bg-purple text-white",
     duration: "1 hr",
     title: "Voice Recording: Yorube",
     description: "Record voice samples in Yoruba language for AI training dataset. You will be required to follow specific scripts and recording guidelines.",
@@ -67,7 +64,6 @@ const bounties: Bounty[] = [
   {
     id: "3",
     type: "RESEARCH",
-    typeColor: "bg-green text-white",
     duration: "2hrs",
     title: "Lead Gen: Fintech CEOs",
     description: "Research and compile a list of Fintech CEOs and their contact information for business development purposes.",
@@ -107,7 +103,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
           <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
-              <Badge className={bounty.typeColor}>{bounty.type}</Badge>
+              <Badge className="bg-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
             </div>
             <button
               onClick={onClose}
@@ -152,8 +148,8 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
               <p className="text-muted-foreground text-sm mt-2">Upload formats: PDF, DOCX, ZIP</p>
             </div>
 
-            <div className="bg-yellow/10 border border-yellow/30 rounded-lg p-4">
-              <p className="text-yellow text-sm">
+            <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow/30 rounded-lg p-4">
+              <p className="text-[hsla(47,62%,50%,1)] text-sm">
                 Note: You have click on stat task to claim your slot and once you click Start Task, the 24-hour countdown begins. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {bounty.slotsLeft} slots left, and slots reduce in real time.
               </p>
             </div>
@@ -186,7 +182,7 @@ function BountyCard({
       className="bg-card rounded-xl p-5 border border-border hover:border-primary/30 transition-colors cursor-pointer"
     >
       <div className="flex items-center justify-between mb-3">
-        <Badge className={bounty.typeColor}>{bounty.type}</Badge>
+        <Badge className="bg-primary text-primary-foreground">{bounty.type}</Badge>
         <div className="flex items-center gap-1 text-muted-foreground text-sm">
           <Clock className="w-4 h-4" />
           {bounty.duration}
