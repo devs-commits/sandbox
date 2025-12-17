@@ -103,7 +103,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
           <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
-              <Badge className="bg-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
+              <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
             </div>
             <button
               onClick={onClose}
