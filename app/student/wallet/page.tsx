@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
