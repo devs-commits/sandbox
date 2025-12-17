@@ -100,9 +100,9 @@ export default function GlobalWallet() {
                 Powered by Parallex Bank licensed by CBN
               </p>
               <div className="flex items-center gap-1">
-               <Image src="/first.png" alt="First Bank Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
-               <Image src="/middle.png" alt="GT Bank Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
-               <Image src="/lucide_shield.png" alt="Sterling Bank Logo" className="h-6 w-6 object-contain" width={4} height={4}/>
+               <Image src="/first.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
+               <Image src="/middle.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
+               <Image src="/lucide_shield.png" alt="Logo" className="h-6 w-6 object-contain" width={4} height={4}/>
                 {/* <div className="w-6 h-6 bg-green rounded-full flex items-center justify-center">
                   <span className="text-xs text-white font-bold">₦</span>
                 </div>
