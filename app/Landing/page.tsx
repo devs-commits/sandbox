@@ -5,7 +5,7 @@ import Image from "next/image";
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen bg-[hsla(222,47%,11%,1)] relative overflow-hidden">
         <header className="relative z-10 w-full px-6 py-4">
             <div className="max-w-7xl mx-auto">
               <Link href="/" className="inline-block">
