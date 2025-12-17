@@ -66,6 +66,7 @@ export default function Squad() {
                 Unlock the ₦10,000/mo pricing tier by forming a squad. You stay accountable, you save money.
               </p>
             </div>
+            <div className="absolute right-0 top-0 w-1/3 h-full bg-purple-500/10 skew-x-12 transform translate-x-10"></div>
           </div>
 
           {/* Squad Members - Card Layout */}
