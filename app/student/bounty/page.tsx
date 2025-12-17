@@ -45,7 +45,7 @@ const bounties: Bounty[] = [
     id: "2",
     type: "AI TRAINING",
     duration: "1 hr",
-    title: "Voice Recording: Yorube",
+    title: "Voice Recording: Yoruba",
     description: "Record voice samples in Yoruba language for AI training dataset. You will be required to follow specific scripts and recording guidelines.",
     instructions: [
       "Download the recording app from the provided link.",
@@ -158,7 +158,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
               <p className="text-muted-foreground text-sm mb-4">
                 CLAIM: <span className="text-foreground font-medium">{bounty.slotsLeft} left</span>
               </p>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6">
+              <Button className="w-full bg-primary hover:bg-primary/90 text-foreground py-6">
                 Start Task
               </Button>
             </div>
