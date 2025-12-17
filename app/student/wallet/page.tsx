@@ -4,6 +4,8 @@ import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
 import { Shield, Gift, CheckCircle, Lock, X } from "lucide-react";
+import Image from "next/image";
+
 import {
   Dialog,
   DialogContent,
@@ -93,12 +95,15 @@ export default function GlobalWallet() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center justify-center gap-4 mb-6">
               <p className="text-sm text-muted-foreground">
                 Powered by Parallex Bank licensed by CBN
               </p>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-green rounded-full flex items-center justify-center">
+              <div className="flex items-center gap-1">
+               <Image src="/first.png" alt="First Bank Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
+               <Image src="/middle.png" alt="GT Bank Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
+               <Image src="/lucide_shield.png" alt="Sterling Bank Logo" className="h-6 w-6 object-contain" width={4} height={4}/>
+                {/* <div className="w-6 h-6 bg-green rounded-full flex items-center justify-center">
                   <span className="text-xs text-white font-bold">₦</span>
                 </div>
                 <div className="w-6 h-6 bg-purple rounded-full flex items-center justify-center">
@@ -106,7 +111,7 @@ export default function GlobalWallet() {
                 </div>
                 <div className="w-6 h-6 bg-cyan rounded-full flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 text-white" />
-                </div>
+                </div> */}
               </div>
             </div>
 
