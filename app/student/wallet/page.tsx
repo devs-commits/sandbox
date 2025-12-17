@@ -183,7 +183,7 @@ export default function GlobalWallet() {
                 Once unlocked, you'll be able to request loans to purchase: Laptops, Accessories, Learning tools, Work essentials.
               </p>
               <Button 
-                className="bg-coral hover:bg-coral/90 text-white px-8"
+                className="bg-primary hover:bg-coral/90 text-white px-8"
                 onClick={() => setModalType(null)}
               >
                 Okay, Got It
