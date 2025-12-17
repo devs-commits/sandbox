@@ -167,9 +167,8 @@ export default function GlobalWallet() {
             <DialogHeader className="text-center">
               <button 
                 onClick={() => setModalType(null)}
-                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+                className="absolute right-4 top-4 text-foreground hover:text-foreground"
               >
-                <X className="w-5 h-5" />
               </button>
               <DialogTitle className="text-xl font-semibold text-foreground text-center pt-4">
                 Loan Feature Locked
