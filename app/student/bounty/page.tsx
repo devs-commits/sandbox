@@ -182,7 +182,7 @@ function BountyCard({
       className="bg-card rounded-xl p-5 border border-border hover:border-primary/30 transition-colors cursor-pointer"
     >
       <div className="flex items-center justify-between mb-3">
-        <Badge className="bg-primary text-primary-foreground">{bounty.type}</Badge>
+        <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
         <div className="flex items-center gap-1 text-muted-foreground text-sm">
           <Clock className="w-4 h-4" />
           {bounty.duration}
@@ -194,7 +194,7 @@ function BountyCard({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground uppercase">REWARD</p>
-          <p className="text-lg font-bold text-green">₦{bounty.reward.toLocaleString()}</p>
+          <p className="text-lg font-bold text-[hsla(151,74%,46%,1)]">₦{bounty.reward.toLocaleString()}</p>
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground uppercase">CLAIM</p>
