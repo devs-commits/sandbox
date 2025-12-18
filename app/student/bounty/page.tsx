@@ -100,10 +100,10 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
       <div className="absolute right-0 top-0 h-full w-1/2 bg-card border-l border-border overflow-y-auto">
         <div className="p-6">
           {/* Header */}
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start justify-between mb-4 hover:bg-yellow-500/30">
             <div>
               <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
-              <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
+              <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/30">{bounty.type}</Badge>
             </div>
             <button
               onClick={onClose}
@@ -148,7 +148,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
               <p className="text-muted-foreground text-sm mt-2">Upload formats: PDF, DOCX, ZIP</p>
             </div>
 
-            <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow/30 rounded-lg p-4">
+            <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow-500/30 rounded-lg p-4">
               <p className="text-[hsla(47,62%,50%,1)] text-sm">
                 Note: You have click on stat task to claim your slot and once you click Start Task, the 24-hour countdown begins. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {bounty.slotsLeft} slots left, and slots reduce in real time.
               </p>
@@ -219,7 +219,7 @@ export default function BountyHunter() {
       <main className="flex-1 p-4 lg:p-6">
         <div className="flex justify-end mb-6">
           <Badge variant="outline" className="text-sm px-4 py-2 bg-card border-primary/30">
-            <span className="text-primary font-bold">{totalBounties}</span>
+            <span className="text-[hsla(275,96%,52%,1)] font-bold">{totalBounties}</span>
             <span className="ml-2 text-muted-foreground">Bounties Available</span>
           </Badge>
         </div>

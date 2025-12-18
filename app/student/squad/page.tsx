@@ -51,11 +51,11 @@ export default function Squad() {
             
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
-                <Badge className="bg-[hsla(273,96%,64%,1)] text-foreground border-purple/30 text-xs">
+                <Badge className="bg-[hsla(273,96%,64%,1)] text-foreground border-purple-500/30 text-xs">
                 <Flame size={14} />
                   14 DAY STREAK
                 </Badge>
-                <Badge className="bg-[hsla(145,100%,39%,1)] text-foreground border-green/30 text-xs">
+                <Badge className="bg-[hsla(145,100%,39%,1)] text-foreground border-green-500/30 text-xs">
                   ACTIVE: 45% DISCOUNT
                 </Badge>
               </div>
