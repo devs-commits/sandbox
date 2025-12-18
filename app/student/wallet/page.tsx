@@ -132,7 +132,7 @@ export default function GlobalWallet() {
             <div className="bg-[hsla(261,56%,20%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3 mb-4">
                 <div className="w-10 h-10 bg-purple/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Gift className="w-5 h-5 text-purple" />
+                  <Image src="/support.png" height={20} width={20} alt="Support Icon" className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground mb-1">Career Support Loan</h3>

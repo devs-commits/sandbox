@@ -207,7 +207,6 @@ function BountyCard({
 
 export default function BountyHunter() {
   const [selectedBounty, setSelectedBounty] = useState<Bounty | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const totalBounties = 124;
 
   return (
