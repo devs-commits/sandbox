@@ -1,41 +1,100 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader";    
 import { Button } from "../../components/ui/button";
-import { FileText, Clock, Eye, User, ArrowRight, Download, Flame } from "lucide-react";
+import { FileText, Clock, Eye, User, ArrowRight, Download, Flame, Loader2 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContexts";
+import { supabase } from "../../../lib/supabase";
+import { TaskGenerator } from "../../components/students/TaskGenerator";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-const tasks = [
-  {
-    id: 1,
-    category: "PERFORMANCE MARKETING",
-    categoryColor: "bg-gray-600",
-    level: "EXPERT",
-    levelColor: "bg-purple-500/20",
-    title: "Scenario: ROAS Crash Analysis",
-    description: "Our Facebook Ad ROAS dropped from 4.0 to 1.2yesterday. I've attached the campaign export CSV. Identify the bleeding ad set and write a 1-...",
-    assets: "2 Data Files",
-  },
-  {
-    id: 2,
-    category: "CRO & UX",
-    categoryColor: "bg-gray-600",
-    level: "EXPERT",
-    levelColor: "bg-purple-500/20",
-    title: "Fix the Funnel: Cart Abandonment",
-    description: "60% of traffic drops off at the 'Shipping' page. Audit the UX screenshot provided. Propose 3 specific CRO changes to recover revenue.",
-    assets: "1 Data Files",
-  },
-  {
-    id: 3,
-    category: "PR & COMMS",
-    categoryColor: "bg-gray-600",
-    level: "Hard",
-    levelColor: "bg-red-500/20",
-    title: "Crisis Comms: Server Outage",
-    description: "App is down. Twitter is toxic. Draft a push notification that apologizes without admitting liability, and a thread for the CEO.",
-    assets: "No Assets",
-  },
-];
+interface Task {
+  id: number;
+  title: string;
+  brief_content: string;
+  difficulty: string;
+  task_track: string;
+  completed: boolean;
+}
 
 export default function page() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
+
+  const fetchTasks = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user', user.id)
+        .order('id', { ascending: true });
+        
+      if (error) {
+        console.error("Error fetching tasks:", error);
+      } else {
+        setTasks(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateStreak = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch('/api/users/streak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await response.json();
+      if (data.streak !== undefined) {
+        setStreak(data.streak);
+      }
+    } catch (error) {
+      console.error("Error updating streak:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+    updateStreak();
+  }, [user]);
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner': return 'bg-green-500/20 text-green-500';
+      case 'intermediate': return 'bg-yellow-500/20 text-yellow-500';
+      case 'advanced': return 'bg-red-500/20 text-red-500';
+      default: return 'bg-purple-500/20 text-purple-500';
+    }
+  };
+
+  const handleTaskClick = (taskId: number) => {
+    router.push(`/student/office?taskId=${taskId}`);
+  };
+
+  const handleDownloadLetter = (type: string) => {
+    const weeksCompleted = Math.floor(streak / 7);
+    if (weeksCompleted < 12) {
+      toast.error("Requirements not met", {
+        description: `You need to complete 12 weeks of internship to unlock the ${type}. You have completed ${weeksCompleted} weeks.`
+      });
+      return;
+    }
+    toast.success("Download started");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <StudentHeader title="Headquarters" />
@@ -47,14 +106,16 @@ export default function page() {
             <FileText className="text-muted-foreground" size={18} />
             <div>
               <span className="text-sm text-muted-foreground">Tasks Done: </span>
-              <span className="text-sm font-semibold text-muted-foreground">14/24</span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                {tasks.filter(t => t.completed).length}/{tasks.length}
+              </span>
             </div>
           </div>
           <div className="bg-green-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <Clock className="text-green-400/60" size={18} />
             <div>
               <span className="text-sm text-green-400/60">Streak: </span>
-              <span className="text-sm font-semibold text-green-400/60">Active</span>
+              <span className="text-sm font-semibold text-green-400/60">{streak} Days</span>
             </div>
           </div>
           <div className="bg-red-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3 animate-pulse">
@@ -86,16 +147,24 @@ export default function page() {
             </div>
             <div className="flex items-center gap-2 bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
               <Flame size={14} />
-              14 DAY STREAK
+              {streak} DAY STREAK
             </div>
           </div>
 
           {/* Progress bar */}
           <div className="mb-4">
             <div className="w-full bg-muted rounded-full h-2">
-              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '45%' }} />
+              <div 
+                className="bg-purple-600 h-2 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min((streak / 84) * 100, 100)}%` }} 
+              />
             </div>
-            <p className="text-xs text-muted-foreground text-right mt-1">12 Weeks Internship</p>
+            <div className="flex justify-between items-center mt-1">
+              <p className="text-xs text-muted-foreground">
+                {Math.floor(streak / 7)} / 12 Weeks Completed
+              </p>
+              <p className="text-xs text-muted-foreground">12 Weeks Internship</p>
+            </div>
           </div>
 
           {/* Letter cards */}
@@ -110,7 +179,11 @@ export default function page() {
                   <p className="text-xs text-orange-400">Available after 12 weeks</p>
                 </div>
               </div>
-              <Button size="sm" disabled className="bg-foreground/50 text-primary-foreground/50 cursor-not-allowed blur-[1px]">
+              <Button 
+                size="sm" 
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => handleDownloadLetter("Work Letter of Reference")}
+              >
                 <Download size={14} className="mr-1" />
                 Download Letter
               </Button>
@@ -125,7 +198,11 @@ export default function page() {
                   <p className="text-xs text-orange-400">Available after 12 weeks</p>
                 </div>
               </div>
-              <Button size="sm" disabled className="bg-foreground/50 text-primary-foreground/50 cursor-not-allowed blur-[1px]">
+              <Button 
+                size="sm" 
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => handleDownloadLetter("Visa Letter of Reference")}
+              >
                 <Download size={14} className="mr-1" />
                 Download Letter
               </Button>
@@ -135,30 +212,43 @@ export default function page() {
 
         {/* My Tasks */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-4">My Tasks (3)</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {tasks.map((task) => (
-              <div key={task.id} className="bg-card border border-border rounded-xl p-4 flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`${task.categoryColor} text-foreground-500 text-xs px-2 py-0.5 rounded`}>
-                    {task.category}
-                  </span>
-                  <span className={`${task.levelColor} text-purple-500 text-xs px-2 py-0.5 rounded ml-auto`}>
-                    {task.level}
-                  </span>
-                </div>
-                <h3 className="font-semibold text-foreground text-sm mb-2">{task.title}</h3>
-                <p className="text-xs text-muted-foreground flex-1 mb-4">{task.description}</p>
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <FileText size={14} />
-                    <span className="text-xs">{task.assets}</span>
+          <h2 className="text-lg font-semibold text-foreground mb-4">My Tasks ({tasks.length})</h2>
+          
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : tasks.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {tasks.map((task) => (
+                <div 
+                  key={task.id} 
+                  className="bg-card border border-border rounded-xl p-4 flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => handleTaskClick(task.id)}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="bg-gray-600/20 text-foreground-500 text-xs px-2 py-0.5 rounded uppercase">
+                      {task.task_track}
+                    </span>
+                    <span className={`${getDifficultyColor(task.difficulty)} text-xs px-2 py-0.5 rounded ml-auto uppercase`}>
+                      {task.difficulty}
+                    </span>
                   </div>
-                  <ArrowRight size={18} className="text-muted-foreground" />
+                  <h3 className="font-semibold text-foreground text-sm mb-2 line-clamp-2">{task.title}</h3>
+                  <p className="text-xs text-muted-foreground flex-1 mb-4 line-clamp-3">{task.brief_content}</p>
+                  <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FileText size={14} />
+                      <span className="text-xs">View Details</span>
+                    </div>
+                    <ArrowRight size={18} className="text-muted-foreground" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <TaskGenerator onTasksGenerated={fetchTasks} />
+          )}
         </div>
       </div>
     </div>
