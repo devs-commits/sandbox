@@ -47,7 +47,8 @@ export default function Squad() {
       <main className="flex-1 p-4 lg:p-6">
         <div className="space-y-6">
           {/* Invite Banner */}
-          <div className="grad-bg rounded-xl p-6 border border-primary/30 relative overflow-hidden">
+          <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] grad-bg rounded-xl p-6 border border-primary/30 relative overflow-hidden">
+
             
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
