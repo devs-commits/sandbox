@@ -182,7 +182,7 @@ function BountyCard({
       className="bg-card rounded-xl p-5 border border-border transition-colors cursor-pointer"
     >
       <div className="flex items-center justify-between mb-3">
-        <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
+        <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/20">{bounty.type}</Badge>
         <div className="flex items-center gap-1 text-muted-foreground text-sm">
           <Clock className="w-4 h-4" />
           {bounty.duration}
