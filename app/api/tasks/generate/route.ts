@@ -11,8 +11,21 @@ const DEFAULT_AI_PERSONA_CONFIG = {
   duration: "1 hour"
 };
 
+interface TaskDefinition {
+  title: string;
+  brief_content: string;
+  difficulty: string;
+  ai_persona_config?: {
+    role: string;
+    tone: string;
+    expertise: string;
+    instruction: string;
+    duration: string;
+  };
+}
+
 // Define tasks for each track
-const TRACK_TASKS = {
+const TRACK_TASKS: Record<string, TaskDefinition[]> = {
   'digital-marketing': [
     {
       title: "Scenario: ROAS Crash Analysis",
