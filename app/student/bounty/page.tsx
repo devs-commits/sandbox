@@ -100,7 +100,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
       <div className="absolute right-0 top-0 h-full w-1/2 bg-card border-l border-border overflow-y-auto">
         <div className="p-6">
           {/* Header */}
-          <div className="flex items-start justify-between mb-4 hover:bg-yellow-500/30">
+          <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
               <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/30">{bounty.type}</Badge>
@@ -179,7 +179,7 @@ function BountyCard({
   return (
     <div 
       onClick={onClick}
-      className="bg-card rounded-xl p-5 border border-border hover:border-primary/30 transition-colors cursor-pointer"
+      className="bg-card rounded-xl p-5 border border-border transition-colors cursor-pointer"
     >
       <div className="flex items-center justify-between mb-3">
         <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
