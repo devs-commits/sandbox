@@ -6,8 +6,9 @@ import { supabase } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { TaskGenerator } from "@/app/components/students/TaskGenerator";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 interface Message {
   id?: string;
@@ -39,7 +40,9 @@ export default function TasksPage() {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -167,6 +170,79 @@ export default function TasksPage() {
     }
   }
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    await handleFileUpload(file);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!user || !activeTask) return;
+
+    try {
+      setIsUploading(true);
+      toast.info("Uploading file...");
+
+      // 1. Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${activeTask.id}/${Date.now()}.${fileExt}`;
+      
+      // Ensure bucket exists or handle error if it doesn't (assuming 'submissions' bucket)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('submissions')
+        .upload(fileName, file);
+
+      if (uploadError) {
+        throw new Error("Storage Error: " + uploadError.message);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('submissions')
+        .getPublicUrl(fileName);
+
+      toast.success("File uploaded. Analyzing...");
+
+      // 2. Call API for Analysis
+      const response = await fetch('/api/tasks/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: activeTask.id,
+          userId: user.id,
+          fileUrl: publicUrl,
+          fileName: file.name
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Analysis failed");
+      }
+
+      // 3. Update Chat
+      setMessages(prev => [...prev, {
+        user_id: user.id,
+        task_id: activeTask.id,
+        role: 'assistant',
+        content: result.message,
+        created_at: new Date().toISOString()
+      }]);
+      
+      toast.success("Analysis complete!");
+
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error("Upload failed: " + error.message);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (!activeTask) {
     return (
       <div className="min-h-screen bg-background ">
@@ -242,11 +318,22 @@ export default function TasksPage() {
       </div>
       <div className="space-y-6">
         <div className="rounded-xl border border-dashed border-white/20 p-6 text-center">
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+          />
           <p className="text-sm opacity-70">
             Drag & Drop Your File Here
           </p>
-          <button className="mt-4 rounded-md bg-cyan-500 px-4 py-2 text-sm font-medium">
-            Browse Files
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="mt-4 rounded-md bg-cyan-500 px-4 py-2 text-sm font-medium disabled:opacity-50 flex items-center gap-2 mx-auto"
+          >
+            {isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : <Upload className="h-4 w-4" />}
+            {isUploading ? "Uploading..." : "Browse Files"}
           </button>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 p-6">

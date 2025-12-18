@@ -8,6 +8,7 @@ import { useAuth } from "../../contexts/AuthContexts";
 import { supabase } from "../../../lib/supabase";
 import { TaskGenerator } from "../../components/students/TaskGenerator";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface Task {
   id: number;
@@ -23,6 +24,7 @@ export default function page() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
 
   const fetchTasks = async () => {
     if (!user) return;
@@ -47,8 +49,26 @@ export default function page() {
     }
   };
 
+  const updateStreak = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch('/api/users/streak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await response.json();
+      if (data.streak !== undefined) {
+        setStreak(data.streak);
+      }
+    } catch (error) {
+      console.error("Error updating streak:", error);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
+    updateStreak();
   }, [user]);
 
   const getDifficultyColor = (difficulty: string) => {
@@ -62,6 +82,17 @@ export default function page() {
 
   const handleTaskClick = (taskId: number) => {
     router.push(`/student/office?taskId=${taskId}`);
+  };
+
+  const handleDownloadLetter = (type: string) => {
+    const weeksCompleted = Math.floor(streak / 7);
+    if (weeksCompleted < 12) {
+      toast.error("Requirements not met", {
+        description: `You need to complete 12 weeks of internship to unlock the ${type}. You have completed ${weeksCompleted} weeks.`
+      });
+      return;
+    }
+    toast.success("Download started");
   };
 
   return (
@@ -84,7 +115,7 @@ export default function page() {
             <Clock className="text-green-400/60" size={18} />
             <div>
               <span className="text-sm text-green-400/60">Streak: </span>
-              <span className="text-sm font-semibold text-green-400/60">Active</span>
+              <span className="text-sm font-semibold text-green-400/60">{streak} Days</span>
             </div>
           </div>
           <div className="bg-red-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3 animate-pulse">
@@ -116,16 +147,24 @@ export default function page() {
             </div>
             <div className="flex items-center gap-2 bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
               <Flame size={14} />
-              14 DAY STREAK
+              {streak} DAY STREAK
             </div>
           </div>
 
           {/* Progress bar */}
           <div className="mb-4">
             <div className="w-full bg-muted rounded-full h-2">
-              <div className="bg-purple-600 h-2 rounded-full" style={{ width: '45%' }} />
+              <div 
+                className="bg-purple-600 h-2 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${Math.min((streak / 84) * 100, 100)}%` }} 
+              />
             </div>
-            <p className="text-xs text-muted-foreground text-right mt-1">12 Weeks Internship</p>
+            <div className="flex justify-between items-center mt-1">
+              <p className="text-xs text-muted-foreground">
+                {Math.floor(streak / 7)} / 12 Weeks Completed
+              </p>
+              <p className="text-xs text-muted-foreground">12 Weeks Internship</p>
+            </div>
           </div>
 
           {/* Letter cards */}
@@ -140,7 +179,11 @@ export default function page() {
                   <p className="text-xs text-orange-400">Available after 12 weeks</p>
                 </div>
               </div>
-              <Button size="sm" disabled className="bg-foreground/50 text-primary-foreground/50 cursor-not-allowed blur-[1px]">
+              <Button 
+                size="sm" 
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => handleDownloadLetter("Work Letter of Reference")}
+              >
                 <Download size={14} className="mr-1" />
                 Download Letter
               </Button>
@@ -155,7 +198,11 @@ export default function page() {
                   <p className="text-xs text-orange-400">Available after 12 weeks</p>
                 </div>
               </div>
-              <Button size="sm" disabled className="bg-foreground/50 text-primary-foreground/50 cursor-not-allowed blur-[1px]">
+              <Button 
+                size="sm" 
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => handleDownloadLetter("Visa Letter of Reference")}
+              >
                 <Download size={14} className="mr-1" />
                 Download Letter
               </Button>
