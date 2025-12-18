@@ -65,7 +65,26 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-      },
+     },
+        // Custom design colors
+        cyan: "hsl(var(--cyan))",
+        purple: "hsl(var(--purple))",
+        green: "hsl(var(--green))",
+        yellow: "hsl(var(--yellow))",
+        coral: "hsl(var(--coral))",
+        navy: {
+          DEFAULT: "hsl(var(--navy))",
+          light: "hsl(var(--navy-light))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
