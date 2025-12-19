@@ -48,9 +48,7 @@ export default function Squad() {
         <div className="space-y-6">
           {/* Invite Banner */}
           <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
-
-            
-            <div className="relative z-10">
+          <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
                 <Badge className="bg-[hsla(273,96%,64%,1)] text-foreground border-purple-500/30 text-xs">
                 <Flame size={14} />

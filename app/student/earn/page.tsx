@@ -3,11 +3,11 @@ import { StudentHeader } from "@/app/components/students/StudentHeader";
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import Image from "next/image";
 import {
-  Gift,
   Copy,
   Link as LinkIcon,
-  CheckCircle,
+ShieldCheckIcon,
 } from "lucide-react";
 
 // Import modal components
@@ -104,11 +104,12 @@ export default function EarnMoney() {
         title="Earn Money"
         subtitle="Digital Marketing Intern"
       />
-      <main className="flex-1 p-4 lg:p-6 overflow-auto">
-        <div className="max-w-5xl mx-auto space-y-6">
+      <main className="flex-1 p-4 lg:p-6">
+        <div className="max-w-5xl space-y-6">
           {/* Hero Section */}
-          <div className="bg-gradient-to-r from-primary/10 to-cyan/5 rounded-xl p-6 border border-primary/30">
-            <h2 className="text-2xl font-bold text-foreground mb-2">
+          <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
               Turn Your Network into Net Worth
             </h2>
             <p className="text-muted-foreground">
@@ -116,13 +117,15 @@ export default function EarnMoney() {
               <br />
               + 10% recurring commission every payment he makes. Cash out anytime.
             </p>
+            <div className="absolute right-0 top-0 w-1/3 h-full bg-green-500/10 skew-x-12 transform translate-x-10"></div>
+            </div>
           </div>
 
           {/* Top Row - Earnings and Referrals */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Total Earnings Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <p className="text-primary text-sm font-medium uppercase tracking-wider mb-2">
+            <div className="bg-[linear-gradient(135deg,hsla(261,56%,20%,1)_0%,hsla(256,49%,18%,1)_100%)] rounded-xl p-6 border border-border">
+              <p className="text-[hsla(145,100%,39%,1)] text-sm font-medium uppercase tracking-wider mb-2">
                 TOTAL EARNINGS
               </p>
               <div className="flex items-center justify-between">
@@ -131,7 +134,7 @@ export default function EarnMoney() {
                 </h2>
                 <Button 
                   onClick={handleWithdrawClick}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
+                  className="bg-[hsla(145,100%,39%,1)] hover:bg-[hsla(145,100%,39%,1)]/90 text-primary-foreground px-6 text-foreground"
                 >
                   Withdraw
                 </Button>
@@ -139,7 +142,7 @@ export default function EarnMoney() {
             </div>
 
             {/* Active Referrals Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
+            <div className="bg-[linear-gradient(135deg,hsla(198,82%,33%,1)_0%,hsla(206,61%,15%,1)_100%)] rounded-xl p-6 border border-border">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider mb-1">
@@ -150,7 +153,7 @@ export default function EarnMoney() {
                   </p>
                 </div>
                 <div className="w-[100px] h-[100px] bg-purple/20 rounded-lg flex items-center justify-center">
-                  <Gift className="w-12 h-12 text-purple" />
+                  <Image src="/proicons_gift.png" alt="Gift" width={60} height={40} className="w-28 h-28 text-foreground" />
                 </div>
               </div>
             </div>
@@ -159,9 +162,9 @@ export default function EarnMoney() {
           {/* Bottom Row - Verification and Referral Link */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Identity Verification Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
+            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
               <div className="flex items-center gap-3 mb-2">
-                <CheckCircle className="w-5 h-5 text-primary" />
+                <ShieldCheckIcon className="w-5 h-5 text-primary" />
                 <h3 className="font-semibold text-foreground">Identity Verification</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
@@ -197,16 +200,16 @@ export default function EarnMoney() {
 
               <Button 
                 onClick={handleVerifyIdentity}
-                className="w-full mt-6 bg-green hover:bg-green/90 text-white"
+                className="w-full mt-6 bg-primary hover:bg-primary/90 text-white"
               >
                 Verify Identity
               </Button>
             </div>
 
             {/* Your Warlord Link Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
+            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
               <div className="flex items-center gap-2 mb-4">
-                <LinkIcon className="w-5 h-5 text-primary" />
+                <LinkIcon className="w-5 h-5 text-purple-500" />
                 <h3 className="font-semibold text-foreground">Your Warlord Link</h3>
               </div>
 
