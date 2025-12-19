@@ -16,9 +16,8 @@ export function WithdrawFailedModal({ open, onClose }: WithdrawFailedModalProps)
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center">
             <DialogTitle className="flex items-center gap-2">
-              <XCircle className="w-5 h-5 text-muted-foreground" />
               Withdrawal
             </DialogTitle>
             <span className="text-xs bg-destructive/20 text-destructive px-2 py-1 rounded uppercase font-medium">
