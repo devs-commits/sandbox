@@ -56,7 +56,6 @@ type ModalType =
   | "withdrawFailed";
 
 export default function EarnMoney() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<ModalType>("none");
   const [isVerified, setIsVerified] = useState(false);
   const [bvn, setBvn] = useState("");
@@ -107,7 +106,7 @@ export default function EarnMoney() {
       <main className="flex-1 p-4 lg:p-6">
         <div className="max-w-5xl space-y-6">
           {/* Hero Section */}
-          <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
+          <div className="bg-[linear-gradient(135deg,hsla(176,50%,12%,1)_0%,hsla(204,48%,12%,1)_45%,hsla(176,50%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
             <div className="relative z-10">
               <h2 className="text-2xl font-bold text-foreground mb-2">
               Turn Your Network into Net Worth
@@ -117,8 +116,8 @@ export default function EarnMoney() {
               <br />
               + 10% recurring commission every payment he makes. Cash out anytime.
             </p>
-            <div className="absolute right-0 top-0 w-1/3 h-full bg-green-500/10 skew-x-12 transform translate-x-10"></div>
             </div>
+            <div className="absolute right-0 top-0 w-1/3 h-full bg-green-500/10 skew-x-12 transform translate-x-10"></div>
           </div>
 
           {/* Top Row - Earnings and Referrals */}
@@ -163,17 +162,17 @@ export default function EarnMoney() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Identity Verification Card */}
             <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-6">
                 <ShieldCheckIcon className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold text-foreground">Identity Verification</h3>
+                <h3 className="font-bold text-foreground">Identity Verification</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
                 To enable withdrawals, we are required by CBN to verify your identity.
               </p>
 
-              <div className="space-y-4">
+              <div className="space-y-8">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-4">
                     BANK VERIFICATION NUMBER (BVN)
                   </label>
                   <Input
@@ -181,11 +180,11 @@ export default function EarnMoney() {
                     placeholder="222 *********"
                     value={bvn}
                     onChange={(e) => setBvn(e.target.value)}
-                    className="bg-secondary border-border"
+                    className="bg-background border-border h-11"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-4">
                     NATIONAL IDENTIFICATION NUMBER (NIN)
                   </label>
                   <Input
@@ -193,14 +192,14 @@ export default function EarnMoney() {
                     placeholder="11 Digits"
                     value={nin}
                     onChange={(e) => setNin(e.target.value)}
-                    className="bg-secondary border-border"
+                    className="bg-background border-border h-11"
                   />
                 </div>
               </div>
 
               <Button 
                 onClick={handleVerifyIdentity}
-                className="w-full mt-6 bg-primary hover:bg-primary/90 text-white"
+                className="w-full h-11 mt-6 bg-primary hover:bg-primary/90 text-white"
               >
                 Verify Identity
               </Button>
@@ -213,7 +212,7 @@ export default function EarnMoney() {
                 <h3 className="font-semibold text-foreground">Your Warlord Link</h3>
               </div>
 
-              <div className="flex items-center gap-2 bg-secondary rounded-lg p-3 mb-6">
+              <div className="flex items-center gap-2 bg-background rounded-lg p-3 mb-6">
                 <p className="flex-1 text-primary">{earnData.referralLink}</p>
                 <Button
                   variant="ghost"
@@ -229,7 +228,7 @@ export default function EarnMoney() {
                 SHARE LINK TO:
               </p>
 
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-1">
                 {getSocialLinks(earnData.referralLink).map((link, index) => (
                   <button
                     key={index}
