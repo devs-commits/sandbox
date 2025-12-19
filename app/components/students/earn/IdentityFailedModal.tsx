@@ -1,0 +1,41 @@
+import { XCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+
+interface IdentityFailedModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function IdentityFailedModal({ open, onClose }: IdentityFailedModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-sm">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-muted-foreground" />
+              Identity Verification
+            </DialogTitle>
+            <span className="text-xs bg-destructive/20 text-destructive px-2 py-1 rounded uppercase font-medium">
+              Failed
+            </span>
+          </div>
+        </DialogHeader>
+        <div className="flex flex-col items-center py-6">
+          <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center mb-4">
+            <XCircle className="w-10 h-10 text-destructive" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground mb-2">Verification Failed</h3>
+          <p className="text-muted-foreground text-center text-sm">
+            Please check your BVN and NIN and try again.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
