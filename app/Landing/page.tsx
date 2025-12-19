@@ -15,7 +15,7 @@ const Landing = () => {
         </header>
         <main className="bg-background min-h-[650px] hero-gradient flex items-center justify-center p-4 sm:p-6 lg:p-8">
           {/* Hero Card */}
-          <div className="bg-card w-full max-w-6xl h-full rounded-2xl p-4 sm:p-12 lg:p-16 card-shadow border border-muted-foreground/50 border-1 animate-scale-in">
+          <div className="bg-[linear-gradient(90deg,hsla(215,45%,12%,1)_0%,hsla(217,10%,50%,0.56)_100%)] w-full max-w-6xl h-full rounded-2xl p-4 sm:p-12 lg:p-16 card-shadow border border-muted-foreground/50 border-1 animate-scale-in">
             <div className="text-center items-center justify-center space-y-6 py-16 sm:py-20 lg:py-24">
               {/* Headline */}
               <h1 
