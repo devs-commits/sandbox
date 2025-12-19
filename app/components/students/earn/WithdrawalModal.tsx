@@ -61,7 +61,7 @@ export function WithdrawModal({
               Withdraw
             </DialogTitle>
           </div>
-          <div className="h-px w-full bg-foreground my-6" />
+          <div className="h-px w-full bg-foreground/70 my-6" />
 
           {/* Earnings Display */}
           <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-4 mb-4">
