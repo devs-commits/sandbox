@@ -15,7 +15,7 @@ interface Message {
   user_id: string;
   task_id: number;
   role: string;
-  content?: string;
+  content: string;
   created_at: string;
 }
 
@@ -111,28 +111,58 @@ export default function TasksPage() {
   }
 
   const handleSend = async () => {
-    const userInfo: Message = {
-      user_id: user?.id || "",
-      task_id: activeTask?.id || 0,
-      role: 'user',
-      created_at: new Date().toISOString()
+    if (!inputText.trim() || !user || !activeTask) return;
+    
+    const userMsg: Message = {
+        user_id: user.id,
+        task_id: activeTask.id,
+        role: 'user',
+        content: inputText,
+        created_at: new Date().toISOString()
     };
-    const message = inputText
 
-    // include the user's access token 
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    console.log('sending token?', !!token);
+    setMessages(prev => [...prev, userMsg]);
+    setInputText("");
+    setLoading(true);
 
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ message: message, user_info: userInfo, task_id: activeTask?.id})
-    })
+    try {
+        // Save to Supabase
+        const { error } = await supabase.from('chat_history').insert([userMsg]);
+        if (error) throw error;
 
-    const data = await res.json()
-    console.log(data.reply)
-    try{
+        const response = await fetch('https://wdc-labs.onrender.com/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: userMsg.content,
+                user_info: {
+                    id: user.id,
+                    name: user.fullName,
+                    role: user.role
+                },
+                task_context: {
+                    title: activeTask.title,
+                    description: activeTask.brief_content,
+                    persona: activeTask.ai_persona_config
+                }
+            })
+        });
+        
+        const data = await response.json();
+
+        console.log("AI Response:", data);
+        
+        const aiMsg: Message = {
+            user_id: user.id,
+            task_id: activeTask.id,
+            role: 'assistant',
+            content: data.content,
+            created_at: new Date().toISOString()
+        };
+
+        setMessages(prev => [...prev, aiMsg]);
+        await supabase.from('chat_history').insert([aiMsg]);
+
     } catch (error) {
         console.error("Error sending message:", error);
     } finally {
