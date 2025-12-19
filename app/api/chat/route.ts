@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseClientFromRequest } from '@/lib/supabase';
 
 // frontend to call this route => this route will call the AI api
 type ChatResponse = {
@@ -14,7 +14,9 @@ const getBaseUrl = () => {
 export async function POST(request: Request) {
 
   try {
-    var greeted_today: boolean
+        // create request-scoped client that forwards Authorization header
+        const supabase = createSupabaseClientFromRequest(request);
+        var greeted_today: boolean
     const start = new Date();
     start.setHours(0, 0, 0, 0);
 

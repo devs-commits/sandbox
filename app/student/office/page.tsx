@@ -119,9 +119,14 @@ export default function TasksPage() {
     };
     const message = inputText
 
+    // include the user's access token 
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    console.log('sending token?', !!token);
+
     const res = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ message: message, user_info: userInfo, task_id: activeTask?.id})
     })
 
