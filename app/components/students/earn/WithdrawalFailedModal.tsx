@@ -23,8 +23,8 @@ export function WithdrawFailedModal({ open, onClose }: WithdrawFailedModalProps)
           </div>
         </DialogHeader>
         <div className="flex flex-col items-center py-6">
-          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
-            <XCircle className="w-10 h-10 text-red-500" />
+          <div className="w-16 h-16 rounded-full bg-red-destructive/20 flex items-center justify-center mb-4">
+            <XCircle className="w-10 h-10 text-destructive" />
           </div>
           <h3 className="text-xl font-semibold text-foreground mb-2">Withdrawal Failed</h3>
           <p className="text-muted-foreground text-center text-sm">
