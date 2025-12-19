@@ -66,7 +66,7 @@ export function WithdrawModal({
 
           {/* Earnings Display */}
           <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-4 mb-4">
-            <p className="text-green-500 text-xs font-medium uppercase tracking-wider mb-1">
+            <p className="text-green-500 text-xs font-bold uppercase tracking-wider mb-1">
               TOTAL EARNINGS
             </p>
             <p className="text-2xl font-bold text-foreground">
@@ -75,8 +75,8 @@ export function WithdrawModal({
           </div>
 
           {/* Warning Note */}
-          <div className="bg-yellow/20 rounded-lg p-3 mb-6">
-            <p className="text-yellow text-sm">
+          <div className="bg-[hsla(359,100%,61%,0.2)] rounded-lg p-3 mb-6">
+            <p className="text-[hsla(359,100%,61%,1)] text-sm">
               Note: Your bank account name must be the same as your registered name.
             </p>
           </div>
@@ -135,7 +135,7 @@ export function WithdrawModal({
 
           <Button 
             onClick={onWithdraw}
-            className="w-full mt-6 bg-green hover:bg-green/90 text-white"
+            className="w-full mt-6 bg-green-500 hover:bg-green/90 text-white"
           >
             Withdraw
           </Button>
