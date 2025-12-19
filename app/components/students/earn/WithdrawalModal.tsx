@@ -56,13 +56,12 @@ export function WithdrawModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-background border-border max-w-md p-0 overflow-hidden">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            {/* <h2 className="text-xl font-semibold text-foreground">Withdraw</h2> */}
+          <div className="flex items-center justify-left mb-6">
             <DialogTitle className="text-xl font-semibold text-foreground">
               Withdraw
             </DialogTitle>
-            <div className="background-muted-foreground h=1 w=full" ></div>
           </div>
+          <div className="h-px w-full bg-foreground my-6" />
 
           {/* Earnings Display */}
           <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-4 mb-4">
