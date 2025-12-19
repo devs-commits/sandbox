@@ -4,7 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog";
+} from "../../ui/dialog";
 
 interface WithdrawSuccessModalProps {
   open: boolean;

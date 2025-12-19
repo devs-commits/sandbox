@@ -1,3 +1,4 @@
+"use client";
 import { StudentHeader } from "@/app/components/students/StudentHeader";
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
@@ -10,12 +11,12 @@ import {
 } from "lucide-react";
 
 // Import modal components
-import { IdentityVerifiedModal } from "../components/earn/IdentityVerifiedModal";
-import { IdentityFailedModal } from "@/components/earn/IdentityFailedModal";
-import { WithdrawModal } from "@/components/earn/WithdrawModal";
-import { WithdrawSuccessModal } from "@/components/earn/WithdrawSuccessModal";
-import { WithdrawFailedModal } from "@/components/earn/WithdrawFailedModal";
-import { SocialIcon } from "@/components/earn/SocialIcon";
+import { IdentityVerifiedModal } from  "../../components/students/earn/IdentityVerifiedModal";
+import { IdentityFailedModal } from "../../components/students/earn/IdentityFailedModal";
+import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
+import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
+import { WithdrawFailedModal } from "../../components/students/earn/WithdrawalFailedModal";
+import { SocialIcon } from "../../components/students/earn/SocialIcon";
 
 // Mock data
 const earnData = {
