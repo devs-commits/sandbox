@@ -4,6 +4,7 @@ import { Input } from "../../../components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "../../../components/ui/dialog";
 import {
   Select,
@@ -53,18 +54,19 @@ export function WithdrawModal({
 }: WithdrawModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border max-w-md p-0 overflow-hidden">
+      <DialogContent className="bg-background border-border max-w-md p-0 overflow-hidden">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-foreground">Withdraw</h2>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-              <X className="w-5 h-5" />
-            </button>
+            {/* <h2 className="text-xl font-semibold text-foreground">Withdraw</h2> */}
+            <DialogTitle className="text-xl font-semibold text-foreground">
+              Withdraw
+            </DialogTitle>
+            <div className="background-muted-foreground h=1 w=full" ></div>
           </div>
 
           {/* Earnings Display */}
-          <div className="bg-purple rounded-xl p-4 mb-4">
-            <p className="text-primary text-xs font-medium uppercase tracking-wider mb-1">
+          <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-4 mb-4">
+            <p className="text-green-500 text-xs font-medium uppercase tracking-wider mb-1">
               TOTAL EARNINGS
             </p>
             <p className="text-2xl font-bold text-foreground">
