@@ -1,8 +1,7 @@
 import { StudentHeader } from "@/app/components/students/StudentHeader";
 import { useState } from "react";
-import { Header } from "@/components/layout/Header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import {
   Gift,
   Copy,
@@ -11,7 +10,7 @@ import {
 } from "lucide-react";
 
 // Import modal components
-import { IdentityVerifiedModal } from "@/components/earn/IdentityVerifiedModal";
+import { IdentityVerifiedModal } from "../components/earn/IdentityVerifiedModal";
 import { IdentityFailedModal } from "@/components/earn/IdentityFailedModal";
 import { WithdrawModal } from "@/components/earn/WithdrawModal";
 import { WithdrawSuccessModal } from "@/components/earn/WithdrawSuccessModal";
@@ -32,16 +31,16 @@ const getSocialLinks = (referralLink: string) => {
   const shareText = encodeURIComponent("Join me on Warlord Digital Club and start earning! 💰");
   
   return [
-    { name: "Copy link", icon: "link", color: "bg-cyan/20 text-cyan", url: null },
+    { name: "Copy link", icon: "link", color: "bg-cyan-500/20 text-cyan-500", url: null },
     { name: "Instagram", icon: "instagram", color: "bg-pink-500/20 text-pink-500", url: `https://www.instagram.com/` },
-    { name: "Whatsapp", icon: "whatsapp", color: "bg-green/20 text-green", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
-    { name: "Status", icon: "status", color: "bg-green/20 text-green", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
+    { name: "Whatsapp", icon: "whatsapp", color: "bg-green-500/20 text-green-500", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
+    { name: "Status", icon: "status", color: "bg-green-500/20 text-green-500", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
     { name: "Facebook", icon: "facebook", color: "bg-blue-600/20 text-blue-600", url: `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}` },
-    { name: "Snapchat", icon: "snapchat", color: "bg-yellow/20 text-yellow", url: `https://www.snapchat.com/` },
+    { name: "Snapchat", icon: "snapchat", color: "bg-yellow-500/20 text-yellow-500", url: `https://www.snapchat.com/` },
     { name: "Telegram", icon: "telegram", color: "bg-blue-400/20 text-blue-400", url: `https://t.me/share/url?url=${encodedLink}&text=${shareText}` },
     { name: "Tiktok", icon: "tiktok", color: "bg-foreground/20 text-foreground", url: `https://www.tiktok.com/` },
     { name: "Linkedin", icon: "linkedin", color: "bg-blue-700/20 text-blue-700", url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}` },
-    { name: "Email", icon: "email", color: "bg-purple/20 text-purple", url: `mailto:?subject=${shareText}&body=${shareText}%20${encodedLink}` },
+    { name: "Email", icon: "email", color: "bg-purple-500/20 text-purple-500", url: `mailto:?subject=${shareText}&body=${shareText}%20${encodedLink}` },
     { name: "Thread", icon: "thread", color: "bg-foreground/20 text-foreground", url: `https://www.threads.net/` },
     { name: "X", icon: "x", color: "bg-foreground/20 text-foreground", url: `https://twitter.com/intent/tweet?text=${shareText}&url=${encodedLink}` },
   ];
