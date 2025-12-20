@@ -45,7 +45,7 @@ const bounties: Bounty[] = [
     id: "2",
     type: "AI TRAINING",
     duration: "1 hr",
-    title: "Voice Recording: Yorube",
+    title: "Voice Recording: Yoruba",
     description: "Record voice samples in Yoruba language for AI training dataset. You will be required to follow specific scripts and recording guidelines.",
     instructions: [
       "Download the recording app from the provided link.",
@@ -103,7 +103,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
           <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
-              <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
+              <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/30">{bounty.type}</Badge>
             </div>
             <button
               onClick={onClose}
@@ -148,7 +148,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
               <p className="text-muted-foreground text-sm mt-2">Upload formats: PDF, DOCX, ZIP</p>
             </div>
 
-            <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow/30 rounded-lg p-4">
+            <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow-500/30 rounded-lg p-4">
               <p className="text-[hsla(47,62%,50%,1)] text-sm">
                 Note: You have click on stat task to claim your slot and once you click Start Task, the 24-hour countdown begins. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {bounty.slotsLeft} slots left, and slots reduce in real time.
               </p>
@@ -158,7 +158,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
               <p className="text-muted-foreground text-sm mb-4">
                 CLAIM: <span className="text-foreground font-medium">{bounty.slotsLeft} left</span>
               </p>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6">
+              <Button className="w-full bg-primary hover:bg-primary/90 text-foreground py-6">
                 Start Task
               </Button>
             </div>
@@ -179,10 +179,10 @@ function BountyCard({
   return (
     <div 
       onClick={onClick}
-      className="bg-card rounded-xl p-5 border border-border hover:border-primary/30 transition-colors cursor-pointer"
+      className="bg-card rounded-xl p-5 border border-border transition-colors cursor-pointer"
     >
       <div className="flex items-center justify-between mb-3">
-        <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)]">{bounty.type}</Badge>
+        <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/20">{bounty.type}</Badge>
         <div className="flex items-center gap-1 text-muted-foreground text-sm">
           <Clock className="w-4 h-4" />
           {bounty.duration}
@@ -207,7 +207,6 @@ function BountyCard({
 
 export default function BountyHunter() {
   const [selectedBounty, setSelectedBounty] = useState<Bounty | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const totalBounties = 124;
 
   return (
@@ -219,7 +218,7 @@ export default function BountyHunter() {
       <main className="flex-1 p-4 lg:p-6">
         <div className="flex justify-end mb-6">
           <Badge variant="outline" className="text-sm px-4 py-2 bg-card border-primary/30">
-            <span className="text-primary font-bold">{totalBounties}</span>
+            <span className="text-[hsla(275,96%,52%,1)] font-bold">{totalBounties}</span>
             <span className="ml-2 text-muted-foreground">Bounties Available</span>
           </Badge>
         </div>

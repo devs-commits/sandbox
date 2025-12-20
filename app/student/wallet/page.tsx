@@ -3,7 +3,7 @@ import { useState } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
-import { Shield, Gift, ShieldCheckIcon, TrendingUp, Lock, X } from "lucide-react";
+import { ShieldCheckIcon, TrendingUp, Lock, X } from "lucide-react";
 import Image from "next/image";
 
 import {
@@ -116,8 +116,8 @@ export default function GlobalWallet() {
             {/* Inflation Hedge */}
             <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-cyan/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-cyan" />
+                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-5 h-5 text-green-400"/>
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground mb-1">Inflation Hedge</h3>
@@ -132,10 +132,10 @@ export default function GlobalWallet() {
             <div className="bg-[hsla(261,56%,20%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3 mb-4">
                 <div className="w-10 h-10 bg-purple/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Gift className="w-5 h-5 text-purple" />
+                  <Image src="/support.png" height={20} width={20} alt="Support Icon" className="w-9 h-9" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground mb-1">Career Support Loan</h3>
+                  <h3 className="font-bold text-foreground mb-1">Career Support Loan</h3>
                   <p className="text-sm text-muted-foreground">
                     Earn a total of ₦100,000 to unlock access to low-interest loans for accessories, laptops, and tools that support your career growth.
                   </p>
@@ -167,9 +167,8 @@ export default function GlobalWallet() {
             <DialogHeader className="text-center">
               <button 
                 onClick={() => setModalType(null)}
-                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+                className="absolute right-4 top-4 text-foreground hover:text-foreground"
               >
-                <X className="w-5 h-5" />
               </button>
               <DialogTitle className="text-xl font-semibold text-foreground text-center pt-4">
                 Loan Feature Locked
@@ -183,7 +182,7 @@ export default function GlobalWallet() {
                 Once unlocked, you'll be able to request loans to purchase: Laptops, Accessories, Learning tools, Work essentials.
               </p>
               <Button 
-                className="bg-coral hover:bg-coral/90 text-white px-8"
+                className="bg-primary hover:bg-coral/90 text-white px-8"
                 onClick={() => setModalType(null)}
               >
                 Okay, Got It

@@ -183,7 +183,7 @@ export const StudentSidebar = () => {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex bg-sidebar min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
+      <aside className="hidden lg:flex bg-[hsla(222,47%,11%,1)] min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
         <SidebarContent />
       </aside>
     </>

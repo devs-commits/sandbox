@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader"
-import { UserPlus, Copy, Check } from "lucide-react";
+import { UserPlus, Copy, Check, Flame } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
@@ -16,8 +16,8 @@ interface SquadMember {
 
 // Mock data - replace with backend integration
 const squadMembers: SquadMember[] = [
-  { name: "You", role: "Squad Leader", initials: "JS", color: "bg-blue-500" },
-  { name: "Grace Idowu", role: "Friend", initials: "GI", color: "bg-purple" },
+  { name: "You", role: "Squad Leader", initials: "JS", color: "bg-primary" },
+  { name: "Grace Idowu", role: "Friend", initials: "GI", color: "bg-purple-500" },
   { name: "Empty Slot", role: "Friend", initials: "", color: "", isEmpty: true },
   { name: "Empty Slot", role: "Friend", initials: "", color: "", isEmpty: true },
 ];
@@ -47,22 +47,14 @@ export default function Squad() {
       <main className="flex-1 p-4 lg:p-6">
         <div className="space-y-6">
           {/* Invite Banner */}
-          <div className="bg-gradient-to-r from-[#0A3D3D] to-[#0D2F2F] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
-            {/* Decorative lines */}
-            <div className="absolute right-0 top-0 w-1/2 h-full opacity-20">
-              <svg viewBox="0 0 200 100" className="w-full h-full">
-                <path d="M0,50 Q50,0 100,50 T200,50" fill="none" stroke="currentColor" strokeWidth="1" className="text-primary" />
-                <path d="M0,60 Q50,10 100,60 T200,60" fill="none" stroke="currentColor" strokeWidth="1" className="text-primary" />
-                <path d="M0,70 Q50,20 100,70 T200,70" fill="none" stroke="currentColor" strokeWidth="1" className="text-primary" />
-              </svg>
-            </div>
-            
-            <div className="relative z-10">
+          <div className="bg-[linear-gradient(135deg,hsla(262,55%,22%,1)_0%,hsla(252,45%,18%,1)_45%,hsla(242,39%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
+          <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
-                <Badge className="bg-purple/20 text-purple border-purple/30 text-xs">
+                <Badge className="bg-[hsla(273,96%,64%,1)] text-foreground border-purple-500/30 text-xs">
+                <Flame size={14} />
                   14 DAY STREAK
                 </Badge>
-                <Badge className="bg-green/20 text-green border-green/30 text-xs">
+                <Badge className="bg-[hsla(145,100%,39%,1)] text-foreground border-green-500/30 text-xs">
                   ACTIVE: 45% DISCOUNT
                 </Badge>
               </div>
@@ -73,6 +65,7 @@ export default function Squad() {
                 Unlock the ₦10,000/mo pricing tier by forming a squad. You stay accountable, you save money.
               </p>
             </div>
+            <div className="absolute right-0 top-0 w-1/3 h-full bg-purple-500/10 skew-x-12 transform translate-x-10"></div>
           </div>
 
           {/* Squad Members - Card Layout */}
@@ -122,7 +115,7 @@ export default function Squad() {
               </div>
               <Button 
                 variant="outline" 
-                className="border-border hover:bg-secondary"
+                className="border-border text-foreground hover:bg-secondary"
                 onClick={handleCopyLink}
               >
                 {copied ? (

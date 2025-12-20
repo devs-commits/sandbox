@@ -90,8 +90,8 @@ const SignUp = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         
-        <AuthCard title="Join WDC Labs" onClose={() => router.push("/")}>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthCard title="Join WDC Labs" onClose={() => router.push("/")} className="bg-background">
+          <form onSubmit={handleSubmit} className="space-y-4 ">
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-lg">
                 {error}
