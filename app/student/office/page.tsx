@@ -121,42 +121,71 @@ export default function TasksPage() {
         created_at: new Date().toISOString()
     };
 
+    // Optimistically update UI
     setMessages(prev => [...prev, userMsg]);
     setInputText("");
     setLoading(true);
 
     try {
-        // Save to Supabase
+        // Save user message to Supabase
         const { error } = await supabase.from('chat_history').insert([userMsg]);
         if (error) throw error;
 
+        // 1. Calculate greeted_today
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const { count } = await supabase
+            .from('chat_history')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('created_at', start.toISOString());
+        
+        const greeted_today = !!count && count > 0;
+
+        // 2. Prepare Chat History (exclude the message we just added locally, as it's sent as 'message')
+        // We use the 'messages' state which holds the history BEFORE this new message
+        const chat_history = messages.map(m => ({
+            role: m.role,
+            content: m.content
+        }));
+
+        // 3. Call AI API
         const response = await fetch('https://wdc-labs.onrender.com/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: userMsg.content,
                 user_info: {
-                    id: user.id,
-                    name: user.fullName,
-                    role: user.role
+                    user_id: user.id,
+                    name: user.fullName || user.email,
+                    role: user.role,
+                    task_id: activeTask.id,
+                    task_title: activeTask.title
                 },
-                task_context: {
-                    title: activeTask.title,
-                    description: activeTask.brief_content,
-                    persona: activeTask.ai_persona_config
-                }
+                chat_history: chat_history,
+                greeted_today: greeted_today
             })
         });
         
-        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
 
-        console.log("AI Response:", data);
+        const data = await response.json();
         
+        // The API returns { role: "assistant", content: "..." } or similar
+        // Adjust based on actual API response structure. 
+        // Assuming it returns { reply: "..." } or { content: "..." } based on previous context.
+        // The Python code returned: return {"reply": resp.text, ...}
+        // But the previous client code used data.content. 
+        // I will assume data.reply based on the Python snippet provided earlier.
+        const aiContent = data.reply || data.content || data.message;
+
         const aiMsg: Message = {
             user_id: user.id,
             task_id: activeTask.id,
             role: 'assistant',
-            content: data.content,
+            content: aiContent,
             created_at: new Date().toISOString()
         };
 
@@ -165,6 +194,8 @@ export default function TasksPage() {
 
     } catch (error) {
         console.error("Error sending message:", error);
+        toast.error("Failed to send message");
+        // Optionally remove the optimistic message on failure
     } finally {
         setLoading(false);
     }
