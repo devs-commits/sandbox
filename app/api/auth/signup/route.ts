@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, fullName, role, country, track } = body;
+    const { email, password, fullName, role, country, experienceLevel, track } = body;
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -15,6 +15,7 @@ export async function POST(request: Request) {
           fullName,
           role,
           country,
+          experienceLevel,
           track,
         },
       },
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
           email: email,
           full_name: fullName,
           role: role,
+          country: country,
+          experience_level: experienceLevel,
           wallet_balance: 0, // Default balance
           track: track,
         })
@@ -69,7 +72,7 @@ export async function POST(request: Request) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              userId: userData.id,
+              userId: data.user.id, // Use Auth UUID, not public table ID
               track: track,
             }),
           });

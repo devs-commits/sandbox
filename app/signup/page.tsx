@@ -36,6 +36,7 @@ const SignUp = () => {
   const [track, setTrack] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("visa");
   const [error, setError] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -46,6 +47,12 @@ const SignUp = () => {
 
   const selectedTrack = tracks.find(t => t.value === track);
   const subscriptionPrice = role === "recruiter" ? RECRUITER_PRICE : (selectedTrack?.price || "₦ 17,500");
+
+  const experienceLeveloptions = [
+    { value: "beginner", label: "Beginner" },
+    { value: "intermediate", label: "Intermediate" },
+    { value: "advanced", label: "Advanced" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,12 +67,14 @@ const SignUp = () => {
       setError("Please select a track");
       return;
     }
-
+    if (role === "student" && !experienceLevel){
+      setError("Please select your level of experience");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
-
     // Payment integration: Call Paystack/Stripe API here before signup
 
     const result = await signup({
@@ -75,6 +84,7 @@ const SignUp = () => {
       role,
       country,
       track: role === "student" ? track : undefined,
+      experienceLevel: role === "student" ? experienceLevel : undefined,
     });
 
     if (result.success) {
@@ -107,6 +117,15 @@ const SignUp = () => {
             
             {role === "student" && (
               <AuthSelect label="Select Track" value={track} onChange={setTrack} options={tracks} placeholder="Select Track" />
+            )}
+            {role === "student" && (
+              <AuthSelect 
+                label="Experience Level"
+                value={experienceLevel}
+                onChange={setExperienceLevel}
+                options={experienceLeveloptions}
+                placeholder="Select Experience Level"
+              />
             )}
             
             <div className="flex items-center justify-between py-2">

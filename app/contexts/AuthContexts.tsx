@@ -1,6 +1,5 @@
 "use client"
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
 
 interface AuthUser {
@@ -30,6 +29,7 @@ interface SignupData {
   role: "student" | "recruiter";
   country: string;
   track?: string;
+  experienceLevel?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

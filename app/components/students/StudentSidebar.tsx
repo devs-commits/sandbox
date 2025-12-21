@@ -16,11 +16,12 @@ import {
   X
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../../../lib/supabase";
 
 const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
-  { label: "My Office", icon: Briefcase, path: "/student/office", badge: 3 },
+  { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
   { label: "Bounty Hunter", icon: Target, path: "/student/bounty" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
@@ -32,7 +33,43 @@ import { useAuth } from "../../contexts/AuthContexts";
 export const StudentSidebar = () => {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const [completedTasksCount, setCompletedTasksCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCompletedTasks = async () => {
+      if (!user) return;
+      
+      const { count, error } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('user', user.id)
+        .eq('completed', true);
+        
+      if (!error && count !== null) {
+        setCompletedTasksCount(count);
+      }
+    };
+
+    fetchCompletedTasks();
+    
+    // Optional: Subscribe to changes to update in real-time
+    const channel = supabase
+      .channel('tasks-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'tasks',
+        filter: `user=eq.${user?.id}`
+      }, () => {
+        fetchCompletedTasks();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const SidebarContent = () => (
     <>
@@ -47,6 +84,9 @@ export const StudentSidebar = () => {
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
+          // @ts-ignore
+          const badgeCount = item.id === "office" ? completedTasksCount : item.badge;
+          
           return (
             <Link
               key={item.path}
@@ -63,9 +103,9 @@ export const StudentSidebar = () => {
                 <item.icon size={18} />
                 <span className="text-sm font-medium">{item.label}</span>
               </div>
-              {item.badge && (
+              {badgeCount > 0 && (
                 <span className="bg-primary text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium">
-                  {item.badge}
+                  {badgeCount}
                 </span>
               )}
             </Link>
