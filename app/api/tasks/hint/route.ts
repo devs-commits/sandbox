@@ -33,6 +33,14 @@ export async function POST(request: Request) {
     const data = await backendResponse.json();
     const hint = data.hint;
 
+    if (!hint || typeof hint !== 'string' || hint.trim().length === 0) {
+        console.warn("AI returned empty hint for task:", taskId);
+        return NextResponse.json({ 
+            success: false, 
+            error: "The AI could not generate a hint at this time. Please try rephrasing your request or try again later." 
+        }, { status: 500 });
+    }
+
     // 2. Save the Hint as a message in the chat history
     const { error: chatError } = await supabase
       .from('chat_history')
