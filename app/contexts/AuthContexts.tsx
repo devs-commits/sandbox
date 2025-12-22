@@ -10,6 +10,7 @@ interface AuthUser {
   track?: string;
   experienceLevel?: string;
   country?: string;
+  referralLink?: string;
 }
 
 interface AuthContextType {
@@ -31,6 +32,7 @@ interface SignupData {
   country: string;
   track?: string;
   experienceLevel?: string;
+  referralLink?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,6 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             track: user_metadata.track,
             experienceLevel: user_metadata.experienceLevel,
             country: user_metadata.country,
+            referralLink: user_metadata.referralLink,
           });
         }
       } catch (error) {
@@ -77,6 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           track: user_metadata.track,
           experienceLevel: user_metadata.experienceLevel,
           country: user_metadata.country,
+          referralLink: user_metadata.referralLink,
         });
       } else {
         setUser(null);

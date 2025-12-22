@@ -37,6 +37,7 @@ const SignUp = () => {
   const [paymentMethod, setPaymentMethod] = useState("visa");
   const [error, setError] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
+  const [referralLink, setReferralLink] = useState("");
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -85,6 +86,7 @@ const SignUp = () => {
       country,
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
+      referralLink: role === "student" ? referralLink : undefined,
     });
 
     if (result.success) {
@@ -127,6 +129,12 @@ const SignUp = () => {
                 placeholder="Select Experience Level"
               />
             )}
+            <AuthInput 
+              label="Referral Code (Optional)" 
+              placeholder="Enter referral code" 
+              value={referralLink} 
+              onChange={setReferralLink} 
+            />
             
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-muted-foreground">Monthly Subscription</span>
