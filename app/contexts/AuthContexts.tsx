@@ -159,15 +159,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {
-    // Implement Supabase reset password logic here if needed
-    // await supabase.auth.resetPasswordForEmail(email)
-    return { success: true };
+    try {
+      // Use configured site URL or fallback to current origin
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${siteUrl}/reset-password`,
+      });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
   const resetPassword = async (newPassword: string, token?: string): Promise<{ success: boolean; error?: string }> => {
-    // Implement Supabase update user logic here
-    // await supabase.auth.updateUser({ password: newPassword })
-    return { success: true };
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
   return (

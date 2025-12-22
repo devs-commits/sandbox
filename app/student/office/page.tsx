@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { TaskGenerator } from "@/app/components/students/TaskGenerator";
-import { Loader2, Upload, FileText } from "lucide-react";
+import { Loader2, Upload, FileText, Download } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -297,7 +297,7 @@ export default function TasksPage() {
         user_id: user.id,
         task_id: activeTask.id,
         role: 'user',
-        content: `Uploaded file: ${file.name}`,
+        content: `Uploaded file: ${file.name}:::${publicUrl}`,
         created_at: new Date().toISOString()
       };
 
@@ -459,7 +459,16 @@ export default function TasksPage() {
             >
               {messages.map((msg, idx) => {
                 const isFileUpload = msg.content.startsWith("Uploaded file: ");
-                const fileName = isFileUpload ? msg.content.replace("Uploaded file: ", "") : "";
+                let fileName = "";
+                let fileUrl = "";
+
+                if (isFileUpload) {
+                    const parts = msg.content.replace("Uploaded file: ", "").split(":::");
+                    fileName = parts[0];
+                    if (parts.length > 1) {
+                        fileUrl = parts[1];
+                    }
+                }
 
                 return (
                   <div 
@@ -474,15 +483,24 @@ export default function TasksPage() {
                       }`}
                     >
                       {isFileUpload ? (
-                        <div className="flex items-center gap-3 p-1">
+                        <a 
+                            href={fileUrl || "#"} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-3 p-1 ${fileUrl ? 'cursor-pointer hover:bg-white/5 rounded transition-colors' : ''}`}
+                            onClick={(e) => !fileUrl && e.preventDefault()}
+                        >
                           <div className="bg-white/10 p-2 rounded-md">
                             <FileText className="h-6 w-6 text-cyan-400" />
                           </div>
                           <div className="flex flex-col">
                             <span className="font-medium truncate max-w-[150px]">{fileName}</span>
-                            <span className="text-xs opacity-60">File attached</span>
+                            <span className="text-xs opacity-60">
+                                {fileUrl ? "Click to download" : "File attached"}
+                            </span>
                           </div>
-                        </div>
+                          {fileUrl && <Download className="h-4 w-4 opacity-50 ml-2" />}
+                        </a>
                       ) : (
                         <div className="prose prose-invert prose-sm max-w-none [&_*]:text-inherit [&>p]:m-0 [&>p]:leading-normal">
                           <ReactMarkdown 
