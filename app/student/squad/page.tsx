@@ -34,6 +34,7 @@ export default function Squad() {
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [referralCodeInput, setReferralCodeInput] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -182,6 +183,14 @@ export default function Squad() {
                     maxLength={6}
                     className="bg-background uppercase tracking-widest"
                   />
+                  <p className="text-sm text-muted-foreground">Enter Referral code</p>
+                  <Input
+                    placeholder="Enter Referral code"
+                    value={referralCodeInput}
+                    onChange={(e) => setReferralCodeInput(e.target.value)}
+                    maxLength={8}
+                    className="bg-background tracking-widest"
+                   />
                   <Button 
                     variant="secondary" 
                     className="w-full"
