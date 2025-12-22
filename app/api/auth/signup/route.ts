@@ -74,6 +74,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               userId: data.user.id, // Use Auth UUID, not public table ID
               track: track,
+              experienceLevel: experienceLevel,
             }),
           });
 

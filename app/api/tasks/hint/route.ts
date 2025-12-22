@@ -3,29 +3,25 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const { taskId, userId, fileUrl, fileName, taskTitle, taskContent, chatHistory } = await request.json();
+    const { taskTitle, taskContent, userContext, userId, taskId } = await request.json();
 
-    if (!taskId || !userId || !fileUrl) {
+    if (!taskTitle || !taskContent || !userId || !taskId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Call Python Backend for Analysis
-    // Ensure this URL matches your running backend (localhost for dev, Render URL for prod)
-    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'; 
+    // 1. Call Python Backend for Hint
+    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
     
-    const backendResponse = await fetch(`${BACKEND_URL}/analyze-submission`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/get-hint`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
             taskId,
-            userId,
-            fileUrl,
-            fileName,
             taskTitle,
             taskContent,
-            chatHistory
+            userContext
         })
     });
 
@@ -35,30 +31,29 @@ export async function POST(request: Request) {
     }
 
     const data = await backendResponse.json();
-    const aiResponse = data.reply;
+    const hint = data.hint;
 
-    // 2. Save the AI response as a message in the chat history
+    // 2. Save the Hint as a message in the chat history
     const { error: chatError } = await supabase
       .from('chat_history')
       .insert({
         user_id: userId,
         task_id: taskId,
         role: 'assistant',
-        content: aiResponse
+        content: hint
       });
 
     if (chatError) {
       console.error("Error saving chat message:", chatError);
-      // We continue anyway to return the response to the UI
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: aiResponse 
+      hint: hint 
     });
 
   } catch (error: any) {
-    console.error("Submission API Error:", error);
+    console.error("Hint API Error:", error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

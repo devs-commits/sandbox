@@ -57,6 +57,12 @@ export default function page() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
       });
+
+      if (!response.ok) {
+        console.error("Failed to update streak");
+        return;
+      }
+
       const data = await response.json();
       if (data.streak !== undefined) {
         setStreak(data.streak);
@@ -220,7 +226,7 @@ export default function page() {
             </div>
           ) : tasks.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {tasks.map((task) => (
+              {tasks.slice(0, 3).map((task) => (
                 <div 
                   key={task.id} 
                   className="bg-card border border-border rounded-xl p-4 flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
@@ -247,6 +253,7 @@ export default function page() {
               ))}
             </div>
           ) : (
+            // Fallback: If task generation failed on signup (0 tasks), allow user to generate them here
             <TaskGenerator onTasksGenerated={fetchTasks} />
           )}
         </div>

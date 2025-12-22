@@ -8,6 +8,7 @@ interface AuthUser {
   email: string;
   role: "student" | "recruiter" | "admin" | "enterprise";
   track?: string;
+  experienceLevel?: string;
   country?: string;
 }
 
@@ -51,6 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             fullName: user_metadata.fullName,
             role: user_metadata.role,
             track: user_metadata.track,
+            experienceLevel: user_metadata.experienceLevel,
             country: user_metadata.country,
           });
         }
@@ -73,6 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           fullName: user_metadata.fullName,
           role: user_metadata.role,
           track: user_metadata.track,
+          experienceLevel: user_metadata.experienceLevel,
           country: user_metadata.country,
         });
       } else {
