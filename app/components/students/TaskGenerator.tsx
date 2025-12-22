@@ -27,6 +27,7 @@ export const TaskGenerator = ({ onTasksGenerated }: TaskGeneratorProps) => {
         body: JSON.stringify({
           userId: user.id,
           track: user.track,
+          experienceLevel: user.experienceLevel
         }),
       });
 

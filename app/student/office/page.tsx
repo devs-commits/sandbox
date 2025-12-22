@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { TaskGenerator } from "@/app/components/students/TaskGenerator";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, FileText } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -110,20 +110,19 @@ export default function TasksPage() {
     }
   }
 
-  const handleSend = async () => {
-    if (!inputText.trim() || !user || !activeTask) return;
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || !user || !activeTask) return;
     
     const userMsg: Message = {
         user_id: user.id,
         task_id: activeTask.id,
         role: 'user',
-        content: inputText,
+        content: text,
         created_at: new Date().toISOString()
     };
 
     // Optimistically update UI
     setMessages(prev => [...prev, userMsg]);
-    setInputText("");
     setLoading(true);
 
     try {
@@ -150,7 +149,8 @@ export default function TasksPage() {
         }));
 
         // 3. Call AI API
-        const response = await fetch('https://wdc-labs.onrender.com/chat', {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        const response = await fetch(`${API_URL}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -173,12 +173,6 @@ export default function TasksPage() {
 
         const data = await response.json();
         
-        // The API returns { role: "assistant", content: "..." } or similar
-        // Adjust based on actual API response structure. 
-        // Assuming it returns { reply: "..." } or { content: "..." } based on previous context.
-        // The Python code returned: return {"reply": resp.text, ...}
-        // But the previous client code used data.content. 
-        // I will assume data.reply based on the Python snippet provided earlier.
         const aiContent = data.reply || data.content || data.message;
 
         const aiMsg: Message = {
@@ -198,6 +192,70 @@ export default function TasksPage() {
         // Optionally remove the optimistic message on failure
     } finally {
         setLoading(false);
+    }
+  }
+
+  const handleSend = async () => {
+    await sendMessage(inputText);
+    setInputText("");
+  }
+
+  const handleGetHint = async () => {
+    if (!activeTask || !user) return;
+
+    setLoading(true);
+    
+    // Add user message for context
+    const userMsg: Message = {
+        user_id: user.id,
+        task_id: activeTask.id,
+        role: 'user',
+        content: "Please give me a hint.",
+        created_at: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, userMsg]);
+    await supabase.from('chat_history').insert([userMsg]);
+
+    try {
+      toast.info("Asking Miss Emem for a hint...");
+
+      const response = await fetch('/api/tasks/hint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: activeTask.id,
+          userId: user.id,
+          taskTitle: activeTask.title,
+          taskContent: activeTask.brief_content,
+          userContext: "I'm stuck on this task."
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Add the hint to the chat as a message from the assistant
+      const hintMsg: Message = {
+        user_id: user.id,
+        task_id: activeTask.id,
+        role: 'assistant',
+        content: data.hint,
+        created_at: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, hintMsg]);
+      // Note: The API route already saves the assistant message to DB
+      
+      toast.success("Hint received!");
+
+    } catch (error: any) {
+      console.error("Error getting hint:", error);
+      toast.error("Failed to get hint");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -234,6 +292,18 @@ export default function TasksPage() {
 
       toast.success("File uploaded. Analyzing...");
 
+      // Add user message for file upload
+      const uploadMsg: Message = {
+        user_id: user.id,
+        task_id: activeTask.id,
+        role: 'user',
+        content: `Uploaded file: ${file.name}`,
+        created_at: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, uploadMsg]);
+      await supabase.from('chat_history').insert([uploadMsg]);
+
       // 2. Call API for Analysis
       const response = await fetch('/api/tasks/submit', {
         method: 'POST',
@@ -242,7 +312,13 @@ export default function TasksPage() {
           taskId: activeTask.id,
           userId: user.id,
           fileUrl: publicUrl,
-          fileName: file.name
+          fileName: file.name,
+          taskTitle: activeTask.title,
+          taskContent: activeTask.brief_content,
+          chatHistory: messages.map(m => ({
+            role: m.role,
+            content: m.content
+          }))
         })
       });
 
@@ -287,7 +363,7 @@ export default function TasksPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : tasks.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 p-4 lg:p-6">
           {tasks.map((task) => (
             <button
               key={task.id}
@@ -313,7 +389,7 @@ export default function TasksPage() {
           ))}
         </div>
       ) : (
-        <div className="p-6">
+        <div className="p-4 lg:p-6">
           <TaskGenerator onTasksGenerated={fetchTasks} />
         </div>
       )}
@@ -326,8 +402,8 @@ export default function TasksPage() {
       <StudentHeader 
         title="My Office" 
       />
-    <div className="grid grid-cols-2 gap-6 p-6 bg-background/20">
-      <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 lg:p-6 bg-background/20">
+      <div className="rounded-xl border border-white/10 bg-white/5 p-6 h-fit">
         <button
           onClick={() => setActiveTask(null)}
           className="mb-4 text-sm opacity-60 hover:opacity-100"
@@ -381,28 +457,45 @@ export default function TasksPage() {
               ref={scrollRef}
               className="h-64 overflow-y-auto rounded-md border border-white/10 bg-black/20 p-4 space-y-4"
             >
-              {messages.map((msg, idx) => (
-                <div 
-                  key={idx} 
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+              {messages.map((msg, idx) => {
+                const isFileUpload = msg.content.startsWith("Uploaded file: ");
+                const fileName = isFileUpload ? msg.content.replace("Uploaded file: ", "") : "";
+
+                return (
                   <div 
-                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                      msg.role === 'user' 
-                        ? 'bg-cyan-500/20 text-cyan-100' 
-                        : 'bg-white/10 text-white/90'
-                    }`}
+                    key={idx} 
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className="prose prose-invert prose-sm max-w-none [&_*]:text-inherit [&>p]:m-0 [&>p]:leading-normal">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]} 
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
+                    <div 
+                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                        msg.role === 'user' 
+                          ? 'bg-cyan-500/20 text-cyan-100' 
+                          : 'bg-white/10 text-white/90'
+                      }`}
+                    >
+                      {isFileUpload ? (
+                        <div className="flex items-center gap-3 p-1">
+                          <div className="bg-white/10 p-2 rounded-md">
+                            <FileText className="h-6 w-6 text-cyan-400" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-medium truncate max-w-[150px]">{fileName}</span>
+                            <span className="text-xs opacity-60">File attached</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="prose prose-invert prose-sm max-w-none [&_*]:text-inherit [&>p]:m-0 [&>p]:leading-normal">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]} 
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {loading && (
                 <div className="flex justify-start">
                   <div className="bg-white/10 text-white/90 rounded-lg px-3 py-2 text-sm animate-pulse">
@@ -431,7 +524,11 @@ export default function TasksPage() {
             </div>
           </div>
 
-          <button className="mt-4 w-full rounded-md bg-cyan-500 py-2 text-sm font-medium">
+          <button 
+            onClick={handleGetHint}
+            disabled={loading}
+            className="mt-4 w-full rounded-md bg-cyan-500 py-2 text-sm font-medium disabled:opacity-50 hover:bg-cyan-600 transition-colors"
+          >
             Get Hint ({activeTask.difficulty === 'beginner' ? '10' : '20'} XP)
           </button>
         </div>

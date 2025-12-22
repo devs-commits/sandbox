@@ -1,9 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { StudentHeader } from "@/app/components/students/StudentHeader"
 import { Button } from "@/app/components/ui/button"
 import { Badge } from "@/app/components/ui/badge"
+import { useAuth } from "@/app/contexts/AuthContexts"
+import { supabase } from "@/lib/supabase"
+import ReactMarkdown from "react-markdown"
+import { toast } from "sonner"
 import {
   Dialog,
   DialogContent,
@@ -29,26 +33,91 @@ import {
   Ghost,
   Music2,
   CircleDashed,
-  X
+  X,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Mock Data
-const verifiedSkills = [
-  { name: "Crisis Comms", verified: true },
-  { name: "SEO Audit", verified: true },
-  { name: "Copy Writing", verified: true },
-  { name: "Data Analysis", verified: true },
-]
-
-const completedSimulations = [
-  { title: "Crisis Management Lvl 1", score: 92, id: 1 },
-  { title: "SEO Audit: Jumia", score: 92, id: 2 },
-]
+interface Task {
+  id: number;
+  title: string;
+  brief_content: string;
+  difficulty: string;
+  task_track: string;
+  completed: boolean;
+}
 
 export default function PortfolioPage() {
+  const { user } = useAuth()
   const [isResumeOpen, setIsResumeOpen] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [resumeContent, setResumeContent] = useState("")
+  const [isGeneratingResume, setIsGeneratingResume] = useState(false)
+
+  useEffect(() => {
+    if (user) {
+      fetchCompletedTasks()
+    }
+  }, [user])
+
+  const fetchCompletedTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user', user?.id)
+        .eq('completed', true)
+      
+      if (error) throw error
+      setTasks(data || [])
+    } catch (error) {
+      console.error("Error fetching tasks:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGenerateResume = async () => {
+    setIsResumeOpen(true)
+    if (resumeContent) return // Don't regenerate if already exists
+
+    setIsGeneratingResume(true)
+    try {
+      const response = await fetch('/api/users/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id, tasks }),
+      })
+      
+      const data = await response.json()
+      setResumeContent(data.resume)
+    } catch (error) {
+      console.error("Error generating resume:", error)
+      setResumeContent("Failed to generate resume. Please try again.")
+    } finally {
+      setIsGeneratingResume(false)
+    }
+  }
+
+  const handleCopyResume = () => {
+    navigator.clipboard.writeText(resumeContent)
+    toast.success("Resume copied to clipboard")
+  }
+
+  const handleCopyLink = () => {
+    const url = window.location.href
+    navigator.clipboard.writeText(url)
+    toast.success("Link copied to clipboard")
+    setIsShareOpen(false)
+  }
+
+  // Derive skills from completed tasks
+  const verifiedSkills = Array.from(new Set(tasks.map(t => t.task_track))).map(track => ({
+    name: track.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    verified: true
+  }))
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -58,7 +127,7 @@ export default function PortfolioPage() {
         {/* Top Actions */}
         <div className="flex flex-wrap gap-3 justify-end">
           <Button
-            onClick={() => setIsResumeOpen(true)}
+            onClick={handleGenerateResume}
             className="bg-[#a855f7] hover:bg-[#9333ea] text-white border-none shadow-none font-medium"
           >
             <Wand2 className="mr-2 h-4 w-4" />
@@ -83,44 +152,72 @@ export default function PortfolioPage() {
         {/* Verified Skills */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4 text-foreground">Verified Skills</h3>
-          <div className="flex flex-wrap gap-3">
-            {verifiedSkills.map((skill) => (
-              <Badge
-                key={skill.name}
-                variant="secondary"
-                className="bg-[#1e293b] text-[#06b6d4] hover:bg-[#1e293b] px-3 py-1.5 text-sm font-medium border border-slate-700/50 rounded-md"
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4 text-[#06b6d4]" />
-                {skill.name}
-              </Badge>
-            ))}
-          </div>
+          {isLoading ? (
+             <div className="flex gap-2">
+               <div className="h-8 w-24 bg-slate-800 rounded animate-pulse" />
+               <div className="h-8 w-32 bg-slate-800 rounded animate-pulse" />
+             </div>
+          ) : verifiedSkills.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {verifiedSkills.map((skill) => (
+                <Badge
+                  key={skill.name}
+                  variant="secondary"
+                  className="bg-[#1e293b] text-[#06b6d4] hover:bg-[#1e293b] px-3 py-1.5 text-sm font-medium border border-slate-700/50 rounded-md"
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-[#06b6d4]" />
+                  {skill.name}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">Complete tasks to verify skills.</p>
+          )}
         </div>
 
         {/* Completed Simulations */}
         <div>
           <h3 className="text-lg font-semibold mb-4 text-foreground">Completed Simulations</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {completedSimulations.map((sim) => (
-              <div
-                key={sim.id}
-                className="bg-card border border-border rounded-xl p-6 flex items-center justify-between shadow-sm"
-              >
-                <div>
-                  <h4 className="font-semibold text-foreground text-lg">{sim.title}</h4>
-                  <p className="text-muted-foreground text-sm mt-1">Score: {sim.score}/100</p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="border-slate-700 bg-transparent text-foreground hover:bg-slate-800 hover:text-white"
-                  onClick={() => setIsShareOpen(true)}
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="h-32 bg-slate-800 rounded-xl animate-pulse" />
+               <div className="h-32 bg-slate-800 rounded-xl animate-pulse" />
+            </div>
+          ) : tasks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="bg-card border border-border rounded-xl p-6 flex items-center justify-between shadow-sm"
                 >
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share
-                </Button>
-              </div>
-            ))}
-          </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground text-lg">{task.title}</h4>
+                    <p className="text-muted-foreground text-sm mt-1 line-clamp-1">{task.brief_content}</p>
+                    <div className="flex gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs border-slate-700 text-slate-400">
+                            {task.difficulty}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs border-green-900 bg-green-900/20 text-green-400">
+                            Completed
+                        </Badge>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="border-slate-700 bg-transparent text-foreground hover:bg-slate-800 hover:text-white"
+                    onClick={() => setIsShareOpen(true)}
+                  >
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">
+                <p className="text-muted-foreground">No completed simulations yet.</p>
+            </div>
+          )}
         </div>
 
         {/* Resume Builder Modal */}
@@ -137,13 +234,25 @@ export default function PortfolioPage() {
             </DialogHeader>
             
             <div className="flex-1 p-6 overflow-y-auto bg-[#1e293b]">
-              <p className="text-slate-300">
-                I&apos;m having a bit of trouble connecting to the AI brain right now. Try again in a moment.
-              </p>
+              {isGeneratingResume ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#a855f7]" />
+                    <p className="text-slate-400">Analyzing your completed tasks...</p>
+                </div>
+              ) : (
+                <div className="prose prose-invert max-w-none">
+                    <ReactMarkdown>{resumeContent}</ReactMarkdown>
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-700 flex gap-4 justify-end bg-[#0f172a]">
-               <Button variant="secondary" className="bg-slate-700 text-white hover:bg-slate-600 border-none min-w-[100px]">
+               <Button 
+                variant="secondary" 
+                onClick={handleCopyResume}
+                className="bg-slate-700 text-white hover:bg-slate-600 border-none min-w-[100px]"
+               >
+                 <Copy className="mr-2 h-4 w-4" />
                  Copy Text
                </Button>
                <Button className="bg-[#06b6d4] hover:bg-[#0891b2] text-white border-none min-w-[140px]">
@@ -163,7 +272,7 @@ export default function PortfolioPage() {
                </DialogHeader>
              </div>
              <div className="grid grid-cols-4 gap-y-8 gap-x-4 p-6">
-                <ShareOption icon={LinkIcon} label="Copy link" color="bg-blue-500" />
+                <ShareOption icon={LinkIcon} label="Copy link" color="bg-blue-500" onClick={handleCopyLink} />
                 <ShareOption icon={Instagram} label="Instagram" color="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500" />
                 <ShareOption icon={MessageCircle} label="Whatsapp" color="bg-green-500" />
                 <ShareOption icon={CircleDashed} label="Status" color="bg-green-500" />
@@ -186,9 +295,9 @@ export default function PortfolioPage() {
   )
 }
 
-function ShareOption({ icon: Icon, label, color, iconColor = "text-white" }: { icon: any, label: string, color: string, iconColor?: string }) {
+function ShareOption({ icon: Icon, label, color, iconColor = "text-white", onClick }: { icon: any, label: string, color: string, iconColor?: string, onClick?: () => void }) {
   return (
-    <button className="flex flex-col items-center gap-3 group w-full">
+    <button onClick={onClick} className="flex flex-col items-center gap-3 group w-full">
       <div className={cn("w-12 h-12 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 shadow-lg", color)}>
         <Icon className={cn("w-6 h-6", iconColor)} />
       </div>
