@@ -162,6 +162,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // Use configured site URL or fallback to current origin
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      console.log("Using site URL for password reset:", siteUrl); 
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-password`,
