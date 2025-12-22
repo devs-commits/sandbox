@@ -155,15 +155,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {
-    // Implement Supabase reset password logic here if needed
-    // await supabase.auth.resetPasswordForEmail(email)
-    return { success: true };
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
   const resetPassword = async (newPassword: string, token?: string): Promise<{ success: boolean; error?: string }> => {
-    // Implement Supabase update user logic here
-    // await supabase.auth.updateUser({ password: newPassword })
-    return { success: true };
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
   return (
