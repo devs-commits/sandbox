@@ -10,7 +10,7 @@ export default function page({
     <ProtectedRoute allowedRoles={["recruiter"]}>
       <div className="min-h-screen bg-background flex w-full">
         <RecuiterSidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto max-w-7xl mx-auto p-4 lg:p-6 bg-background">
           {children}
         </main>
       </div>
