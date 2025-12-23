@@ -7,6 +7,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, password, fullName, role, country, experienceLevel, track } = body;
 
+    // Server-side validation
+    if (role === 'student' && (!track || !experienceLevel)) {
+      return NextResponse.json({ success: false, error: "Track and experience level are required for students" }, { status: 400 });
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -15,8 +20,8 @@ export async function POST(request: Request) {
           fullName,
           role,
           country,
-          experienceLevel,
-          track,
+          experienceLevel: role === 'student' ? experienceLevel : null,
+          track: role === 'student' ? track : null,
         },
       },
     });
@@ -36,23 +41,46 @@ export async function POST(request: Request) {
       // Use supabaseAdmin if available to bypass RLS, otherwise fall back to anon client
       const dbClient = supabaseAdmin || supabase;
 
-      const { data: userData, error: dbError } = await dbClient
-        .from('users')
-        .insert({
-          // We let the database generate its own primary 'id' (e.g. 1, 2, 3 or uuid)
-          // We store the Auth ID in a separate column (Foreign Key)
-          auth_id: data.user.id, 
+      let dbError;
+      let userData;
+
+      if (role === 'recruiter') {
+        const { data: recruiterData, error: recruiterError } = await dbClient
+          .from('recruiters')
+          .insert({
+            auth_id: data.user.id,
+            email: email,
+            full_name: fullName,
+            country: country,
+            role: role,
+          })
+          .select()
+          .single();
+        
+        dbError = recruiterError;
+        userData = recruiterData;
+      } else {
+        const { data: studentData, error: studentError } = await dbClient
+          .from('users')
+          .insert({
+            // We let the database generate its own primary 'id' (e.g. 1, 2, 3 or uuid)
+            // We store the Auth ID in a separate column (Foreign Key)
+            auth_id: data.user.id, 
+            
+            email: email,
+            full_name: fullName,
+            role: role,
+            country: country,
+            experience_level: experienceLevel,
+            wallet_balance: 0, // Default balance
+            track: track,
+          })
+          .select()
+          .single();
           
-          email: email,
-          full_name: fullName,
-          role: role,
-          country: country,
-          experience_level: experienceLevel,
-          wallet_balance: 0, // Default balance
-          track: track,
-        })
-        .select()
-        .single();
+        dbError = studentError;
+        userData = studentData;
+      }
 
       if (dbError) {
         console.error("Error creating public profile:", dbError);
