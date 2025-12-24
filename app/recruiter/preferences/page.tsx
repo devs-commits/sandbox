@@ -38,7 +38,7 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 overflow-auto">
+    <div className="min-h-screen bg-background">
       {/* Mobile Menu Button */}
       <button
         onClick={onOpenSidebar}
