@@ -48,7 +48,7 @@ export function CandidateCard({ candidate, onViewProfile }: CandidateCardProps) 
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground uppercase">Avg Score</p>
-          <p className="text-sm font-bold text-primary">{candidate.score}%</p>
+          <p className="text-sm font-bold text-green-500">{candidate.score}%</p>
         </div>
       </div>
 
