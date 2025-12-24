@@ -2,8 +2,8 @@
 import { StudentHeader } from "@/app/components/students/StudentHeader";
 import { useState } from "react";
 import { Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+import { Button } from "../../components/ui/button";
+import { Slider } from "../../components/ui/slider";
 import { toast } from "sonner";
 
 const talentCategories = [
