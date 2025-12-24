@@ -197,7 +197,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
       <RecruiterHeader title="Talent Directory"/>
 
       {/* Wallet, Search, Filter Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 py-4 lg:py-6 space-y-6">
         <div className="bg-card rounded-xl p-4 border border-border">
           <p className="text-xs text-cyan-400 uppercase font-medium mb-1">
             Wallet Balance
