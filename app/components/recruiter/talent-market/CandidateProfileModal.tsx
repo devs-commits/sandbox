@@ -60,12 +60,6 @@ export function CandidateProfileModal({
             <DialogTitle className="text-xl font-semibold text-foreground">
               Candidate Profile
             </DialogTitle>
-            <button
-              onClick={onClose}
-              className="text-coral hover:text-coral/80 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </DialogHeader>
 
