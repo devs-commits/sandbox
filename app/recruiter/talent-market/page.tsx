@@ -118,7 +118,6 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
   const [unlockedProfiles, setUnlockedProfiles] = useState<number[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterOption>(null);
 
-  // Calculate dynamic category counts
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { All: candidates.length };
     categoryNames.forEach((cat) => {

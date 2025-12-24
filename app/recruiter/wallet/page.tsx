@@ -54,7 +54,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 overflow-auto">
+    <div>
       {/* Mobile Menu Button */}
       <button
         onClick={onOpenSidebar}
