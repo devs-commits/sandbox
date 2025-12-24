@@ -46,7 +46,7 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
       >
         <Menu className="w-6 h-6" />
       </button>
-      <StudentHeader title="Hiring Preferences" />
+      <RecruiterHeader title="Hiring Preferences" />
 
       {/* Preferences Card */}
       <div className="bg-card rounded-xl p-6 border border-border max-w-2xl mx-auto my-10">

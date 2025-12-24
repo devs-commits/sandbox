@@ -54,7 +54,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
   };
 
   return (
-    <div className="min-h-screen bg-background mt-6">
+    <div className="min-h-screen bg-background">
       {/* Mobile Menu Button */}
       <button
         onClick={onOpenSidebar}
