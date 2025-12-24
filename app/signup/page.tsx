@@ -18,9 +18,8 @@ countries.registerLocale(enLocale);
 
 const tracks = [
   { value: "digital-marketing", label: "Digital Marketing", price: "₦ 17,500" },
-  { value: "web-development", label: "Web Development", price: "₦ 35,500" },
-  { value: "data-science", label: "Data Science", price: "₦ 35,500" },
-  { value: "ui-ux", label: "UI/UX Design", price: "₦ 25,000" },
+  { value: "data-analytics", label: "Data Analytics", price: "₦ 35,500" },
+  { value: "cyber-security", label: "Cyber Security", price: "₦ 25,000" },
 ];
 
 const RECRUITER_PRICE = "₦ 35,500";
