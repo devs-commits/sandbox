@@ -495,7 +495,7 @@ export default function TasksPage() {
                   <div className="flex justify-start">
                     <div className="bg-white/10 text-white/90 rounded-lg px-4 py-3 text-sm animate-pulse flex items-center gap-2">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Thinking...
+                      Typing...
                     </div>
                   </div>
                 )}
