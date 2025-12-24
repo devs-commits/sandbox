@@ -81,7 +81,7 @@ export function CandidateProfileModal({
                 <p className="text-sm text-muted-foreground">{candidate.role}</p>
               </div>
             </div>
-            <span className="px-3 py-1 text-xs font-medium text-cyan-400 border border-cyan-400 rounded">
+            <span className="px-3 py-1 text-xs font-bold text-purple-500 bg-purple-500/20 border border-none rounded">
               INTERN
             </span>
           </div>
