@@ -65,7 +65,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
       <RecruiterHeader title="Recruiter Wallet" subtitle="Manage funds for unlocking talents insights" />
 
       {/* Balance Card */}
-      <div className="bg-card rounded-xl p-6 border border-border mb-8 max-w-2xl mx-auto my-10">
+      <div className="bg-[linear-gradient(135deg,hsla(197,70%,22%,1)_50%,hsla(216,50%,13%,1)_100%)] rounded-xl p-6 border border-border mb-8 max-w-2xl mx-auto my-10">
         <p className="text-xs text-cyan-400 uppercase font-medium mb-2 tracking-wider">
           Available Balance
         </p>
