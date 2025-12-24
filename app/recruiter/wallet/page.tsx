@@ -69,7 +69,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
         <p className="text-xs text-cyan-400 uppercase font-medium mb-2 tracking-wider">
           Available Balance
         </p>
-        <p className="text-4xl md:text-5xl font-bold text-primary mb-6">
+        <p className="text-4xl md:text-5xl font-bold text-foreground mb-6">
           ₦{balance.toLocaleString()}
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
