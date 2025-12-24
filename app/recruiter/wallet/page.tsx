@@ -62,7 +62,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
       </button>
 
       {/* Header */}
-      <RecruiterHeader title="Recruiter Wallet" />
+      <RecruiterHeader title="Recruiter Wallet" subtitle="Manage funds for unlocking talents insights" />
 
       {/* Balance Card */}
       <div className="bg-card rounded-xl p-6 border border-border mb-8 max-w-2xl mx-auto my-10">
