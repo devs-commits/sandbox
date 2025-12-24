@@ -185,7 +185,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-background">
       {/* Mobile Menu Button */}
       <button
         onClick={onOpenSidebar}
