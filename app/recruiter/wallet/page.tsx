@@ -1,5 +1,5 @@
+"use client";
 import {RecruiterHeader} from "../../components/recruiter/RecruiterHeader";
-
 import { useState } from "react";
 import { Menu, Lock, Download } from "lucide-react";
 import { Button } from "../../components/ui/button";
