@@ -54,7 +54,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background mt-6">
       {/* Mobile Menu Button */}
       <button
         onClick={onOpenSidebar}
@@ -67,7 +67,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
       <RecruiterHeader title="Recruiter Wallet" />
 
       {/* Balance Card */}
-      <div className="bg-card rounded-xl p-6 border border-border mb-8 max-w-2xl mx-auto">
+      <div className="bg-card rounded-xl p-6 border border-border mb-8 max-w-2xl mx-auto my-10">
         <p className="text-xs text-cyan-400 uppercase font-medium mb-2 tracking-wider">
           Available Balance
         </p>
