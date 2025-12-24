@@ -49,7 +49,7 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
       <StudentHeader title="Hiring Preferences" />
 
       {/* Preferences Card */}
-      <div className="bg-card rounded-xl p-6 border border-border max-w-2xl mx-auto">
+      <div className="bg-card rounded-xl p-6 border border-border max-w-2xl mx-auto my-10">
         {/* Primary Talent Interest */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-foreground mb-4">
