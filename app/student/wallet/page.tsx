@@ -151,7 +151,7 @@ export default function GlobalWallet() {
 
               <Button
                 variant="outline"
-                className="w-full border-coral/50 text-coral hover:bg-coral/10 hover:text-coral bg-[hsla(0,0%,82%,1)]"
+                className="w-full border-coral/50 text-slate-900 hover:bg-coral/10 hover:text-coral bg-white"
                 onClick={handleRequestLoan}
               >
                 <Lock className="w-4 h-4 mr-2" />

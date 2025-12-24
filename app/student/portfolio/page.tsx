@@ -80,6 +80,8 @@ export default function PortfolioPage() {
   }
 
   const handleGenerateResume = async () => {
+    if (tasks.length === 0) return // Don't allow if no tasks completed
+    
     setIsResumeOpen(true)
     if (resumeContent) return // Don't regenerate if already exists
 
@@ -126,13 +128,31 @@ export default function PortfolioPage() {
 
         {/* Top Actions */}
         <div className="flex flex-wrap gap-3 justify-end">
-          <Button
-            onClick={handleGenerateResume}
-            className="bg-[#a855f7] hover:bg-[#9333ea] text-white border-none shadow-none font-medium"
-          >
-            <Wand2 className="mr-2 h-4 w-4" />
-            Generate Resume
-          </Button>
+          <div className="relative group">
+            <Button
+              onClick={handleGenerateResume}
+              disabled={tasks.length === 0}
+              className={cn(
+                "border-none shadow-none font-medium",
+                tasks.length === 0
+                  ? "bg-[#1e293b] text-slate-400 hover:bg-[#1e293b]/80 cursor-not-allowed"
+                  : "bg-[#a855f7] hover:bg-[#9333ea] text-white"
+              )}
+            >
+              {tasks.length === 0 ? (
+                <Lock className="mr-2 h-4 w-4" />
+              ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
+              )}
+              Generate Resume
+            </Button>
+            {tasks.length === 0 && (
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                Complete a task to unlock
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+              </div>
+            )}
+          </div>
           <Button
             variant="secondary"
             className="bg-[#1e293b] text-slate-400 hover:bg-[#1e293b]/80 border-none cursor-not-allowed shadow-none font-medium"
