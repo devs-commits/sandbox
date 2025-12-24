@@ -130,10 +130,10 @@ export function CandidateProfileModal({
                     "{candidate.taskAnalysis.description}"
                   </p>
                   <div className="flex gap-2">
-                    <span className="px-2 py-1 text-xs bg-primary/20 text-primary rounded">
+                    <span className="px-2 py-1 text-xs bg-green-500/20 text-green-500 rounded">
                       AI GRADING: {candidate.taskAnalysis.grading}
                     </span>
-                    <span className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded">
+                    <span className="px-2 py-1 text-xs bg-[hsla(0,0%,100%,0.3)] text-foreground rounded">
                       FILE: {candidate.taskAnalysis.file}
                     </span>
                   </div>
