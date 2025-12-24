@@ -44,12 +44,10 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
   const [balance] = useState(150000);
 
   const handleFundWallet = () => {
-    // Placeholder for Paystack integration
     console.log("Fund wallet clicked");
   };
 
   const handleDownloadStatement = () => {
-    // Placeholder for statement download
     console.log("Download statement clicked");
   };
 
