@@ -102,7 +102,7 @@ export default function Page(){
 
       {/* Mobile sidebar */}
       <aside className={cn(
-        "lg:hidden fixed top-0 left-0 h-full w-64 bg-sidebar z-50 flex flex-col transform transition-transform duration-300",
+        "lg:hidden fixed top-0 left-0 h-full w-64 bg-background z-50 flex flex-col transform transition-transform duration-300",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <button
@@ -115,7 +115,7 @@ export default function Page(){
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex bg-sidebar min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
+      <aside className="hidden lg:flex bg-background min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
         <SidebarContent />
       </aside>
     </>
