@@ -211,7 +211,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
               placeholder="Search by skills, role, category..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-muted/50 border-border"
+              className="pl-10 bg-[hsla(216,38%,22%,1)] border-border"
             />
           </div>
         </div>
