@@ -83,7 +83,7 @@ export default function RecruiterWallet({ onOpenSidebar }: RecruiterWalletProps)
           <Button
             onClick={handleDownloadStatement}
             variant="outline"
-            className="flex-1 border-border text-foreground hover:bg-muted"
+            className="flex-1 border-border bg-foreground/20 text-foreground hover:bg-muted"
           >
             <Download className="w-4 h-4 mr-2" />
             Download Statement
