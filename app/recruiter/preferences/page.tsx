@@ -1,5 +1,5 @@
 "use client";
-import { StudentHeader } from "@/app/components/students/StudentHeader";
+import { RecruiterHeader } from "@/app/components/recruiter/RecruiterHeader";
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "../../components/ui/button";
