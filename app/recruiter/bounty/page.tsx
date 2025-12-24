@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react";
-import { StudentHeader } from "../../components/students/StudentHeader";
+import { RecruiterHeader } from "@/app/components/recruiter/RecruiterHeader";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Clock, X } from "lucide-react";
@@ -17,7 +17,6 @@ interface Bounty {
   slotsLeft: number;
 }
 
-// Mock data - replace with backend integration
 const bounties: Bounty[] = [
   {
     id: "1",
@@ -211,7 +210,7 @@ export default function BountyHunter() {
 
   return (
     <>
-      <StudentHeader
+      <RecruiterHeader
         title="Bounty Hunter Network"
         subtitle="Complete micro-tasks. Earn Cash instantly."
       />
