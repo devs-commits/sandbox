@@ -181,11 +181,11 @@ export function CandidateProfileModal({
                       Verified Graduate • {candidate.location}
                     </p>
                     <div className="flex gap-2 mt-2">
-                      <span className="px-2 py-1 text-xs bg-[#0077B5] text-white rounded flex items-center gap-1">
+                      <span className="px-2 py-1 text-xs bg-[hsla(0,0%,100%,0.3)] text-white rounded flex items-center gap-1">
                         <Linkedin className="w-3 h-3" />
                         LINKEDIN
                       </span>
-                      <span className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded flex items-center gap-1">
+                      <span className="px-2 py-1 text-xs bg-[hsla(0,0%,100%,0.3)] text-foreground rounded flex items-center gap-1">
                         <Mail className="w-3 h-3" />
                         EMAIL
                       </span>
