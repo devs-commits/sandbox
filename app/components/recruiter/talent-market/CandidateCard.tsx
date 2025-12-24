@@ -22,8 +22,8 @@ export function CandidateCard({ candidate, onViewProfile }: CandidateCardProps) 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-cyan-400 flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xs">
+          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+            <span className="text-primary font-bold text-xs">
               {candidate.id}
             </span>
           </div>
@@ -33,7 +33,7 @@ export function CandidateCard({ candidate, onViewProfile }: CandidateCardProps) 
           </div>
         </div>
         {candidate.isHot && (
-          <span className="flex items-center gap-1 px-2 py-1 bg-coral/20 text-coral text-xs font-medium rounded">
+          <span className="flex items-center gap-1 px-2 py-1 bg-red-500/20 text-destructive text-xs font-medium rounded">
             <Flame className="w-3 h-3" />
             HOT
           </span>
