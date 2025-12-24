@@ -145,7 +145,7 @@ export function CandidateProfileModal({
                   </p>
                   <Button
                     onClick={onUnlockTasks}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    className="bg-green-500 hover:bg-green-600 text-foreground"
                   >
                     Unlock Recent Tasks ₦ 15,000
                   </Button>
@@ -206,7 +206,7 @@ export function CandidateProfileModal({
                   </p>
                   <Button
                     onClick={onUnlockProfile}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    className="bg-green-500 hover:bg-green-600 text-foreground"
                   >
                     Unlock Full Profile & CV ₦ 50,000
                   </Button>
