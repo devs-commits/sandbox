@@ -197,11 +197,11 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
 
       {/* Wallet, Search, Filter Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 py-4 lg:py-6 space-y-6">
-        <div className="bg-card rounded-xl p-4 border border-border">
-          <p className="text-xs text-cyan-400 uppercase font-medium mb-1">
+        <div className="bg-[linear-gradient(135deg,hsla(197,70%,22%,1)_50%,hsla(216,50%,13%,1)_100%)] rounded-xl p-4 border border-border">
+          <p className="text-xs text-foreground uppercase font-medium mb-1">
             Wallet Balance
           </p>
-          <p className="text-2xl font-bold text-primary">₦ 150,000</p>
+          <p className="text-2xl font-bold text-green-500">₦ 150,000</p>
         </div>
         <div className="relative">
           <p className="text-xs text-muted-foreground mb-2">Search</p>
