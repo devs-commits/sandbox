@@ -248,7 +248,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
           <button
             key={category}
             onClick={() => setActiveCategory(category)}
-            className={`px-4 w-full py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`min-w-[10rem] mx-2 w-full py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               activeCategory === category
                 ? "bg-[hsla(0,0%,100%,0.19)] text-foreground"
                 : "text-muted-foreground hover:bg-muted/50"
