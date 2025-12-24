@@ -90,7 +90,7 @@ export function CandidateProfileModal({
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
               <p className="text-xs text-muted-foreground uppercase">Score</p>
-              <p className="text-xl font-bold text-primary">{candidate.score}%</p>
+              <p className="text-xl font-bold text-green-500">{candidate.score}%</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
               <p className="text-xs text-muted-foreground uppercase">Task</p>
