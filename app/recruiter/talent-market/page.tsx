@@ -243,7 +243,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
       </div>
 
       {/* Category Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 bg-[hsla(216,38%,22%,1)] justify-between">
+      <div className="flex gap-2 mb-6 overflow-x-auto py-1 bg-[hsla(216,38%,22%,1)] justify-between px-4 lg:px-6 rounded-lg">
         {categoryNames.map((category) => (
           <button
             key={category}
