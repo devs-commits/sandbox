@@ -193,7 +193,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
       >
         <Menu className="w-6 h-6" />
       </button>
-      <RecruiterHeader title="Talent Directory"/>
+      <RecruiterHeader title="Talent Directory" subtitle="Search and filter 3+ verified candidates"/>
 
       {/* Wallet, Search, Filter Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 py-4 lg:py-6 space-y-6">
