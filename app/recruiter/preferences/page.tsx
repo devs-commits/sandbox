@@ -96,7 +96,7 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
         {/* Save Button */}
         <Button
           onClick={handleSavePreferences}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="w-full bg-primary hover:bg-primary/90 text-foreground"
         >
           Save Preferences
         </Button>
