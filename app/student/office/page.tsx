@@ -251,6 +251,13 @@ export default function TasksPage() {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
+
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size exceeds 10MB limit");
+      return;
+    }
+
     await handleFileUpload(file);
   };
 
@@ -404,9 +411,13 @@ export default function TasksPage() {
               ref={fileInputRef}
               onChange={handleFileSelect}
               className="hidden"
+              accept=".pdf,.doc,.docx,.txt,.zip,.jpg,.jpeg,.png"
             />
-            <p className="text-sm opacity-70 mb-4">
+            <p className="text-sm opacity-70 mb-2">
               Drag & Drop Your File Here
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Supported formats: PDF, DOCX, TXT, ZIP, Images (Max 10MB)
             </p>
             <button 
               onClick={() => fileInputRef.current?.click()}
