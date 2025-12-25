@@ -62,7 +62,7 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
                 onClick={() => toggleCategory(category)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   selectedCategories.includes(category)
-                    ? "bg-foreground text-foreground border border-border"
+                    ? "bg-muted-foreground text-foreground border border-border"
                     : "bg-foreground/20 text-foreground border border-transparent hover:border-border"
                 }`}
               >
