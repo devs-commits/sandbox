@@ -245,7 +245,8 @@ export default function TasksPage() {
           userId: user.id,
           taskTitle: activeTask.title,
           taskContent: activeTask.brief_content,
-          userContext: "I'm stuck on this task."
+          userContext: "I'm stuck on this task.",
+          location: userLocation,
         })
       });
 
