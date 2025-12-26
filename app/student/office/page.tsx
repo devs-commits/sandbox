@@ -83,11 +83,14 @@ export default function TasksPage() {
       const res = await fetch("https://ipapi.co/json/");
       const data = await res.json();
 
-      setUserLocation({
+      const location = {
         country: data.country_name,
         city: data.city,
         timezone: data.timezone,
-      });
+      };
+
+      setUserLocation(location);
+      console.log("Resolved user location:", location);
     } catch (error) {
       console.warn("Location fetch failed", error);
     }
