@@ -5,7 +5,10 @@ import { Search, ChevronDown, Menu } from "lucide-react";
 import { Input } from "../../components/ui/input";
 import { CandidateCard } from "../../components/recruiter/talent-market/CandidateCard";
 import { CandidateProfileModal } from "../../components/recruiter/talent-market/CandidateProfileModal";
-import { supabase } from "../../../lib/supabase";import { useAuth } from "../../contexts/AuthContexts";import {
+import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContexts";
+import { toast } from "sonner";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -57,23 +60,43 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
   const [unlockedProfiles, setUnlockedProfiles] = useState<(string | number)[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterOption>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [isUnlocking, setIsUnlocking] = useState(false);
 
   useEffect(() => {
     const fetchRecruiterData = async () => {
       if (!user?.id) return;
       
       try {
-        const { data, error } = await supabase
+        // Get Recruiter ID and Balance
+        const { data: recruiterData, error: recruiterError } = await supabase
           .from('recruiters')
-          .select('wallet_balance')
+          .select('id, wallet_balance')
           .eq('auth_id', user.id)
           .single();
           
-        if (data) {
-          setWalletBalance(data.wallet_balance || 0);
+        if (recruiterData) {
+          setWalletBalance(recruiterData.wallet_balance || 0);
+
+          // Get Unlocks
+          const { data: unlocks, error: unlocksError } = await supabase
+            .from('recruiter_unlocks')
+            .select('candidate_id, unlock_type')
+            .eq('recruiter_id', recruiterData.id);
+
+          if (unlocks) {
+            const profiles = unlocks
+              .filter(u => u.unlock_type === 'profile')
+              .map(u => u.candidate_id);
+            const tasks = unlocks
+              .filter(u => u.unlock_type === 'tasks')
+              .map(u => u.candidate_id);
+            
+            setUnlockedProfiles(profiles);
+            setUnlockedTasks(tasks);
+          }
         }
       } catch (error) {
-        console.error('Error fetching wallet balance:', error);
+        console.error('Error fetching recruiter data:', error);
       }
     };
 
@@ -201,15 +224,117 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
     setIsModalOpen(true);
   };
 
-  const handleUnlockTasks = () => {
-    if (selectedCandidate) {
+  const handleUnlockTasks = async () => {
+    if (!selectedCandidate || isUnlocking) return;
+
+    // Check if already unlocked
+    if (unlockedTasks.includes(selectedCandidate.id)) {
+      return;
+    }
+
+    const UNLOCK_COST = 15000;
+
+    if (walletBalance < UNLOCK_COST) {
+      toast.error("Insufficient wallet balance. Please fund your wallet.");
+      return;
+    }
+
+    setIsUnlocking(true);
+    const toastId = toast.loading("Unlocking tasks...");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("Please log in to continue");
+      }
+
+      const response = await fetch('/api/recruiter/unlock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          candidateId: selectedCandidate.id,
+          type: 'tasks',
+          amount: UNLOCK_COST
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to unlock tasks');
+      }
+
+      // Success
+      setWalletBalance(data.newBalance);
       setUnlockedTasks([...unlockedTasks, selectedCandidate.id]);
+      toast.success("Tasks unlocked successfully!", { id: toastId });
+
+    } catch (error: any) {
+      console.error("Unlock error:", error);
+      toast.error(error.message || "Failed to unlock tasks", { id: toastId });
+    } finally {
+      setIsUnlocking(false);
     }
   };
 
-  const handleUnlockProfile = () => {
-    if (selectedCandidate) {
+  const handleUnlockProfile = async () => {
+    if (!selectedCandidate || isUnlocking) return;
+
+    // Check if already unlocked
+    if (unlockedProfiles.includes(selectedCandidate.id)) {
+      return;
+    }
+
+    const UNLOCK_COST = 50000;
+
+    if (walletBalance < UNLOCK_COST) {
+      toast.error("Insufficient wallet balance. Please fund your wallet.");
+      return;
+    }
+
+    setIsUnlocking(true);
+    const toastId = toast.loading("Unlocking profile...");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("Please log in to continue");
+      }
+
+      const response = await fetch('/api/recruiter/unlock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          candidateId: selectedCandidate.id,
+          type: 'profile',
+          amount: UNLOCK_COST
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to unlock profile');
+      }
+
+      // Success
+      setWalletBalance(data.newBalance);
       setUnlockedProfiles([...unlockedProfiles, selectedCandidate.id]);
+      toast.success("Profile unlocked successfully!", { id: toastId });
+
+    } catch (error: any) {
+      console.error("Unlock error:", error);
+      toast.error(error.message || "Failed to unlock profile", { id: toastId });
+    } finally {
+      setIsUnlocking(false);
     }
   };
 
