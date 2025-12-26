@@ -1,11 +1,11 @@
 "use client";
 import {RecruiterHeader} from "../../components/recruiter/RecruiterHeader";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, ChevronDown, Menu } from "lucide-react";
 import { Input } from "../../components/ui/input";
 import { CandidateCard } from "../../components/recruiter/talent-market/CandidateCard";
 import { CandidateProfileModal } from "../../components/recruiter/talent-market/CandidateProfileModal";
-import {
+import { supabase } from "../../../lib/supabase";import { useAuth } from "../../contexts/AuthContexts";import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,11 +13,11 @@ import {
 } from "../../components/ui/dropdown-menu";
 
 interface Candidate {
-  id: number;
+  id: number | string;
   name: string;
   role: string;
   category: string;
-  score: number;
+  score?: number | null;
   skills: string[];
   lastActive: string;
   tasks: number;
@@ -35,73 +35,9 @@ interface Candidate {
   };
 }
 
-const candidates: Candidate[] = [
-  {
-    id: 324,
-    name: "Candidate 324",
-    role: "SEO Specialist",
-    category: "Digital Marketing",
-    score: 92,
-    skills: ["SEO", "COPY"],
-    lastActive: "2h ago",
-    tasks: 14,
-    weeks: 4,
-    isHot: true,
-    realName: "Amara Kalu",
-    location: "Lagos, Nigeria",
-    email: "amara.kalu@email.com",
-    linkedIn: "linkedin.com/in/amarakalu",
-    taskAnalysis: {
-      title: "Setup: Google Ads Search",
-      description:
-        "Structured the campaign into SKAGs (Single Keyword Ad Groups) to maximize Quality Score. Negative keyword list updated to exclude 'free' and 'cheap'.",
-      grading: "EXCELLENT",
-      file: "GOOGLE_ADS_STRUCTURE.XLSX",
-    },
-  },
-  {
-    id: 441,
-    name: "Candidate 441",
-    role: "PPC Manager",
-    category: "Digital Marketing",
-    score: 88,
-    skills: ["SEM", "ANALYTICS"],
-    lastActive: "2h ago",
-    tasks: 12,
-    weeks: 3,
-    isHot: true,
-    realName: "Chidi Okonkwo",
-    location: "Abuja, Nigeria",
-    taskAnalysis: {
-      title: "Campaign Optimization",
-      description: "Optimized ad spend by 35% while maintaining conversion rate.",
-      grading: "GOOD",
-      file: "CAMPAIGN_REPORT.PDF",
-    },
-  },
-  {
-    id: 902,
-    name: "Candidate 902",
-    role: "Data Analyst",
-    category: "Data Analytics",
-    score: 95,
-    skills: ["SEM", "ANALYTICS"],
-    lastActive: "2h ago",
-    tasks: 18,
-    weeks: 5,
-    isHot: true,
-    realName: "Ngozi Eze",
-    location: "Port Harcourt, Nigeria",
-    taskAnalysis: {
-      title: "Data Pipeline Setup",
-      description: "Built automated data pipeline reducing manual work by 60%.",
-      grading: "EXCELLENT",
-      file: "PIPELINE_DOCS.PDF",
-    },
-  },
-];
 
-const categoryNames = ["All", "Digital Marketing", "Data Analytics", "Cybersecurity", "Growth"];
+
+
 
 type FilterOption = "score-high" | "score-low" | "recent" | "tasks" | null;
 
@@ -110,13 +46,118 @@ interface TalentMarketsProps {
 }
 
 export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
+  const { user } = useAuth();
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [unlockedTasks, setUnlockedTasks] = useState<number[]>([]);
-  const [unlockedProfiles, setUnlockedProfiles] = useState<number[]>([]);
+  const [unlockedTasks, setUnlockedTasks] = useState<(string | number)[]>([]);
+  const [unlockedProfiles, setUnlockedProfiles] = useState<(string | number)[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterOption>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  useEffect(() => {
+    const fetchRecruiterData = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('recruiters')
+          .select('wallet_balance')
+          .eq('auth_id', user.id)
+          .single();
+          
+        if (data) {
+          setWalletBalance(data.wallet_balance || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching wallet balance:', error);
+      }
+    };
+
+    fetchRecruiterData();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const fetchCandidates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'student');
+        console.log('Fetched candidates:', data, error);
+        if (error) throw error;
+
+        const formattedCandidates = data.map(user => ({
+          id: user.auth_id,
+          name: `Candidate ${user.auth_id.slice(0, 4)}`,
+          role: formatTrack(user.track),
+          category: formatTrack(user.track),
+          score: user.average_score,
+          skills: user.skills || [],
+          lastActive: formatTimeAgo(user.last_active_at),
+          tasks: 0, // TODO: Fetch actual count
+          weeks: calculateWeeks(user.created_at),
+          isHot: (user.average_score || 0) > 90,
+          realName: user.full_name,
+          location: user.country,
+          email: user.email,
+          taskAnalysis: {
+            title: "Recent Task Analysis",
+            description: "Task analysis data not yet available from backend.",
+            grading: "PENDING",
+            file: "REPORT.PDF",
+          }
+        }));
+        setCandidates(formattedCandidates);
+      } catch (error) {
+        console.error('Error fetching candidates:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCandidates();
+  }, []);
+
+  // Helper functions
+  function formatTrack(track: string | null) {
+    if (!track) return "General";
+    return track
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
+  function formatTimeAgo(dateString: string | null) {
+    if (!dateString) return "Never";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  }
+
+  function calculateWeeks(dateString: string | null) {
+      if (!dateString) return 0;
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInTime = now.getTime() - date.getTime();
+      return Math.floor(diffInTime / (1000 * 3600 * 24 * 7));
+  }
+
+  const categoryNames = useMemo(() => {
+    const tracks = new Set(candidates.map(c => c.category));
+    // Ensure we have some default categories if no candidates or just to keep UI consistent
+    const defaults = ["Digital Marketing", "Data Analytics", "Cyber Security", "Growth Marketing"];
+    defaults.forEach(d => tracks.add(d));
+    return ["All", ...Array.from(tracks)];
+  }, [candidates]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { All: candidates.length };
@@ -126,17 +167,18 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
       }
     });
     return counts;
-  }, []);
+  }, [candidates, categoryNames]);
 
   const filteredCandidates = useMemo(() => {
     let result = candidates.filter((candidate) => {
       const query = searchQuery.toLowerCase();
+      const scoreStr = (candidate.score ?? 50).toString();
       const matchesSearch =
         candidate.name.toLowerCase().includes(query) ||
         candidate.role.toLowerCase().includes(query) ||
         candidate.category.toLowerCase().includes(query) ||
         candidate.skills.some((skill) => skill.toLowerCase().includes(query)) ||
-        candidate.score.toString().includes(query);
+        scoreStr.includes(query);
       const matchesCategory =
         activeCategory === "All" || candidate.category === activeCategory;
       return matchesSearch && matchesCategory;
@@ -144,15 +186,15 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
 
     // Apply sorting based on filter
     if (activeFilter === "score-high") {
-      result = [...result].sort((a, b) => b.score - a.score);
+      result = [...result].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     } else if (activeFilter === "score-low") {
-      result = [...result].sort((a, b) => a.score - b.score);
+      result = [...result].sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
     } else if (activeFilter === "tasks") {
       result = [...result].sort((a, b) => b.tasks - a.tasks);
     }
 
     return result;
-  }, [searchQuery, activeCategory, activeFilter]);
+  }, [searchQuery, activeCategory, activeFilter, candidates]);
 
   const handleViewProfile = (candidate: Candidate) => {
     setSelectedCandidate(candidate);
@@ -201,7 +243,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
           <p className="text-xs text-foreground uppercase font-medium mb-1">
             Wallet Balance
           </p>
-          <p className="text-2xl font-bold text-green-500">₦ 150,000</p>
+          <p className="text-2xl font-bold text-green-500">₦ {walletBalance.toLocaleString()}</p>
         </div>
         <div className="relative">
           <p className="text-xs text-muted-foreground mb-2">Search</p>
@@ -260,15 +302,25 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
       </div>
 
       {/* Candidate Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCandidates.map((candidate) => (
-          <CandidateCard
-            key={candidate.id}
-            candidate={candidate}
-            onViewProfile={() => handleViewProfile(candidate)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="text-center py-10 text-muted-foreground">Loading candidates...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCandidates.map((candidate) => (
+            <CandidateCard
+              key={candidate.id}
+              candidate={candidate}
+              onViewProfile={() => handleViewProfile(candidate)}
+            />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && filteredCandidates.length === 0 && (
+        <div className="text-center py-10 text-muted-foreground">
+          No candidates found matching your criteria.
+        </div>
+      )}
 
       {/* Candidate Profile Modal */}
       <CandidateProfileModal

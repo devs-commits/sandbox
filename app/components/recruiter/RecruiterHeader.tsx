@@ -1,9 +1,23 @@
+"use client";
+import { useAuth } from "../../contexts/AuthContexts";
+
 interface RecruiterHeaderProps {
   title: string;
   subtitle?: string;
 }
 
 export const RecruiterHeader = ({ title, subtitle }: RecruiterHeaderProps) => {
+  const { user } = useAuth();
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <header className="px-4 lg:px-6 py-4 flex items-center justify-between border-b border-border">
       {/* Left side - Title */}
@@ -16,9 +30,11 @@ export const RecruiterHeader = ({ title, subtitle }: RecruiterHeaderProps) => {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 bg-primary/20 text-primary-foreground px-3 py-1.5 rounded-full">
           <div className="w-7 h-7 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-            JS
+            {user?.fullName ? getInitials(user.fullName) : "U"}
           </div>
-          <span className="text-sm font-medium hidden sm:inline text-foreground">John Snow</span>
+          <span className="text-sm font-medium hidden sm:inline text-foreground">
+            {user?.fullName || "User"}
+          </span>
         </div>
       </div>
     </header>

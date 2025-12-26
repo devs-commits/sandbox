@@ -161,10 +161,21 @@ export default function EarnMoney() {
           {/* Bottom Row - Verification and Referral Link */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Identity Verification Card */}
-            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
-              <div className="flex items-center gap-3 mb-6">
-                <ShieldCheckIcon className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-foreground">Identity Verification</h3>
+            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-3">
+                  <ShieldCheckIcon className="w-5 h-5 text-primary" />
+                  <h3 className="font-bold text-foreground">Identity Verification</h3>
+                </div>
+                <div className="p-1 rounded-md">
+                  <Image 
+                    src="/cbn-logo.png" 
+                    alt="CBN Logo" 
+                    width={40} 
+                    height={40} 
+                    className="object-contain w-10 h-10" 
+                  />
+                </div>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
                 To enable withdrawals, we are required by CBN to verify your identity.

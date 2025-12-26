@@ -1,11 +1,11 @@
 import { ArrowRight, Flame } from "lucide-react";
 
 interface Candidate {
-  id: number;
+  id: number | string;
   name: string;
   role: string;
   category: string;
-  score: number;
+  score?: number | null;
   skills: string[];
   lastActive: string;
   isHot?: boolean;
@@ -17,6 +17,9 @@ interface CandidateCardProps {
 }
 
 export function CandidateCard({ candidate, onViewProfile }: CandidateCardProps) {
+  const displayId = candidate.id.toString().slice(0, 4);
+  const displayScore = candidate.score ?? 50;
+
   return (
     <div className="bg-card rounded-xl p-5 border border-border">
       {/* Header */}
@@ -24,11 +27,11 @@ export function CandidateCard({ candidate, onViewProfile }: CandidateCardProps) 
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
             <span className="text-primary font-bold text-xs">
-              {candidate.id}
+              {displayId}
             </span>
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">Candidate {candidate.id}</h3>
+            <h3 className="font-semibold text-foreground">Candidate {displayId}</h3>
             <p className="text-sm text-muted-foreground">{candidate.role}</p>
           </div>
         </div>
@@ -48,7 +51,7 @@ export function CandidateCard({ candidate, onViewProfile }: CandidateCardProps) 
         </div>
         <div className="text-right">
           <p className="text-xs text-muted-foreground uppercase">Avg Score</p>
-          <p className="text-sm font-bold text-green-500">{candidate.score}%</p>
+          <p className="text-sm font-bold text-green-500">{displayScore}%</p>
         </div>
       </div>
 
