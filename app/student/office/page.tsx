@@ -40,6 +40,11 @@ export default function TasksPage() {
   const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [userLocation, setUserLocation] = useState<{
+    country? : string;
+    city? :string;
+    timezone? : string
+  } | null>(null);
 
   // 1. Fetch Tasks on Load
   useEffect(() => {
