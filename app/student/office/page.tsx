@@ -336,7 +336,8 @@ export default function TasksPage() {
           chatHistory: messages.map(m => ({
             role: m.role,
             content: m.content
-          }))
+          })),
+          location: userLocation
         })
       });
 
