@@ -407,7 +407,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
               placeholder="Search by skills, role, category..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-[hsla(216,38%,22%,1)] border-border"
+              className="pl-10 bg-[hsla(216,38%,22%,1)] border-border h-14"
             />
           </div>
         </div>
@@ -415,7 +415,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
           <p className="text-xs text-muted-foreground mb-2">Filter by</p>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center justify-between px-4 py-2 bg-[hsla(216,38%,22%,1)] border border-border rounded-lg text-muted-foreground hover:bg-muted transition-colors">
+              <button className="w-full h-14 flex items-center justify-between px-4 py-2 bg-[hsla(216,38%,22%,1)] border border-border rounded-lg text-muted-foreground hover:bg-muted transition-colors">
                 <span>{getFilterLabel()}</span>
                 <ChevronDown className="w-4 h-4" />
               </button>

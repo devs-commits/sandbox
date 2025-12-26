@@ -106,21 +106,21 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
       <RecruiterHeader title="Hiring Preferences" subtitle="Configure your AI recommendation engine"/>
 
       {/* Preferences Card */}
-      <div className="bg-card rounded-xl p-6 border border-border max-w-2xl mx-auto my-10">
+      <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border max-w-2xl mx-auto my-10">
         {/* Primary Talent Interest */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-foreground mb-4">
             Primary Talent Interest
           </h2>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 justify-between">
             {talentCategories.map((category) => (
               <button
                 key={category}
                 onClick={() => toggleCategory(category)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   selectedCategories.includes(category)
-                    ? "bg-muted text-foreground border border-border"
-                    : "bg-muted/50 text-muted-foreground border border-transparent hover:border-border"
+                    ? "bg-muted-foreground text-foreground border border-border"
+                    : "bg-foreground/20 text-foreground border border-transparent hover:border-border"
                 }`}
               >
                 {category}
