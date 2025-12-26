@@ -180,7 +180,8 @@ export default function TasksPage() {
                     name: user.fullName || user.email,
                     role: user.role,
                     task_id: activeTask.id,
-                    task_title: activeTask.title
+                    task_title: activeTask.title,
+                    location: userLocation
                 },
                 chat_history: chat_history,
                 greeted_today: greeted_today
