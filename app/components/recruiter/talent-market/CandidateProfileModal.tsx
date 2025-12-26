@@ -8,11 +8,11 @@ import {
 import { Button } from "../../../components/ui/button";
 
 interface Candidate {
-  id: number;
+  id: number | string;
   name: string;
   role: string;
   category: string;
-  score: number;
+  score?: number | null;
   skills: string[];
   lastActive: string;
   tasks: number;
@@ -69,14 +69,14 @@ export function CandidateProfileModal({
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
                 <span className="text-primary font-bold text-sm">
-                  {candidate.id}
+                  {candidate.id.toString().slice(0, 4)}
                 </span>
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">
                   {profileUnlocked && candidate.realName
                     ? candidate.realName
-                    : `Candidate ${candidate.id}`}
+                    : `Candidate ${candidate.id.toString().slice(0, 4)}`}
                 </h3>
                 <p className="text-sm text-muted-foreground">{candidate.role}</p>
               </div>
@@ -90,7 +90,7 @@ export function CandidateProfileModal({
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
               <p className="text-xs text-muted-foreground uppercase">Score</p>
-              <p className="text-xl font-bold text-green-500">{candidate.score}%</p>
+              <p className="text-xl font-bold text-green-500">{candidate.score ?? 50}%</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
               <p className="text-xs text-muted-foreground uppercase">Task</p>
