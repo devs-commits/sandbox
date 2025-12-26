@@ -53,7 +53,7 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState("Recommended");
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [unlockedTasks, setUnlockedTasks] = useState<(string | number)[]>([]);
@@ -61,21 +61,26 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
   const [activeFilter, setActiveFilter] = useState<FilterOption>(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [preferences, setPreferences] = useState<{ categories: string[], minScore: number } | null>(null);
 
   useEffect(() => {
     const fetchRecruiterData = async () => {
       if (!user?.id) return;
       
       try {
-        // Get Recruiter ID and Balance
+        // Get Recruiter ID, Balance, and Preferences
         const { data: recruiterData, error: recruiterError } = await supabase
           .from('recruiters')
-          .select('id, wallet_balance')
+          .select('id, wallet_balance, preferences_categories, preferences_min_score')
           .eq('auth_id', user.id)
           .single();
           
         if (recruiterData) {
           setWalletBalance(recruiterData.wallet_balance || 0);
+          setPreferences({
+            categories: recruiterData.preferences_categories || [],
+            minScore: recruiterData.preferences_min_score || 0
+          });
 
           // Get Unlocks
           const { data: unlocks, error: unlocksError } = await supabase
@@ -179,18 +184,30 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
     // Ensure we have some default categories if no candidates or just to keep UI consistent
     const defaults = ["Digital Marketing", "Data Analytics", "Cyber Security", "Growth Marketing"];
     defaults.forEach(d => tracks.add(d));
-    return ["All", ...Array.from(tracks)];
+    return ["Recommended", "All", ...Array.from(tracks)];
   }, [candidates]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { All: candidates.length };
+    
+    // Calculate Recommended count
+    if (preferences) {
+      counts["Recommended"] = candidates.filter(c => {
+        const matchesCategory = preferences.categories.length === 0 || preferences.categories.includes(c.category);
+        const matchesScore = (c.score ?? 0) >= preferences.minScore;
+        return matchesCategory && matchesScore;
+      }).length;
+    } else {
+      counts["Recommended"] = 0;
+    }
+
     categoryNames.forEach((cat) => {
-      if (cat !== "All") {
+      if (cat !== "All" && cat !== "Recommended") {
         counts[cat] = candidates.filter((c) => c.category === cat).length;
       }
     });
     return counts;
-  }, [candidates, categoryNames]);
+  }, [candidates, categoryNames, preferences]);
 
   const filteredCandidates = useMemo(() => {
     let result = candidates.filter((candidate) => {
@@ -202,8 +219,20 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
         candidate.category.toLowerCase().includes(query) ||
         candidate.skills.some((skill) => skill.toLowerCase().includes(query)) ||
         scoreStr.includes(query);
-      const matchesCategory =
-        activeCategory === "All" || candidate.category === activeCategory;
+      
+      let matchesCategory = true;
+      if (activeCategory === "Recommended") {
+        if (preferences) {
+          const matchesPrefCategory = preferences.categories.length === 0 || preferences.categories.includes(candidate.category);
+          const matchesPrefScore = (candidate.score ?? 0) >= preferences.minScore;
+          matchesCategory = matchesPrefCategory && matchesPrefScore;
+        } else {
+          matchesCategory = false;
+        }
+      } else {
+        matchesCategory = activeCategory === "All" || candidate.category === activeCategory;
+      }
+
       return matchesSearch && matchesCategory;
     });
 

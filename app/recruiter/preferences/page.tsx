@@ -1,10 +1,12 @@
 "use client";
 import { RecruiterHeader } from "@/app/components/recruiter/RecruiterHeader";
-import { useState } from "react";
-import { Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Slider } from "../../components/ui/slider";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "../../contexts/AuthContexts";
 
 const talentCategories = [
   "Digital Marketing",
@@ -18,8 +20,39 @@ interface HiringPreferencesProps {
 }
 
 export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesProps) {
+  const { user } = useAuth();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [minScore, setMinScore] = useState(80);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('recruiters')
+          .select('preferences_categories, preferences_min_score')
+          .eq('auth_id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setSelectedCategories(data.preferences_categories || []);
+          setMinScore(data.preferences_min_score || 80);
+        }
+      } catch (error) {
+        console.error('Error fetching preferences:', error);
+        toast.error('Failed to load preferences');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPreferences();
+  }, [user?.id]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) =>
@@ -29,13 +62,37 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
     );
   };
 
-  const handleSavePreferences = () => {
-    toast.success("Preferences saved successfully!");
-    console.log("Saved preferences:", {
-      categories: selectedCategories,
-      minScore,
-    });
+  const handleSavePreferences = async () => {
+    if (!user?.id) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('recruiters')
+        .update({
+          preferences_categories: selectedCategories,
+          preferences_min_score: minScore,
+        })
+        .eq('auth_id', user.id);
+
+      if (error) throw error;
+
+      toast.success("Preferences saved successfully!");
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast.error('Failed to save preferences');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,9 +153,17 @@ export default function HiringPreferences({ onOpenSidebar }: HiringPreferencesPr
         {/* Save Button */}
         <Button
           onClick={handleSavePreferences}
+          disabled={isSaving}
           className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
-          Save Preferences
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Preferences"
+          )}
         </Button>
       </div>
     </div>
