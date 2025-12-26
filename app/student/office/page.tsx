@@ -77,6 +77,26 @@ export default function TasksPage() {
     }
   }, [messages]);
 
+  useEffect(() => {
+  const fetchLocation = async () => {
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      const data = await res.json();
+
+      setUserLocation({
+        country: data.country_name,
+        city: data.city,
+        timezone: data.timezone,
+      });
+    } catch (error) {
+      console.warn("Location fetch failed", error);
+    }
+  };
+
+  fetchLocation();
+}, []);
+
+
   const fetchTasks = async () => {
     if (!user) return;
     
