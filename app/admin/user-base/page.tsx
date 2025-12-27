@@ -7,7 +7,7 @@ export default function page(){
       <div className="p-4 lg:p-6">
         <div className="bg-card border border-border rounded-xl p-6 text-center">
           <h2 className="text-lg font-semibold text-foreground mb-2">User Base</h2>
-          <p className="text-muted-foreground">User Base page is in progree....</p>
+          <p className="text-muted-foreground">User Base page is in progress....</p>
         </div>
       </div>
     </div>
