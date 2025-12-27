@@ -40,6 +40,11 @@ export default function TasksPage() {
   const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [userLocation, setUserLocation] = useState<{
+    country? : string;
+    city? :string;
+    timezone? : string
+  } | null>(null);
 
   // 1. Fetch Tasks on Load
   useEffect(() => {
@@ -71,6 +76,29 @@ export default function TasksPage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+  const fetchLocation = async () => {
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      const data = await res.json();
+
+      const location = {
+        country: data.country_name,
+        city: data.city,
+        timezone: data.timezone,
+      };
+
+      setUserLocation(location);
+      console.log("Resolved user location:", location);
+    } catch (error) {
+      console.warn("Location fetch failed", error);
+    }
+  };
+
+  fetchLocation();
+}, []);
+
 
   const fetchTasks = async () => {
     if (!user) return;
@@ -155,7 +183,8 @@ export default function TasksPage() {
                     name: user.fullName || user.email,
                     role: user.role,
                     task_id: activeTask.id,
-                    task_title: activeTask.title
+                    task_title: activeTask.title,
+                    location: userLocation
                 },
                 chat_history: chat_history,
                 greeted_today: greeted_today
@@ -219,7 +248,8 @@ export default function TasksPage() {
           userId: user.id,
           taskTitle: activeTask.title,
           taskContent: activeTask.brief_content,
-          userContext: "I'm stuck on this task."
+          userContext: "I'm stuck on this task.",
+          location: userLocation,
         })
       });
 
@@ -309,7 +339,8 @@ export default function TasksPage() {
           chatHistory: messages.map(m => ({
             role: m.role,
             content: m.content
-          }))
+          })),
+          location: userLocation
         })
       });
 
