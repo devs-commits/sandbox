@@ -8,6 +8,10 @@ export async function POST(request: Request) {
     const { email, password, fullName, role, country, experienceLevel, track } = body;
 
     // Server-side validation
+    if (role === 'admin') {
+      return NextResponse.json({ success: false, error: "Admin accounts cannot be created via signup" }, { status: 403 });
+    }
+
     if (role === 'student' && (!track || !experienceLevel)) {
       return NextResponse.json({ success: false, error: "Track and experience level are required for students" }, { status: 400 });
     }
