@@ -66,7 +66,7 @@ const StatCard = ({
                 a 15.9155 15.9155 0 0 1 0 31.831
                 a 15.9155 15.9155 0 0 1 0 -31.831"
               fill="none"
-              stroke="hsl(var(--muted))"
+              stroke="white"
               strokeWidth="3"
             />
             <path
@@ -103,7 +103,7 @@ const StatCard = ({
   };
 
   return (
-    <Card className="bg-[#0F2137] border-border/30">
+    <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
       <CardContent className="p-5">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
           {title}
