@@ -20,11 +20,6 @@ import {
 } from "../../components/ui/table";
 import { Button } from "../../components/ui/button";
 import { Search, Users, Eye } from "lucide-react";
-
-interface UserBaseProps {
-  onMenuClick: () => void;
-}
-
 // Mock data
 const studentsData = [
   { name: "John Snow", email: "johnsnow@gmail.com", course: "Digital Marketing", expiration: "28 days left", phone: "+234 012345678" },
@@ -56,7 +51,7 @@ const enterpriseData = [
   { company: "Dangote Group", plan: "Yearly", status: "Active", expiresOn: "Dec 31, 2025", daysLeft: "280 days" },
 ];
 
-export default function UserBase({ onMenuClick }: UserBaseProps) {
+export default function UserBase() {
   const [activeTab, setActiveTab] = useState("students");
   const [search, setSearch] = useState("");
   const [rowsToShow, setRowsToShow] = useState("6");
@@ -157,7 +152,7 @@ export default function UserBase({ onMenuClick }: UserBaseProps) {
 
   return (
     <>
-      <Header title="User Base" onMenuClick={onMenuClick} />
+      <AdminHeader title="User Base" subtitle="Monitor user activities and track performance across all cohorts"/>
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         <p className="text-muted-foreground mb-6">
           Monitor user activity, and track performance across all cohorts.
