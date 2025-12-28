@@ -309,7 +309,7 @@ export default function UserBase() {
             <div className="rounded-lg overflow-hidden border border-border/30">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-primary/20 hover:bg-primary/20">
+                  <TableRow className="bg-[hsla(273,96%,64%,0.3)] hover:bg-[hsla(273,96%,64%,0.3)]/20">
                     <TableHead className="text-foreground font-semibold">Company Name</TableHead>
                     <TableHead className="text-foreground font-semibold hidden md:table-cell">Subscription Plan</TableHead>
                     <TableHead className="text-foreground font-semibold">Subscription Status</TableHead>
