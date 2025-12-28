@@ -1,6 +1,6 @@
 "use client";
 import {AdminHeader} from "../../components/admin/AdminHeader";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import { Input } from "../../components/ui/input";
 import {
@@ -15,29 +15,8 @@ import { Search, Users, Eye } from "lucide-react";
 import StudentTab from "../../components/admin/userbase/StudentTab";
 import RecruiterTab from "@/app/components/admin/userbase/RecruiterTab";
 import EnterpriseTab from "@/app/components/admin/userbase/EnterpriseTab";
-// Mock data
-const studentsData = [
-  { name: "John Snow", email: "johnsnow@gmail.com", course: "Digital Marketing", expiration: "28 days left", phone: "+234 012345678" },
-  { name: "Ade Odunola", email: "adeodunola@gmail.com", course: "Web Dev", expiration: "28 days left", phone: "+234 012345678" },
-  { name: "Mary Johnson", email: "mary.j@gmail.com", course: "Product Design", expiration: "6 days left", phone: "+234 012345678" },
-  { name: "David Chen", email: "david.chen@gmail.com", course: "Backend Dev", expiration: "6 days left", phone: "+234 012345678" },
-  { name: "Sarah Williams", email: "sarah.w@gmail.com", course: "Digital Marketing", expiration: "12 days left", phone: "+234 012345678" },
-  { name: "Mike Brown", email: "mike.b@gmail.com", course: "Data Analytics", expiration: "12 days left", phone: "+234 012345678" },
-  { name: "Emma Davis", email: "emma.d@gmail.com", course: "Product Design", expiration: "22 days left", phone: "+234 012345678" },
-  { name: "James Wilson", email: "james.w@gmail.com", course: "Product Design", expiration: "22 days left", phone: "+234 012345678" },
-];
 
-const recruitersData = [
-  { name: "John Snow", email: "johnsnow@gmail.com", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
-  { name: "Ade Odunola", email: "adeodunola@gmail.com", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
-  { name: "Linda Parker", email: "linda.p@gmail.com", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
-  { name: "Chris Martin", email: "chris.m@gmail.com", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
-  { name: "Robert Lee", email: "robert.l@gmail.com", status: "Expired", expiresOn: "Apr 30, 2025", daysLeft: "0 days" },
-  { name: "Nancy Taylor", email: "nancy.t@gmail.com", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "64 days" },
-  { name: "Kevin Adams", email: "kevin.a@gmail.com", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "64 days" },
-  { name: "Grace Thompson", email: "grace.t@gmail.com", status: "Expired", expiresOn: "Apr 30, 2025", daysLeft: "0 days" },
-];
-
+// Mock data for Enterprise (as requested)
 const enterpriseData = [
   { company: "Wild Fusion", plan: "Monthly", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
   { company: "Access Bank", plan: "Yearly", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
@@ -53,18 +32,73 @@ export default function UserBase() {
   const [filterBy, setFilterBy] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [students, setStudents] = useState<any[]>([]);
+  const [recruiters, setRecruiters] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch Students
+        const studentsRes = await fetch('/api/admin/users?type=student');
+        const studentsJson = await studentsRes.json();
+        if (studentsJson.success) {
+            const mappedStudents = studentsJson.data.map((s: any) => ({
+                name: s.full_name || "Unknown",
+                email: s.email,
+                course: s.track || "N/A",
+                expiration: "N/A", 
+                phone: s.phone_number || "N/A"
+            }));
+            setStudents(mappedStudents);
+        }
+
+        // Fetch Recruiters
+        const recruitersRes = await fetch('/api/admin/users?type=recruiter');
+        const recruitersJson = await recruitersRes.json();
+        if (recruitersJson.success) {
+             const mappedRecruiters = recruitersJson.data.map((r: any) => {
+                let daysLeft = "N/A";
+                if (r.subscription_expires_at) {
+                    const diffTime = new Date(r.subscription_expires_at).getTime() - new Date().getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    daysLeft = diffDays > 0 ? `${diffDays} days` : "0 days";
+                }
+
+                return {
+                    name: r.full_name || r.company_name || "Unknown",
+                    email: r.email,
+                    status: r.subscription_status || "Active",
+                    expiresOn: r.subscription_expires_at ? new Date(r.subscription_expires_at).toLocaleDateString() : "N/A",
+                    daysLeft: daysLeft
+                };
+            });
+            setRecruiters(mappedRecruiters);
+        }
+
+      } catch (error) {
+        console.error("Failed to fetch users", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   // Get filtered data based on active tab, search, and filter
   const filteredData = useMemo(() => {
     let data: any[] = [];
     
     if (activeTab === "students") {
-      data = studentsData.filter((student) =>
+      data = students.filter((student) =>
         student.name.toLowerCase().includes(search.toLowerCase()) ||
         student.email.toLowerCase().includes(search.toLowerCase()) ||
         student.course.toLowerCase().includes(search.toLowerCase())
       );
     } else if (activeTab === "recruiters") {
-      data = recruitersData.filter((recruiter) => {
+      data = recruiters.filter((recruiter) => {
         const matchesSearch =
           recruiter.name.toLowerCase().includes(search.toLowerCase()) ||
           recruiter.email.toLowerCase().includes(search.toLowerCase());
@@ -84,7 +118,7 @@ export default function UserBase() {
     }
     
     return data;
-  }, [activeTab, search, filterBy]);
+  }, [activeTab, search, filterBy, students, recruiters]);
 
   const itemsPerPage = parseInt(rowsToShow);
   const totalItems = filteredData.length;
@@ -219,11 +253,17 @@ export default function UserBase() {
             )}
           </div>
 
-          <StudentTab paginatedData={paginatedData} />
-
-          <RecruiterTab paginatedData={paginatedData} />
-
-          <EnterpriseTab paginatedData={paginatedData} />
+          {loading ? (
+             <div className="flex justify-center items-center h-64">
+                <p className="text-muted-foreground">Loading users...</p>
+             </div>
+          ) : (
+            <>
+                <StudentTab paginatedData={paginatedData} />
+                <RecruiterTab paginatedData={paginatedData} />
+                <EnterpriseTab paginatedData={paginatedData} />
+            </>
+          )}
           {/* Pagination */}
           <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
             <p className="text-sm text-muted-foreground">
