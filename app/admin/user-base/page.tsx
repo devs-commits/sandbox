@@ -154,10 +154,6 @@ export default function UserBase() {
     <>
       <AdminHeader title="User Base" subtitle="Monitor user activities and track performance across all cohorts"/>
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-        <p className="text-muted-foreground mb-6">
-          Monitor user activity, and track performance across all cohorts.
-        </p>
-
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full grid grid-cols-3 bg-[#0F2137] border border-border/30 h-12 mb-6">
             <TabsTrigger
