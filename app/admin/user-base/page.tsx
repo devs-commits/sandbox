@@ -10,16 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table";
 import { Button } from "../../components/ui/button";
 import { Search, Users, Eye } from "lucide-react";
+import StudentTab from "../../components/admin/userbase/StudentTab";
+import RecruiterTab from "@/app/components/admin/userbase/RecruiterTab";
+import EnterpriseTab from "@/app/components/admin/userbase/EnterpriseTab";
 // Mock data
 const studentsData = [
   { name: "John Snow", email: "johnsnow@gmail.com", course: "Digital Marketing", expiration: "28 days left", phone: "+234 012345678" },
@@ -158,21 +153,21 @@ export default function UserBase() {
           <TabsList className="w-full grid grid-cols-3 bg-[#0F2137] border border-border/30 h-12 mb-6">
             <TabsTrigger
               value="students"
-              className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="gap-2 data-[state=active]:bg-foreground/30 data-[state=active]:text-primary-foreground"
             >
               <Users className="h-4 w-4" />
               Students
             </TabsTrigger>
             <TabsTrigger
               value="recruiters"
-              className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="gap-2 data-[state=active]:bg-foreground/30 data-[state=active]:text-primary-foreground"
             >
               <Users className="h-4 w-4" />
               Recruiters
             </TabsTrigger>
             <TabsTrigger
               value="enterprise"
-              className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="gap-2 data-[state=active]:bg-foreground/30 data-[state=active]:text-primary-foreground"
             >
               <Users className="h-4 w-4" />
               Enterprise
@@ -224,125 +219,11 @@ export default function UserBase() {
             )}
           </div>
 
-          {/* Students Tab */}
-          <TabsContent value="students" className="mt-0">
-            <div className="rounded-lg overflow-hidden border border-border/30">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[hsla(273,96%,64%,0.3)] hover:bg-[hsla(273,96%,64%,0.3)]/20">
-                    <TableHead className="text-foreground font-semibold">Name</TableHead>
-                    <TableHead className="text-foreground font-semibold">Email</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden md:table-cell">Course</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden lg:table-cell">Subscription Expiration</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden lg:table-cell">Phone Number</TableHead>
-                    <TableHead className="text-foreground font-semibold">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedData.map((student: any, index) => (
-                    <TableRow key={index} className="border-border/30">
-                      <TableCell className="text-foreground">{student.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{student.email}</TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell">{student.course}</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">{student.expiration}</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">{student.phone}</TableCell>
-                      <TableCell>
-                        <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
+          <StudentTab paginatedData={paginatedData} />
 
-          {/* Recruiters Tab */}
-          <TabsContent value="recruiters" className="mt-0">
-            <div className="rounded-lg overflow-hidden border border-border/30">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[hsla(273,96%,64%,0.3)] hover:bg-[hsla(273,96%,64%,0.3)]/20">
-                    <TableHead className="text-foreground font-semibold">Recruiters Name</TableHead>
-                    <TableHead className="text-foreground font-semibold">Email</TableHead>
-                    <TableHead className="text-foreground font-semibold">Subscription Status</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden md:table-cell">Expires On</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden lg:table-cell">Days Left</TableHead>
-                    <TableHead className="text-foreground font-semibold">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedData.map((recruiter: any, index) => (
-                    <TableRow key={index} className="border-border/30">
-                      <TableCell className="text-foreground">{recruiter.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{recruiter.email}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`${
-                            recruiter.status === "Active"
-                              ? "text-emerald-400"
-                              : "text-red-400"
-                          }`}
-                        >
-                          {recruiter.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell">{recruiter.expiresOn}</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">{recruiter.daysLeft}</TableCell>
-                      <TableCell>
-                        <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
+          <RecruiterTab paginatedData={paginatedData} />
 
-          {/* Enterprise Tab */}
-          <TabsContent value="enterprise" className="mt-0">
-            <div className="rounded-lg overflow-hidden border border-border/30">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[hsla(273,96%,64%,0.3)] hover:bg-[hsla(273,96%,64%,0.3)]/20">
-                    <TableHead className="text-foreground font-semibold">Company Name</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden md:table-cell">Subscription Plan</TableHead>
-                    <TableHead className="text-foreground font-semibold">Subscription Status</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden md:table-cell">Expires On</TableHead>
-                    <TableHead className="text-foreground font-semibold hidden lg:table-cell">Days Left</TableHead>
-                    <TableHead className="text-foreground font-semibold">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedData.map((enterprise: any, index) => (
-                    <TableRow key={index} className="border-border/30">
-                      <TableCell className="text-foreground">{enterprise.company}</TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell">{enterprise.plan}</TableCell>
-                      <TableCell>
-                        <span className={enterprise.status === "Active" ? "text-emerald-400" : "text-red-400"}>
-                          {enterprise.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell">{enterprise.expiresOn}</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">{enterprise.daysLeft}</TableCell>
-                      <TableCell>
-                        <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-
+          <EnterpriseTab paginatedData={paginatedData} />
           {/* Pagination */}
           <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
             <p className="text-sm text-muted-foreground">
