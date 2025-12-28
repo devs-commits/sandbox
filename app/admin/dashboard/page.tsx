@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Share2, Eye, AlertCircle } from "lucide-react";
+import { Share2,AlertCircle } from "lucide-react";
 
 const activityItems = [
   {
@@ -54,7 +54,7 @@ const StatCard = ({
   value: string;
   change: string;
   changeType: "positive" | "negative";
-  chartType: "bar-green" | "bar-purple" | "donut";
+  chartType: "bar-green" | "bar-purple" | "bar-blue" | "donut";
 }) => {
   const renderChart = () => {
     if (chartType === "donut") {
@@ -86,7 +86,7 @@ const StatCard = ({
       );
     }
 
-    const barColor = chartType === "bar-green" ? "bg-emerald-500" : "bg-purple-500";
+    const barColor = chartType === "bar-green" ? "bg-[hsla(151,74%,46%,1)]" : chartType === "bar-blue" ? "bg-[hsla(189,96%,44%,1)]": "bg-[hsla(275,96%,52%,1)]";
     const bars = [40, 60, 45, 80, 55, 70, 90];
 
     return (
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
             value="2430"
             change="+120"
             changeType="positive"
-            chartType="bar-green"
+            chartType="bar-blue"
           />
           <StatCard
             title="Churn Rate"
