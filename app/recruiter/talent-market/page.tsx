@@ -44,11 +44,7 @@ interface Candidate {
 
 type FilterOption = "score-high" | "score-low" | "recent" | "tasks" | null;
 
-interface TalentMarketsProps {
-  onOpenSidebar: () => void;
-}
-
-export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
+export default function TalentMarkets() {
   const { user } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -382,13 +378,6 @@ export default function TalentMarkets({ onOpenSidebar }: TalentMarketsProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Menu Button */}
-      <button
-        onClick={onOpenSidebar}
-        className="lg:hidden mb-4 p-2 text-foreground"
-      >
-        <Menu className="w-6 h-6" />
-      </button>
       <RecruiterHeader title="Talent Directory" subtitle="Search and filter 3+ verified candidates"/>
 
       {/* Wallet, Search, Filter Row */}
