@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect} from "react";
 import { Button } from "../ui/button";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,35 @@ interface TaskGeneratorProps {
 }
 
 export const TaskGenerator = ({ onTasksGenerated }: TaskGeneratorProps) => {
+
+  const [location, setUserLocation] = useState<{
+    country?: string;
+    city?: string;
+    country_code?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+  
+        const location = {
+          country: data.country_name,
+          city: data.city,
+          country_code: data.country_code,
+        };
+  
+        setUserLocation(location);
+        console.log("Resolved user location:", location);
+      } catch (error) {
+        console.warn("Location fetch failed", error);
+      }
+    };
+  
+    fetchLocation();
+  }, []);
+
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -27,7 +56,8 @@ export const TaskGenerator = ({ onTasksGenerated }: TaskGeneratorProps) => {
         body: JSON.stringify({
           userId: user.id,
           track: user.track,
-          experienceLevel: user.experienceLevel
+          experienceLevel: user.experienceLevel,
+          location: location
         }),
       });
 

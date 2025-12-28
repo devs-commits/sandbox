@@ -22,14 +22,19 @@ interface TaskDefinition {
     instruction: string;
     duration: string;
   };
+  location?: {
+    city?: string;
+    country?: string;
+    country_code?: string;
+  };
 }
 
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, track, experienceLevel } = body;
-    console.log("Generating tasks for user:", userId, "track:", track, "experienceLevel:", experienceLevel);
+    const { userId, track, experienceLevel, location } = body;
+    console.log("Generating tasks for user:", userId, "track:", track, "experienceLevel:", experienceLevel, "location:", location);
 
     if (!userId || !track) {
       return NextResponse.json(
@@ -90,7 +95,10 @@ export async function POST(request: Request) {
             track,
             experience_level: experienceLevel,
             task_number: taskNumber,
-            previous_task_performance: previousPerformance
+            previous_task_performance: previousPerformance,
+            user_city: location?.city,
+            user_country: location?.country,
+            user_country_code: location?.country_code
         })
     });
 
