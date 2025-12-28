@@ -129,11 +129,8 @@ const StatCard = ({
 export default function AdminDashboard() {
   return (
     <>
-      <AdminHeader title="Admin Dashboard" />
+      <AdminHeader title="Admin Dashboard" subtitle="System-wide performance monitoring" />
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-        <p className="text-muted-foreground mb-6">
-          System-wide performance monitoring.
-        </p>
 
         {/* Overview Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
