@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     // 1. Fetch Transactions (Revenue & Unlocks)
     const { data: transactions, error: txError } = await supabase
       .from('recruiter_transactions')
-      .select('amount, created_at, type')
+      .select('amount, created_at, type, recruiter_id')
       .gte('created_at', startDateIso)
       .order('created_at', { ascending: false });
 
