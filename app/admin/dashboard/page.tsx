@@ -10,10 +10,6 @@ import {
 } from "../../components/ui/select";
 import { Share2, Eye, AlertCircle } from "lucide-react";
 
-interface AdminDashboardProps {
-  onMenuClick: () => void;
-}
-
 const activityItems = [
   {
     type: "unlock",
@@ -130,7 +126,7 @@ const StatCard = ({
   );
 };
 
-export default function AdminDashboard({}: AdminDashboardProps) {
+export default function AdminDashboard() {
   return (
     <>
       <AdminHeader title="Admin Dashboard" />
