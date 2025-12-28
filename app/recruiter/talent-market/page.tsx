@@ -378,7 +378,6 @@ export default function TalentMarkets() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Menu Button */}
       <RecruiterHeader title="Talent Directory" subtitle="Search and filter 3+ verified candidates"/>
 
       {/* Wallet, Search, Filter Row */}
