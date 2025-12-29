@@ -263,7 +263,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
             </Button>
             <Button
               onClick={() => handleSubmit(true)}
-              className="px-6 bg-primary hover:bg-primary/90"
+              className="px-6 bg-primary hover:bg-primary/90 text-foreground"
             >
               Save and Publish
             </Button>
