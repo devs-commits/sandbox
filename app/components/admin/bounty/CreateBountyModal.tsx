@@ -108,7 +108,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                 placeholder="e.g Kuda App Testing"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="bg-[#0A1628] border-border/30"
+                className="bg-[#0A1628] border border-foreground/30"
               />
             </div>
 
@@ -116,7 +116,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">Target Audience</label>
                 <Select value={formData.audience} onValueChange={(v) => setFormData({ ...formData, audience: v })}>
-                  <SelectTrigger className="bg-[#0A1628] border-border/30">
+                  <SelectTrigger className="bg-[#0A1628] border border-foreground/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -129,7 +129,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">Category</label>
                 <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                  <SelectTrigger className="bg-[#0A1628] border-border/30">
+                  <SelectTrigger className="bg-[#0A1628] border border-foreground/30">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -147,7 +147,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                 placeholder="Describe the task clearly..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="bg-[#0A1628] border-border/30 min-h-[80px]"
+                className="bg-[#0A1628] border border-foreground/30 min-h-[80px]"
               />
             </div>
           </div>
@@ -161,7 +161,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                 placeholder="Step-by-step instructions..."
                 value={formData.instructions}
                 onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-                className="bg-[#0A1628] border-border/30 min-h-[80px]"
+                className="bg-[#0A1628] border border-foreground/30 min-h-[80px]"
               />
             </div>
 
@@ -171,7 +171,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                 placeholder="PDF report, screenshots, video, etc."
                 value={formData.deliverables}
                 onChange={(e) => setFormData({ ...formData, deliverables: e.target.value })}
-                className="bg-[#0A1628] border-border/30"
+                className="bg-[#0A1628] border border-foreground/30"
               />
             </div>
 
@@ -199,7 +199,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">Estimated Time to Complete</label>
                 <Select value={formData.estimatedTime} onValueChange={(v) => setFormData({ ...formData, estimatedTime: v })}>
-                  <SelectTrigger className="bg-[#0A1628] border-border/30">
+                  <SelectTrigger className="bg-[#0A1628] border border-foreground/30">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -215,7 +215,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                   placeholder="e.g 34"
                   value={formData.availableSlots}
                   onChange={(e) => setFormData({ ...formData, availableSlots: e.target.value })}
-                  className="bg-[#0A1628] border-border/30"
+                  className="bg-[#0A1628] border border-foreground/30"
                 />
               </div>
             </div>
@@ -240,7 +240,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                 placeholder="e.g Kuda App Testing"
                 value={formData.reward}
                 onChange={(e) => setFormData({ ...formData, reward: e.target.value })}
-                className="bg-[#0A1628] border-border/30"
+                className="bg-[#0A1628] border border-foreground/30"
               />
             </div>
           </div>
