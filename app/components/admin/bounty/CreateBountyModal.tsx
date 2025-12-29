@@ -40,13 +40,9 @@ export interface BountyFormData {
 }
 
 const categories = [
-  "QA Testing",
+  "Cybersecurity",
   "Digital Marketing",
   "Data Analytics",
-  "Content Creation",
-  "Lead Generation",
-  "Voice Recording",
-  "Copy Review",
 ];
 
 const submissionFormatOptions = ["PDF", "DOCX", "ZIP", "Image", "Link"];
@@ -102,10 +98,9 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
             Create New Bounty
           </DialogTitle>
         </DialogHeader>
-
         <div className="space-y-6 mt-4">
-        <h3 className="text-sm font-medium text-muted-foreground">Bounty Details</h3>
           {/* Bounty Details Section */}
+          <h3 className="text-sm font-medium text-foreground">Bounty Details</h3>
           <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Bounty Title</label>
@@ -158,9 +153,8 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
           </div>
 
           {/* Instructions & Deliverables Section */}
+          <h3 className="text-sm font-medium text-foreground">Instructions & Deliverables</h3>
           <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Instructions & Deliverables</h3>
-            
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Task Instructions</label>
               <Textarea
@@ -199,9 +193,8 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
           </div>
 
           {/* Timeline, Rules & Reward Settings Section */}
+          <h3 className="text-sm font-medium text-foreground">Timeline, Rules & Reward Settings</h3>
           <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Timeline, Rules & Reward Settings</h3>
-            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">Estimated Time to Complete</label>
