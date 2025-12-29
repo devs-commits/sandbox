@@ -48,8 +48,7 @@ export default function UserBase() {
                 name: s.full_name || "Unknown",
                 email: s.email,
                 course: s.track || "N/A",
-                expiration: "N/A", 
-                phone: s.phone_number || "N/A"
+                expiration: "N/A",
             }));
             setStudents(mappedStudents);
         }
@@ -210,7 +209,7 @@ export default function UserBase() {
 
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="md:col-span-1">
+            <div className={activeTab === "students" ? "md:col-span-2" : "md:col-span-1"}>
               <p className="text-sm text-muted-foreground mb-2">Search</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
