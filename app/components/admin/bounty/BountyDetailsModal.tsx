@@ -60,7 +60,7 @@ export function BountyDetailsModal({ open, onOpenChange, bounty }: BountyDetails
 
         <div className="space-y-6 mt-4">
           {/* Bounty Overview Section */}
-          <div className="bg-[#0F2137] rounded-lg p-4">
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-4">Bounty Overview</h3>
             
             <div className="space-y-3">
@@ -110,7 +110,7 @@ export function BountyDetailsModal({ open, onOpenChange, bounty }: BountyDetails
             <div className="rounded-lg overflow-hidden border border-border/30">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-primary/20 hover:bg-primary/20">
+                  <TableRow className="bg-[hsla(273,96%,64%,0.3)] hover:bg-[hsla(273,96%,64%,0.3)]/20">
                     <TableHead className="text-foreground font-semibold">Name</TableHead>
                     <TableHead className="text-foreground font-semibold">Role</TableHead>
                     <TableHead className="text-foreground font-semibold">Score</TableHead>
