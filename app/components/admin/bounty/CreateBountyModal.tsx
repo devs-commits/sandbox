@@ -255,6 +255,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
               Save and Unpublish
             </Button>
             <Button
+              variant="outline"
               onClick={() => handleSubmit(true)}
               className="px-6 bg-primary hover:bg-primary/90 text-foreground"
             >
