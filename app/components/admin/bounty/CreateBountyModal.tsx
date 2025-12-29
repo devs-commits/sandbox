@@ -101,19 +101,12 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
           <DialogTitle className="text-xl font-semibold text-foreground">
             Create New Bounty
           </DialogTitle>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
+        <h3 className="text-sm font-medium text-muted-foreground">Bounty Details</h3>
           {/* Bounty Details Section */}
-          <div className="bg-[#0F2137] rounded-lg p-4 space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Bounty Details</h3>
-            
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Bounty Title</label>
               <Input
@@ -165,7 +158,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
           </div>
 
           {/* Instructions & Deliverables Section */}
-          <div className="bg-[#0F2137] rounded-lg p-4 space-y-4">
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground">Instructions & Deliverables</h3>
             
             <div>
@@ -206,7 +199,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
           </div>
 
           {/* Timeline, Rules & Reward Settings Section */}
-          <div className="bg-[#0F2137] rounded-lg p-4 space-y-4">
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground">Timeline, Rules & Reward Settings</h3>
             
             <div className="grid grid-cols-2 gap-4">
