@@ -50,12 +50,6 @@ export function BountyDetailsModal({ open, onOpenChange, bounty }: BountyDetails
           <DialogTitle className="text-xl font-semibold text-foreground">
             Bounty Detail
           </DialogTitle>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
