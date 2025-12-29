@@ -275,14 +275,14 @@ export default function BountyManagement({ onMenuClick }: BountyManagementProps)
                 placeholder="Search by title, amount"
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10 bg-[#0F2137] border-border/30"
+                className="pl-10 bg-[hsla(216,36%,18%,1)] border-border/30"
               />
             </div>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-2">Filter by</p>
             <Select value={filterBy} onValueChange={handleFilterChange}>
-              <SelectTrigger className="bg-[#0F2137] border-border/30">
+              <SelectTrigger className="bg-[hsla(216,36%,18%,1)] border-border/30">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
