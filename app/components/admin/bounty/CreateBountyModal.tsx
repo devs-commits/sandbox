@@ -92,7 +92,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-[#0A1628] border-border/30">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-[#0A1628]">
         <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-foreground">
             Create New Bounty
@@ -101,7 +101,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
         <div className="space-y-6 mt-4">
           {/* Bounty Details Section */}
           <h3 className="text-sm font-medium text-foreground">Bounty Details</h3>
-          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4 border border-foreground/30">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Bounty Title</label>
               <Input
@@ -154,7 +154,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
 
           {/* Instructions & Deliverables Section */}
           <h3 className="text-sm font-medium text-foreground">Instructions & Deliverables</h3>
-          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4 border border-foreground/30">
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Task Instructions</label>
               <Textarea
@@ -194,7 +194,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
 
           {/* Timeline, Rules & Reward Settings Section */}
           <h3 className="text-sm font-medium text-foreground">Timeline, Rules & Reward Settings</h3>
-          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4">
+          <div className="bg-[hsla(216,36%,18%,1)] rounded-lg p-4 space-y-4 border border-foreground/30">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground mb-1 block">Estimated Time to Complete</label>
