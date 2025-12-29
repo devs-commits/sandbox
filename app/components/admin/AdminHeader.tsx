@@ -23,7 +23,7 @@ export const AdminHeader = ({ title, subtitle}: AdminHeaderProps) => {
       {/* Left side - Title */}
       <div className="lg:ml-0 ml-12">
         <h1 className="text-xl lg:text-2xl font-bold text-foreground">{title}</h1>
-        <p className="text-sm font-medium text-foreground">{subtitle}</p>
+        <p className="text-sm font-medium text-muted-foreground">{subtitle}</p>
       </div>
 
       {/* Right side - User info */}
