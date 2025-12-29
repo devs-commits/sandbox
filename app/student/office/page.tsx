@@ -142,6 +142,13 @@ export default function TasksPage() {
   const sendMessage = async (text: string) => {
     if (!text.trim() || !user || !activeTask) return;
     
+    // Check message limit
+    const messageCount = messages.filter(m => m.role === 'user' && m.content !== "Please give me a hint.").length;
+    if (messageCount >= 5) {
+        toast.error("You have reached the limit of 5 messages to the AI for this task.");
+        return;
+    }
+
     const userMsg: Message = {
         user_id: user.id,
         task_id: activeTask.id,
@@ -224,6 +231,13 @@ export default function TasksPage() {
 
   const handleGetHint = async () => {
     if (!activeTask || !user) return;
+
+    // Check hint limit
+    const hintCount = messages.filter(m => m.role === 'user' && m.content === "Please give me a hint.").length;
+    if (hintCount >= 3) {
+        toast.error("You have reached the limit of 3 hints for this task.");
+        return;
+    }
 
     setLoading(true);
     

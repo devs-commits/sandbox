@@ -9,6 +9,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Check hint usage count
+    const { count, error: countError } = await supabase
+      .from('chat_history')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('task_id', taskId)
+      .eq('role', 'user')
+      .eq('content', 'Please give me a hint.');
+    
+    if (countError) {
+        console.error("Error checking hint count:", countError);
+    } else if (count !== null && count > 3) {
+         return NextResponse.json({ error: 'You have reached the limit of 3 hints for this task.' }, { status: 403 });
+    }
+
     // 1. Call Python Backend for Hint
     const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
     
