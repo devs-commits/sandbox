@@ -1,3 +1,4 @@
+"use client";
 import {AdminHeader} from "../../components/admin/AdminHeader";
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "../../components/ui/card";
