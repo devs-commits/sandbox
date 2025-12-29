@@ -227,7 +227,7 @@ export default function BountyManagement({ onMenuClick }: BountyManagementProps)
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-[#0F2137] border-border/30">
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
                 <Target className="h-4 w-4" />
@@ -236,7 +236,7 @@ export default function BountyManagement({ onMenuClick }: BountyManagementProps)
               <p className="text-2xl md:text-3xl font-bold text-foreground">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card className="bg-[#0F2137] border-border/30">
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
                 <Activity className="h-4 w-4" />
@@ -245,7 +245,7 @@ export default function BountyManagement({ onMenuClick }: BountyManagementProps)
               <p className="text-2xl md:text-3xl font-bold text-primary">{stats.active}</p>
             </CardContent>
           </Card>
-          <Card className="bg-[#0F2137] border-border/30">
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
                 <CheckCircle className="h-4 w-4" />
@@ -254,7 +254,7 @@ export default function BountyManagement({ onMenuClick }: BountyManagementProps)
               <p className="text-2xl md:text-3xl font-bold text-foreground">{stats.completed}</p>
             </CardContent>
           </Card>
-          <Card className="bg-[#0F2137] border-border/30">
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
                 <XCircle className="h-4 w-4" />
