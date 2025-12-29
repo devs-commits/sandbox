@@ -183,7 +183,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                     <Checkbox
                       checked={formData.submissionFormats.includes(format)}
                       onCheckedChange={() => handleFormatToggle(format)}
-                      className="border-border/50"
+                      className="border border-muted-foreground"
                     />
                     <span className="text-sm text-foreground">{format}</span>
                   </label>
@@ -226,7 +226,7 @@ export function CreateBountyModal({ open, onOpenChange, onSave }: CreateBountyMo
                 <Checkbox
                   checked={formData.submissionWindow}
                   onCheckedChange={(checked) => setFormData({ ...formData, submissionWindow: !!checked })}
-                  className="border-border/50"
+                  className="border border-muted-foreground"
                 />
                 <span className="text-sm text-foreground">
                   Once a user clicks Start Task, they have admin selected estimated time to submit
