@@ -242,7 +242,7 @@ export default function BountyManagement({ onMenuClick }: BountyManagementProps)
                 <Activity className="h-4 w-4" />
                 <span>ACTIVE BOUNTY HUNTER</span>
               </div>
-              <p className="text-2xl md:text-3xl font-bold text-primary">{stats.active}</p>
+              <p className="text-2xl md:text-3xl font-bold text-[hsla(135,59%,49%,1)]">{stats.active}</p>
             </CardContent>
           </Card>
           <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
