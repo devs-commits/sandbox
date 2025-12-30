@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
   try {
-    const { taskId, userId, fileUrl, fileName, taskTitle, taskContent, chatHistory } = await request.json();
+    const { taskId, userId, user_id, fileUrl, fileName, taskTitle, taskContent, chatHistory } = await request.json();
 
     if (!taskId || !userId || !fileUrl) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
             taskId,
             userId,
+            user_id,
             fileUrl,
             fileName,
             taskTitle,
@@ -56,6 +57,18 @@ export async function POST(request: Request) {
 
     // 3. If task is completed, update the task status
     if (isCompleted) {
+        const { error: submissionError } = await supabase
+            .from('submissions')
+            .insert({
+                user_id: user_id,
+                task_id: taskId,
+                file_url: fileUrl,
+                ai_feedback: aiResponse,
+            });
+        if (submissionError) {
+            console.error("Error saving submission:", submissionError);
+        }
+
         const { error: updateError } = await supabase
             .from('tasks')
             .update({ completed: true })
