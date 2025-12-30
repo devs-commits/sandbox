@@ -122,12 +122,12 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[linear-gradient(90deg,hsla(215,45%,12%,1)_30%,hsla(197,70%,22%,1)_100%)] px-4">
-      <div className="w-full max-w-xl bg-white/95 rounded-2xl shadow-2xl p-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-xl rounded-2xl p-8 bg-[hsla(216,36%,18%,1)]">
         <div className="mb-6">
-          <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2 w-full bg-foreground rounded-full overflow-hidden">
             <div
-              className="h-full bg-indigo-600 transition-all duration-500"
+              className="h-full bg-primary transition-all duration-500"
               style={{ width: `${(current / questions.length) * 100}%` }}
             />
           </div>
@@ -142,7 +142,7 @@ export default function Onboarding() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.4 }}
             >
-              <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              <h2 className="text-2xl font-semibold text-foreground mb-6">
                 {questions[current].question}
               </h2>
               <div className="grid gap-4">
@@ -150,7 +150,7 @@ export default function Onboarding() {
                   <button
                     key={option.value}
                     onClick={() => handleSelect(option.value)}
-                    className="w-full px-5 py-4 rounded-xl border border-gray-200 text-left text-gray-700 font-medium hover:border-indigo-500 hover:bg-indigo-50 transition-all"
+                    className="w-full px-5 py-4 rounded-xl border border-gray-200 text-left text-foreground font-medium transition-all bg-background"
                   >
                     {option.label}
                   </button>
@@ -166,15 +166,15 @@ export default function Onboarding() {
             animate={{ opacity: 1 }}
             className="text-center"
           >
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
               You're all set 🎉
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-foreground mb-6">
               Our AI is preparing your personalized internship experience.
             </p>
             <button
               onClick={handleComplete}
-              className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors"
+              className="px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/50 transition-colors"
             >
               Go to Dashboard
             </button>
