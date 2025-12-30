@@ -122,7 +122,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[linear-gradient(90deg,hsla(215,45%,12%,1)_30%,hsla(197,70%,22%,1)_100%)] px-4">
       <div className="w-full max-w-xl bg-white/95 rounded-2xl shadow-2xl p-8">
         <div className="mb-6">
           <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
