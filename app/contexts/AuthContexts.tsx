@@ -1,9 +1,10 @@
 "use client"
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, use } from "react";
 import { supabase } from "../../lib/supabase";
 
 interface AuthUser {
   id: string;
+  user_id: number;
   fullName: string;
   email: string;
   role: "student" | "recruiter" | "admin" | "enterprise";
@@ -11,6 +12,8 @@ interface AuthUser {
   experienceLevel?: string;
   country?: string;
   referralLink?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface AuthContextType {
@@ -42,14 +45,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+
+
+
     // Check active session
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const { user_metadata } = session.user;
+          //query the user profile from your users table now to get the user_id and other info
+          const { error, data } = await supabase
+            .from('users')
+            .select('id')
+            .eq('auth_id', session.user.id)
+            .single();
+          console.log("Fetched user profile data:", data);
+          if (error) {
+            console.error("Error fetching user profile:", error);
+            setUser(null);
+            return;
+          }
+
           setUser({
             id: session.user.id,
+            user_id: data.id,
             email: session.user.email!,
             fullName: user_metadata.fullName,
             role: user_metadata.role,
@@ -57,7 +77,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             experienceLevel: user_metadata.experienceLevel,
             country: user_metadata.country,
             referralLink: user_metadata.referralLink,
+            created_at: session.user.created_at,
           });
+          console.log("User session found:", user);
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -74,6 +96,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { user_metadata } = session.user;
         setUser({
           id: session.user.id,
+          user_id: user_metadata.id,
           email: session.user.email!,
           fullName: user_metadata.fullName,
           role: user_metadata.role,
@@ -81,6 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           experienceLevel: user_metadata.experienceLevel,
           country: user_metadata.country,
           referralLink: user_metadata.referralLink,
+          created_at: session.user.created_at,
         });
       } else {
         setUser(null);
@@ -95,7 +119,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -155,15 +179,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetch('/api/auth/logout', { method: 'POST' });
     await supabase.auth.signOut(); // Also clear client side
     setUser(null);
-    localStorage.removeItem("wdc_user"); 
+    localStorage.removeItem("wdc_user");
   };
 
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // Use configured site URL or fallback to current origin
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-      console.log("Using site URL for password reset:", siteUrl); 
-      
+      console.log("Using site URL for password reset:", siteUrl);
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-password`,
       });

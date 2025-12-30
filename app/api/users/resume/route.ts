@@ -3,38 +3,41 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const { userId, tasks } = await request.json();
+    const { user_id, tasks, user_name, track, start_date, end_date, feedback } = await request.json();
 
-    if (!userId || !tasks || tasks.length === 0) {
-      return NextResponse.json({ 
-        resume: "Complete some tasks to generate your AI resume! Once you've finished a few simulations, I'll be able to write a professional summary of your experience." 
-      });
-    }
 
     // 1. Call Python Backend for Resume Generation
     const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-    
-    const backendResponse = await fetch(`${BACKEND_URL}/generate-resume`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            userId,
-            tasks
-        })
+
+    const backendResponse = await fetch(`${BACKEND_URL}/generate-cv`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id,
+        user_name,
+        track,
+        start_date,
+        end_date,
+        feedback: Object.entries(feedback || {}).map(([taskId, text]) => ({
+          task_id: Number(taskId),
+          feedback: text
+        })),
+        tasks
+      })
     });
 
+
     if (!backendResponse.ok) {
-        // Fallback if backend fails or endpoint doesn't exist yet
-        console.warn("Backend resume generation failed, using fallback.");
-        return NextResponse.json({ 
-            resume: generateFallbackResume(tasks)
-        });
+      const errorText = await backendResponse.text();
+      console.error("Backend Error:", errorText);
+      throw new Error(`Backend failed with status ${backendResponse.status}: ${errorText}`);
     }
 
     const data = await backendResponse.json();
-    return NextResponse.json({ resume: data.resume });
+    console.log("Resume API Response:", data);
+    return NextResponse.json({ resume: data.cv_content });
 
   } catch (error: any) {
     console.error("Resume API Error:", error);
@@ -43,6 +46,6 @@ export async function POST(request: Request) {
 }
 
 function generateFallbackResume(tasks: any[]) {
-    const tracks = [...new Set(tasks.map((t: any) => t.task_track))].join(", ");
-    return `**Professional Summary**\n\nDedicated and practical learner with hands-on experience in ${tracks}. Successfully completed ${tasks.length} industry-simulated tasks, demonstrating ability to solve real-world problems.\n\n**Key Projects**\n${tasks.map((t: any) => `- ${t.title}: ${t.brief_content}`).join('\n')}`;
+  const tracks = [...new Set(tasks.map((t: any) => t.task_track))].join(", ");
+  return `**Professional Summary**\n\nDedicated and practical learner with hands-on experience in ${tracks}. Successfully completed ${tasks.length} industry-simulated tasks, demonstrating ability to solve real-world problems.\n\n**Key Projects**\n${tasks.map((t: any) => `- ${t.title}: ${t.brief_content}`).join('\n')}`;
 }

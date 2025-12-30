@@ -346,6 +346,7 @@ export default function TasksPage() {
         body: JSON.stringify({
           taskId: activeTask.id,
           userId: user.id,
+          user_id: user.user_id,
           fileUrl: publicUrl,
           fileName: file.name,
           taskTitle: activeTask.title,
