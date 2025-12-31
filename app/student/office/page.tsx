@@ -479,7 +479,7 @@ export default function TasksPage() {
           <div className="rounded-xl border border-white/10 bg-white/5 p-6">
             <div className="mb-4 pb-4 border-b border-white/10">
                 <p className="text-sm font-semibold text-cyan-400">
-                    {activeTask.ai_persona_config?.role || "Mentor"}
+                    {"Miss Emem"}
                 </p>
                 <p className="mt-1 text-xs opacity-60">
                     {activeTask.ai_persona_config?.instruction || "Here to help you complete this task."}
