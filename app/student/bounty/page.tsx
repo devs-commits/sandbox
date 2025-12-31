@@ -150,7 +150,7 @@ function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
 
             <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow-500/30 rounded-lg p-4">
               <p className="text-[hsla(47,62%,50%,1)] text-sm">
-                Note: You have click on stat task to claim your slot and once you click Start Task, the 24-hour countdown begins. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {bounty.slotsLeft} slots left, and slots reduce in real time.
+                Note: You have click on start task to claim your slot and once you click Start Task, the 24-hour countdown begins. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {bounty.slotsLeft} slots left, and slots reduce in real time.
               </p>
             </div>
 

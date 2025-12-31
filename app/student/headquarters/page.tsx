@@ -201,7 +201,7 @@ export default function page() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground/70">VISA LETTER OF REFERENCE</p>
-                  <p className="text-xs text-orange-400">Available after 12 weeks</p>
+                  <p className="text-xs text-orange-400">Available after 24 weeks</p>
                 </div>
               </div>
               <Button 

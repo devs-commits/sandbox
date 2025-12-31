@@ -1,7 +1,7 @@
 "use client";
 import {AdminHeader} from "../../components/admin/AdminHeader";
 import { useState, useMemo, useEffect } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger} from "../../components/ui/tabs";
 import { Input } from "../../components/ui/input";
 import {
   Select,
@@ -16,7 +16,7 @@ import StudentTab from "../../components/admin/userbase/StudentTab";
 import RecruiterTab from "@/app/components/admin/userbase/RecruiterTab";
 import EnterpriseTab from "@/app/components/admin/userbase/EnterpriseTab";
 
-// Mock data for Enterprise (as requested)
+// Mock data for Enterprise 
 const enterpriseData = [
   { company: "Wild Fusion", plan: "Monthly", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
   { company: "Access Bank", plan: "Yearly", status: "Active", expiresOn: "Apr 30, 2025", daysLeft: "18 days" },
@@ -48,8 +48,7 @@ export default function UserBase() {
                 name: s.full_name || "Unknown",
                 email: s.email,
                 course: s.track || "N/A",
-                expiration: "N/A", 
-                phone: s.phone_number || "N/A"
+                expiration: "N/A",
             }));
             setStudents(mappedStudents);
         }
@@ -184,7 +183,7 @@ export default function UserBase() {
       <AdminHeader title="User Base" subtitle="Monitor user activities and track performance across all cohorts"/>
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="w-full grid grid-cols-3 bg-[#0F2137] border border-border/30 h-12 mb-6">
+          <TabsList className="w-full grid grid-cols-3 bg-[hsla(216,36%,18%,1)] border border-border/30 h-12 mb-6">
             <TabsTrigger
               value="students"
               className="gap-2 data-[state=active]:bg-foreground/30 data-[state=active]:text-primary-foreground"
@@ -210,7 +209,7 @@ export default function UserBase() {
 
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="md:col-span-1">
+            <div className={activeTab === "students" ? "md:col-span-2" : "md:col-span-1"}>
               <p className="text-sm text-muted-foreground mb-2">Search</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -218,14 +217,14 @@ export default function UserBase() {
                   placeholder="Search by name, email, or user ID"
                   value={search}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="pl-10 bg-[#0F2137] border-border/30"
+                  className="pl-10 bg-[hsla(216,36%,18%,1)] border-border/30"
                 />
               </div>
             </div>
             <div>
               <p className="text-sm text-muted-foreground mb-2">Show</p>
               <Select value={rowsToShow} onValueChange={handleRowsChange}>
-                <SelectTrigger className="bg-[#0F2137] border-border/30">
+                <SelectTrigger className="bg-[hsla(216,36%,18%,1)] border-border/30">
                   <SelectValue placeholder="6 rows" />
                 </SelectTrigger>
                 <SelectContent>
@@ -240,7 +239,7 @@ export default function UserBase() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Filter by</p>
                 <Select value={filterBy} onValueChange={handleFilterChange}>
-                  <SelectTrigger className="bg-[#0F2137] border-border/30">
+                  <SelectTrigger className="bg-[hsla(216,36%,18%,1)] border-border/30">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
