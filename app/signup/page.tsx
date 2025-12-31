@@ -90,7 +90,7 @@ const SignUp = () => {
 
     if (result.success) {
       toast.success("Account created successfully!");
-      router.push(role === "recruiter" ? "/recruiter/talent-market" : "/student/onboarding");
+      router.push(role === "recruiter" ? "/recruiter/talent-market" : "/onboarding");
     } else {
       setError(result.error || "Signup failed");
       toast.error(result.error || "Signup failed");
