@@ -1,3 +1,4 @@
+"use client"
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, BookOpen, ExternalLink, FolderOpen } from 'lucide-react';
