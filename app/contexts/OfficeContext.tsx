@@ -1,3 +1,4 @@
+"use client";
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from "../components/students/office/types"
 
