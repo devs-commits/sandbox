@@ -1,3 +1,4 @@
+"use client";
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Briefcase, BookOpen, User } from 'lucide-react';
