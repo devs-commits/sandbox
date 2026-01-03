@@ -1,3 +1,4 @@
+"use client";
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Coffee } from 'lucide-react';
