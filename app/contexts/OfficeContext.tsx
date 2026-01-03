@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from './types';
+import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from "../components/students/office/types"
 
 const STORAGE_KEY = 'wdc_office_state';
 
