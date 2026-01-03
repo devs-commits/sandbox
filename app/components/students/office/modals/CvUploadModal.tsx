@@ -2,9 +2,9 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, X, Loader2, User } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { Textarea } from '../../../components/ui/textarea';
-import { useOffice } from "../../../contexts/OfficeContext";
+import { Button } from '../../../ui/button';
+import { Textarea } from '../../../ui/textarea';
+import { useOffice } from "../../../../contexts/OfficeContext";
 
 interface CVUploadModalProps {
   isOpen: boolean;
