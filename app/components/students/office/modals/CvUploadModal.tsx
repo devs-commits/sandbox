@@ -132,7 +132,7 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
             </Button>
             
             <p className="text-xs text-muted-foreground text-center mt-4">
-              No formal CV? No problem. We accept everyone who is ready to work.
+              No formal CV? No problem. We accept everyone who is ready to put in the effort.
             </p>
           </motion.div>
         </motion.div>

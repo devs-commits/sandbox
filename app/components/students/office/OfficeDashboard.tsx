@@ -15,7 +15,7 @@ const TOUR_STEPS = [
   {
     target: 'desk',
     title: 'Your Desk',
-    description: "This is your Desk. If it's empty, you're not getting paid. Check here every morning.",
+    description: "This is your Desk. Check here every morning.",
   },
   {
     target: 'meeting',
@@ -254,16 +254,13 @@ export function OfficeDashboard() {
         </div>
       </nav>
 
-      {/* Tour Overlay */}
       {isTourActive && (
         <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 pointer-events-none" />
       )}
 
-      {/* Collapsible Chat - Desktop only (like LinkedIn) */}
+    
       <CollapsibleChat />
 
-
-      {/* Modals */}
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </div>
   );
