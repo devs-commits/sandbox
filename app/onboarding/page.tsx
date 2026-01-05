@@ -170,7 +170,7 @@ export default function Onboarding() {
               You're all set 🎉
             </h2>
             <p className="text-foreground mb-6">
-              Our AI is preparing your personalized internship experience.
+              Miss Emem is preparing your personalized internship experience.
             </p>
             <button
               onClick={handleComplete}
