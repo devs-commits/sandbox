@@ -1,8 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Award, TrendingUp, Clock, CheckCircle, FileText } from 'lucide-react';
+import { X, Award, TrendingUp, Clock, CheckCircle, FileText, MessageSquare } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import { Progress } from '../../../../components/ui/progress';
 import { useOffice } from '../../../../contexts/OfficeContext';
+import { useState } from 'react';
+import { MockInterviewModal } from './MockInterviewModal';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface ProfileModalProps {
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { userLevel, tasks, portfolio } = useOffice();
+  const [showMockInterview, setShowMockInterview] = useState(false);
 
   const completedTasks = tasks.filter(t => t.status === 'approved').length;
   const totalTasks = tasks.length;
@@ -134,6 +137,30 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   Next appraisal in 14 days. Improve delivery speed to advance to Associate level.
                 </p>
               </div>
+
+              {/* Career Coaching with Kemi */}
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: 'hsl(142 70% 45%)' }}>
+                    K
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">Coach Kemi</p>
+                    <p className="text-xs text-muted-foreground">Career Counsellor</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Practice interviews with Coach Kemi to prepare for real job opportunities.
+                </p>
+                <Button
+                  onClick={() => setShowMockInterview(true)}
+                  variant="outline"
+                  className="w-full border-green-500/50 text-green-500 hover:bg-green-500/10"
+                >
+                  <MessageSquare className="mr-2" size={16} />
+                  Start Mock Interview
+                </Button>
+              </div>
             </div>
 
             <div className="sticky bottom-0 bg-card border-t border-border p-4">
@@ -142,6 +169,11 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           </motion.div>
         </motion.div>
       )}
+
+      <MockInterviewModal
+        isOpen={showMockInterview}
+        onClose={() => setShowMockInterview(false)}
+      />
     </AnimatePresence>
   );
 }
