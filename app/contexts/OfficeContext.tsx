@@ -97,8 +97,20 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setChatMessages(prev => [...prev, message]);
   }, []);
 
-  const updateTaskStatus = useCallback((taskId: string, status: Task['status']) => {
+  const updateTaskStatus = useCallback(async (taskId: string, status: Task['status']) => {
+    // Update local state immediately
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
+
+    // Persist to Supabase
+    try {
+      const isCompleted = status === 'approved';
+      await supabase
+        .from('tasks')
+        .update({ completed: isCompleted })
+        .eq('id', parseInt(taskId));
+    } catch (error) {
+      console.error('Error updating task status in database:', error);
+    }
   }, []);
 
   const completeOnboarding = useCallback(() => {

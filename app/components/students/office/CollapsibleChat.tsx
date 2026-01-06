@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS, AgentName } from './types';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 export function CollapsibleChat() {
   const { chatMessages, sendMessage, phase, isExpanded, setIsExpanded } = useOffice();
@@ -32,7 +33,7 @@ export function CollapsibleChat() {
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
-    
+
     const message = input.trim();
     setInput('');
     setIsSending(true);
@@ -68,7 +69,7 @@ export function CollapsibleChat() {
             className="w-96 h-[500px] bg-card border border-border/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div 
+            <div
               className="p-4 border-b border-border/50 bg-secondary/30 flex items-center justify-between cursor-pointer"
               onClick={() => setIsExpanded(false)}
             >
@@ -94,13 +95,13 @@ export function CollapsibleChat() {
                     <MessageSquare className="text-muted-foreground" size={24} />
                   </div>
                   <p className="text-sm text-muted-foreground max-w-xs">
-                    {isDisabled 
+                    {isDisabled
                       ? 'Complete onboarding first.'
                       : 'No messages yet.'}
                   </p>
                 </div>
               )}
-              
+
               {chatMessages.map((msg) => (
                 <motion.div
                   key={msg.id}
@@ -133,11 +134,13 @@ export function CollapsibleChat() {
                         {msg.agentName}
                       </p>
                     )}
-                    <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    <div className="text-sm break-words [&>*]:text-inherit [&_strong]:font-bold [&_code]:bg-black/20 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1">
+                      <ReactMarkdown>{msg.message}</ReactMarkdown>
+                    </div>
                   </div>
                 </motion.div>
               ))}
-              
+
               {isSending && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
@@ -148,7 +151,7 @@ export function CollapsibleChat() {
                   </div>
                 </div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
 
