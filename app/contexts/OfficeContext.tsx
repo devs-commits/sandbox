@@ -4,8 +4,6 @@ import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, User
 import { useAuth } from './AuthContexts';
 import { supabase } from '../../lib/supabase';
 
-const STORAGE_KEY = 'wdc_office_state';
-
 interface PersistedState {
   hasCompletedOnboarding: boolean;
   hasCompletedTour: boolean;
@@ -25,6 +23,7 @@ interface OfficeContextType extends OfficeState {
   addPortfolioItem: (item: UserPortfolio) => void;
   generateTask: () => Promise<void>;
   isGeneratingTask: boolean;
+  isLoadingTasks: boolean;
   activeView: 'desk' | 'meeting' | 'archives';
   setActiveView: (view: 'desk' | 'meeting' | 'archives') => void;
   submitBio: (bio: string, file?: File) => Promise<void>;
@@ -41,53 +40,101 @@ interface OfficeContextType extends OfficeState {
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
 
-function getPersistedState(): PersistedState {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.error('Failed to load office state:', e);
-  }
-  return { hasCompletedOnboarding: false, hasCompletedTour: false, userLevel: null, isFirstTask: true };
-}
-
-function persistState(state: PersistedState) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.error('Failed to save office state:', e);
-  }
-}
+// Default state values
+const defaultState: PersistedState = {
+  hasCompletedOnboarding: false,
+  hasCompletedTour: false,
+  userLevel: null,
+  isFirstTask: true
+};
 
 export function OfficeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const persisted = getPersistedState();
 
-  const [phase, setPhaseState] = useState<OfficePhase>(() => {
-    if (persisted.hasCompletedOnboarding && persisted.hasCompletedTour) return 'working';
-    if (persisted.hasCompletedOnboarding) return 'tour';
-    return 'lobby';
-  });
-  const [userLevel, setUserLevel] = useState<UserLevel | null>(persisted.userLevel);
+  // State initialized with defaults - will be updated from Supabase
+  const [phase, setPhaseState] = useState<OfficePhase>('lobby');
+  const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
   const [tourStep, setTourStep] = useState(0);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(persisted.hasCompletedOnboarding);
-  const [hasCompletedTour, setHasCompletedTour] = useState(persisted.hasCompletedTour);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [hasCompletedTour, setHasCompletedTour] = useState(false);
   const [isGeneratingTask, setIsGeneratingTask] = useState(false);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+  const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives'>('desk');
   const [showToluWelcome, setShowToluWelcome] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isFirstTask, setIsFirstTask] = useState(persisted.isFirstTask);
+  const [isFirstTask, setIsFirstTask] = useState(true);
 
   // Get user data from auth context
   const userName = user?.fullName || 'New Intern';
   const trackName = user?.track || 'General';
   const userId = user?.id || null;
+
+  // Fetch onboarding state from Supabase when user is available
+  useEffect(() => {
+    const fetchOnboardingState = async () => {
+      if (!userId) {
+        setIsLoadingOnboarding(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('has_completed_onboarding, has_completed_tour, user_level, is_first_task')
+          .eq('auth_id', userId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching onboarding state:', error);
+        } else if (data) {
+          setHasCompletedOnboarding(data.has_completed_onboarding || false);
+          setHasCompletedTour(data.has_completed_tour || false);
+          setUserLevel(data.user_level || null);
+          setIsFirstTask(data.is_first_task !== false); // Default true if null/undefined
+
+          // Set phase based on fetched state
+          if (data.has_completed_onboarding && data.has_completed_tour) {
+            setPhaseState('working');
+          } else if (data.has_completed_onboarding) {
+            setPhaseState('tour');
+          } else {
+            setPhaseState('lobby');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching onboarding state:', error);
+      } finally {
+        setIsLoadingOnboarding(false);
+      }
+    };
+
+    fetchOnboardingState();
+  }, [userId]);
+
+  // Function to persist state to Supabase
+  const persistState = useCallback(async (state: Partial<PersistedState>) => {
+    if (!userId) return;
+
+    try {
+      const updateData: Record<string, any> = {};
+      if (state.hasCompletedOnboarding !== undefined) updateData.has_completed_onboarding = state.hasCompletedOnboarding;
+      if (state.hasCompletedTour !== undefined) updateData.has_completed_tour = state.hasCompletedTour;
+      if (state.userLevel !== undefined) updateData.user_level = state.userLevel;
+      if (state.isFirstTask !== undefined) updateData.is_first_task = state.isFirstTask;
+
+      await supabase
+        .from('users')
+        .update(updateData)
+        .eq('auth_id', userId);
+    } catch (error) {
+      console.error('Error persisting onboarding state:', error);
+    }
+  }, [userId]);
 
   const setPhase = useCallback((newPhase: OfficePhase) => {
     setPhaseState(newPhase);
@@ -115,15 +162,15 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
-    persistState({ hasCompletedOnboarding: true, hasCompletedTour: false, userLevel: userLevel, isFirstTask });
+    persistState({ hasCompletedOnboarding: true, hasCompletedTour: false });
     setPhaseState('tour');
-  }, [userLevel, isFirstTask]);
+  }, [persistState]);
 
   const completeTour = useCallback(() => {
     setHasCompletedTour(true);
-    persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask });
+    persistState({ hasCompletedTour: true });
     setPhaseState('working');
-  }, [userLevel, isFirstTask]);
+  }, [persistState]);
 
   const addPortfolioItem = useCallback((item: UserPortfolio) => {
     setPortfolio(prev => [...prev, item]);
@@ -132,8 +179,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   // Fetch tasks from Supabase when user is available
   useEffect(() => {
     const fetchTasks = async () => {
-      if (!userId) return;
+      if (!userId) {
+        setIsLoadingTasks(false);
+        return;
+      }
 
+      setIsLoadingTasks(true);
       try {
         const { data, error } = await supabase
           .from('tasks')
@@ -160,16 +211,18 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           // If we have existing tasks, skip first task intro
           if (mappedTasks.length > 0 && isFirstTask) {
             setIsFirstTask(false);
-            persistState({ hasCompletedOnboarding, hasCompletedTour, userLevel, isFirstTask: false });
+            persistState({ isFirstTask: false });
           }
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
+      } finally {
+        setIsLoadingTasks(false);
       }
     };
 
     fetchTasks();
-  }, [userId, trackName, hasCompletedOnboarding, hasCompletedTour, userLevel, isFirstTask]);
+  }, [userId, trackName, isFirstTask, persistState]);
 
   // Generate task with team intro for first task
   const generateTask = useCallback(async () => {
@@ -529,6 +582,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         addPortfolioItem,
         generateTask,
         isGeneratingTask,
+        isLoadingTasks,
         activeView,
         setActiveView,
         submitBio,

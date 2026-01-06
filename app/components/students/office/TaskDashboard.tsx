@@ -18,7 +18,7 @@ const formatTrackName = (track: string): string => {
     .join(' ');
 };
 export function TaskDashboard() {
-  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask } = useOffice();
+  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks } = useOffice();
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
 
@@ -77,7 +77,12 @@ export function TaskDashboard() {
 
       {/* Task List */}
       <div className="flex-1 overflow-y-auto p-6">
-        {tasks.length === 0 ? (
+        {isLoadingTasks ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-12">
+            <Loader2 className="text-primary animate-spin mb-4" size={36} />
+            <p className="text-sm text-muted-foreground">Loading tasks...</p>
+          </div>
+        ) : tasks.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
