@@ -2,6 +2,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, FileText, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import { Task } from '../types';
+import ReactMarkdown from 'react-markdown';
+
+// Format track names: "data-analytics" -> "Data Analytics"
+const formatTrackName = (track: string): string => {
+  if (!track) return 'General';
+  return track
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -34,7 +44,7 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
             <div className="flex items-start justify-between p-6 border-b border-border/50">
               <div className="flex-1">
                 <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                  {task.type}
+                  {formatTrackName(task.type)}
                 </span>
                 <h2 className="text-xl font-bold text-foreground mt-3">{task.title}</h2>
               </div>
@@ -48,7 +58,9 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
               {/* Description */}
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">Task Brief</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{task.description}</p>
+                <div className="text-sm text-muted-foreground leading-relaxed [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-muted-foreground">
+                  <ReactMarkdown>{task.description}</ReactMarkdown>
+                </div>
               </div>
 
               {/* Meta Info */}
