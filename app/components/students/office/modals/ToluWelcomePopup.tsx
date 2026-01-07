@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileText } from 'lucide-react';
-import { Button } from "../../../ui/button";
+import { Button } from '../../../../components/ui/button';
 import { AGENTS } from '../types';
+import { AgentAvatar } from '../AgentAvatar';
 
 interface ToluWelcomePopupProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern' }: ToluW
     const timer2 = setTimeout(() => {
       setStep('final');
       setCanClose(true);
-    }, 5000);
+    }, 15000);
 
     return () => {
       clearTimeout(timer1);
@@ -66,12 +67,7 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern' }: ToluW
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border/50 bg-secondary/30">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-lg"
-                  style={{ backgroundColor: AGENTS.Tolu.color }}
-                >
-                  {AGENTS.Tolu.avatar}
-                </div>
+                <AgentAvatar agentName="Tolu" size="md" />
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Tolu</h3>
                   <p className="text-xs text-muted-foreground">{AGENTS.Tolu.role}</p>
@@ -97,12 +93,7 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern' }: ToluW
                 animate={{ opacity: 1, y: 0 }}
                 className="flex gap-3"
               >
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ backgroundColor: AGENTS.Tolu.color }}
-                >
-                  T
-                </div>
+                <AgentAvatar agentName="Tolu" size="sm" />
                 <div className="bg-secondary/60 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]">
                   <p className="text-sm text-foreground">
                     Received your document. I'm Tolu, the Onboarding Officer. I'm scanning your background now...
@@ -153,12 +144,7 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern' }: ToluW
                   animate={{ opacity: 1, y: 0 }}
                   className="flex gap-3"
                 >
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
-                    style={{ backgroundColor: AGENTS.Tolu.color }}
-                  >
-                    T
-                  </div>
+                  <AgentAvatar agentName="Tolu" size="sm" />
                   <div className="bg-secondary/60 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]">
                     <p className="text-sm text-foreground leading-relaxed">
                       Okay, I've read it. Whether you have a Master's degree or this is your first time typing on a laptop, the rule here is the same: <strong>Output is everything.</strong> I am setting your starting capacity based on this upload. If you are uneducated in this field, we start you at the Foundation. If you are a pro, we start you at the Deep End. Do not fake it - Sola will catch you.
