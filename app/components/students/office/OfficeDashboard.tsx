@@ -1,7 +1,7 @@
 "use client";
-import { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Briefcase, BookOpen, User } from 'lucide-react';
+import { useState, useRef, useEffect} from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Briefcase, BookOpen, User, MessageSquare} from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AgentChatInterface } from '../../students/office/AgentChatInterface';
@@ -9,13 +9,14 @@ import { TaskDashboard } from '../../students/office/TaskDashboard';
 import { ArchivesView } from '../../students/office/ArchivesView';
 import { ProfileModal } from './modals/ProfileModal';
 import { CollapsibleChat } from './CollapsibleChat';
+import { AgentAvatar } from './AgentAvatar';
 import { cn } from '@/lib/utils';
 
 const TOUR_STEPS = [
   {
     target: 'desk',
     title: 'Your Desk',
-    description: "This is your Desk. Check here every morning.",
+    description: "This is your Desk. If it's empty, you're not getting paid. Check here every morning.",
   },
   {
     target: 'meeting',
@@ -40,8 +41,17 @@ export function OfficeDashboard() {
   } = useOffice();
   const [showProfile, setShowProfile] = useState(false);
 
-  const deskRef = useRef<HTMLButtonElement>(null);
-  const archivesRef = useRef<HTMLButtonElement>(null);
+  const deskRef = useRef<HTMLButtonElement | null>(null);
+  const archivesRef = useRef<HTMLButtonElement | null>(null);
+  const chatRef = useRef<HTMLButtonElement | null>(null);
+
+  // Mobile refs
+  const deskMobileRef = useRef<HTMLButtonElement | null>(null);
+  const chatMobileRef = useRef<HTMLButtonElement | null>(null);
+  const archivesMobileRef = useRef<HTMLButtonElement | null>(null);
+
+  // Desktop chat button ref (for the collapsible chat trigger in tour)
+  const desktopChatRef = useRef<HTMLDivElement | null>(null);
 
   const isTourActive = phase === 'tour';
 
@@ -61,42 +71,54 @@ export function OfficeDashboard() {
     completeTour();
   };
 
+  // Get the position and dimensions of the target element for the current tour step
+  const getTourTargetPosition = () => {
+    const isMobile = window.innerWidth < 1024;
+    let targetRef:
+  | React.RefObject<HTMLButtonElement | null>
+  | React.RefObject<HTMLDivElement | null>
+  | null = null;
 
-  const renderTourTooltip = (step: number, position: 'right' | 'bottom') => {
-    if (!isTourActive || tourStep !== step) return null;
 
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={cn(
-          "absolute z-[100] bg-primary text-primary-foreground rounded-xl p-4 shadow-2xl w-72",
-          position === 'right' && "left-full ml-3 top-1/2 -translate-y-1/2",
-          position === 'bottom' && "top-full mt-3 left-1/2 -translate-x-1/2"
-        )}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs opacity-80">Step {step + 1} of {TOUR_STEPS.length}</span>
-          <button onClick={handleSkipTour} className="text-xs opacity-80 hover:opacity-100 underline">
-            Skip tour
-          </button>
-        </div>
-        <h4 className="font-semibold mb-1">{TOUR_STEPS[step].title}</h4>
-        <p className="text-sm opacity-90 mb-3">{TOUR_STEPS[step].description}</p>
-        <button
-          onClick={handleNextTourStep}
-          className="w-full py-2 bg-primary-foreground text-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          {step === TOUR_STEPS.length - 1 ? 'Get Started' : 'Next'}
-        </button>
-        <div className={cn(
-          "absolute w-0 h-0 border-8",
-          position === 'right' && "right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-primary",
-          position === 'bottom' && "bottom-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-t-transparent border-b-primary"
-        )} />
-      </motion.div>
-    );
+    switch (tourStep) {
+      case 0: // Desk
+        targetRef = isMobile ? deskMobileRef : deskRef;
+        break;
+      case 1: // Chat/Meeting
+        targetRef = isMobile ? chatMobileRef : desktopChatRef;
+        break;
+      case 2: // Archives
+        targetRef = isMobile ? archivesMobileRef : archivesRef;
+        break;
+    }
+
+    if (targetRef?.current) {
+      const rect = targetRef.current.getBoundingClientRect();
+      return {
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+      };
+    }
+    return null;
   };
+
+  const [targetPosition, setTargetPosition] = useState<ReturnType<typeof getTourTargetPosition>>(null);
+
+  // Update target position when tour step changes or window resizes
+  useEffect(() => {
+    if (isTourActive) {
+      const updatePosition = () => {
+        setTargetPosition(getTourTargetPosition());
+      };
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      return () => window.removeEventListener('resize', updatePosition);
+    }
+  }, [isTourActive, tourStep]);
 
   const renderMainContent = () => {
     switch (activeView) {
@@ -140,7 +162,7 @@ export function OfficeDashboard() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Desktop (only Desk and Archives, no Chat) */}
         <nav className="hidden lg:flex flex-col w-20 border-r border-border/50 bg-card/50 items-center py-6 gap-2">
-          <div className="relative">
+          <div className="flex flex-col items-center">
             <Button
               ref={deskRef}
               variant={activeView === 'desk' ? 'default' : 'ghost'}
@@ -153,19 +175,10 @@ export function OfficeDashboard() {
             >
               <Briefcase size={20} />
             </Button>
-            <span className="text-xs text-muted-foreground mt-1 block text-center">Desk</span>
-            {renderTourTooltip(0, 'right')}
+            <span className="text-xs text-muted-foreground mt-1">Desk</span>
           </div>
           
-          {/* Tour step for Meeting Room - positioned here but no button */}
-          {isTourActive && tourStep === 1 && (
-            <div className="relative mt-2">
-              <div className="w-12 h-12" />
-              {renderTourTooltip(1, 'right')}
-            </div>
-          )}
-          
-          <div className="relative mt-2">
+          <div className="flex flex-col items-center mt-2">
             <Button
               ref={archivesRef}
               variant={activeView === 'archives' ? 'default' : 'ghost'}
@@ -178,8 +191,7 @@ export function OfficeDashboard() {
             >
               <BookOpen size={20} />
             </Button>
-            <span className="text-xs text-muted-foreground mt-1 block text-center">Archives</span>
-            {renderTourTooltip(2, 'right')}
+            <span className="text-xs text-muted-foreground mt-1">Archives</span>
           </div>
         </nav>
 
@@ -191,8 +203,9 @@ export function OfficeDashboard() {
 
       {/* Mobile Bottom Nav */}
       <nav className="lg:hidden h-20 border-t border-border/50 bg-card/80 backdrop-blur-sm flex items-center justify-around shrink-0 px-4 pb-2">
-        <div className="relative flex flex-col items-center">
+        <div className="flex flex-col items-center">
           <Button
+            ref={deskMobileRef}
             variant={activeView === 'desk' ? 'default' : 'ghost'}
             size="icon"
             onClick={() => handleNavClick('desk')}
@@ -204,11 +217,11 @@ export function OfficeDashboard() {
             <Briefcase size={20} />
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Desk</span>
-          {renderTourTooltip(0, 'bottom')}
         </div>
         
-        <div className="relative flex flex-col items-center">
+        <div className="flex flex-col items-center">
           <Button
+            ref={chatMobileRef}
             variant={activeView === 'meeting' ? 'default' : 'ghost'}
             size="icon"
             onClick={() => handleNavClick('meeting')}
@@ -217,16 +230,14 @@ export function OfficeDashboard() {
               activeView === 'meeting' && "bg-primary text-primary-foreground"
             )}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
+            <MessageSquare size={20} />
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Chat</span>
-          {renderTourTooltip(1, 'bottom')}
         </div>
         
-        <div className="relative flex flex-col items-center">
+        <div className="flex flex-col items-center">
           <Button
+            ref={archivesMobileRef}
             variant={activeView === 'archives' ? 'default' : 'ghost'}
             size="icon"
             onClick={() => handleNavClick('archives')}
@@ -238,7 +249,6 @@ export function OfficeDashboard() {
             <BookOpen size={20} />
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Archives</span>
-          {renderTourTooltip(2, 'bottom')}
         </div>
         
         <div className="flex flex-col items-center">
@@ -254,13 +264,116 @@ export function OfficeDashboard() {
         </div>
       </nav>
 
-      {isTourActive && (
-        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 pointer-events-none" />
-      )}
+      {/* Tour Spotlight Overlay - Highlights the target element */}
+      <AnimatePresence>
+        {isTourActive && targetPosition && (
+          <>
+            {/* Semi-transparent overlay with cutout for target */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] pointer-events-none"
+              style={{
+                background: `radial-gradient(circle at ${targetPosition.centerX}px ${targetPosition.centerY}px, transparent 40px, rgba(0,0,0,0.7) 80px)`,
+              }}
+            />
 
-    
+            {/* Highlight ring around target */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="fixed z-[91] pointer-events-none"
+              style={{
+                top: targetPosition.top - 8,
+                left: targetPosition.left - 8,
+                width: targetPosition.width + 16,
+                height: targetPosition.height + 16,
+                borderRadius: '16px',
+                border: '3px solid hsl(var(--primary))',
+                boxShadow: '0 0 20px hsl(var(--primary) / 0.5)',
+              }}
+            />
+
+            {/* Tooltip */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="fixed z-[92] bg-primary text-primary-foreground rounded-xl p-4 shadow-2xl w-80"
+              style={{
+                // Position tooltip based on screen size and target position
+                ...(window.innerWidth < 1024
+                  ? {
+                      // Mobile: position above the bottom nav
+                      bottom: 110,
+                      left: targetPosition.centerX,
+                      transform: 'translateX(-50%)',
+                    }
+                  : tourStep === 1
+                  ? {
+                      // Desktop chat button: position above it
+                      bottom: 90,
+                      right: 16,
+                    }
+                  : {
+                      // Desktop sidebar: position to the right
+                      top: targetPosition.centerY - 60,
+                      left: targetPosition.left + targetPosition.width + 20,
+                    }),
+              }}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <AgentAvatar agentName="Tolu" size="md" />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold">Tolu</span>
+                    <span className="text-xs opacity-70">Step {tourStep + 1}/{TOUR_STEPS.length}</span>
+                  </div>
+                  <span className="text-xs opacity-70">Onboarding Officer</span>
+                </div>
+              </div>
+              <h4 className="font-semibold mb-1">{TOUR_STEPS[tourStep].title}</h4>
+              <p className="text-sm opacity-90 mb-3">{TOUR_STEPS[tourStep].description}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleNextTourStep}
+                  className="flex-1 py-2 bg-primary-foreground text-primary rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  {tourStep === TOUR_STEPS.length - 1 ? 'Get Started' : 'Next'}
+                </button>
+                <button onClick={handleSkipTour} className="px-3 py-2 text-xs opacity-80 hover:opacity-100 underline">
+                  Skip
+                </button>
+              </div>
+
+              {/* Arrow pointing to target - dynamically positioned */}
+              {window.innerWidth < 1024 ? (
+                <div 
+                  className="absolute top-full w-0 h-0 border-8 border-l-transparent border-r-transparent border-b-transparent border-t-primary"
+                  style={{ left: '50%', transform: 'translateX(-50%)' }}
+                />
+              ) : tourStep === 1 ? (
+                <div className="absolute top-full right-6 w-0 h-0 border-8 border-l-transparent border-r-transparent border-b-transparent border-t-primary" />
+              ) : (
+                <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-8 border-t-transparent border-b-transparent border-l-transparent border-r-primary" />
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Chat Reference for Tour - this is what the tour points to */}
+      <div 
+        ref={desktopChatRef}
+        className="fixed bottom-20 right-4 w-14 h-14 pointer-events-none hidden lg:block z-[45]"
+      />
+
+      {/* Collapsible Chat - Desktop only (like LinkedIn) */}
       <CollapsibleChat />
 
+      {/* Modals */}
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </div>
   );

@@ -62,11 +62,10 @@ export interface ArchiveItem {
 }
 
 import { StaticImageData } from 'next/image';
-
-import toluImage from '../../../../public/agents/tolu.png';
-import ememImage from '../../../../public/agents/emem.png';
-import solaImage from '../../../../public/agents/sola.png';
-import kemiImage from '../../../../public/agents/kemi.png';
+import toluImage from '../../../../public/tolu.jpg';
+import solaImage from '../../../../public/sola.jpg';
+import kemiImage from '../../../../public/kemi.jpg';
+import ememImage from '../../../../public/emem.jpg';
 
 export const AGENTS: Record<AgentName, Agent> = {
   Tolu: {
