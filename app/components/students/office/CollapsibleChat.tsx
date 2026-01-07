@@ -4,8 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ChevronDown, Send} from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
-import { AGENTS} from './types';
+import { AGENTS, AgentName } from './types';
+import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 import { AgentAvatar } from './AgentAvatar';
+import { Loader2 } from 'lucide-react';
 
 interface CollapsibleChatProps {
   triggerRef?: React.Ref<HTMLButtonElement>;
@@ -36,7 +39,7 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
-    
+
     const message = input.trim();
     setInput('');
     setIsSending(true);
@@ -67,7 +70,7 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
             className="w-96 h-[500px] bg-card border border-border/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div 
+            <div
               className="p-4 border-b border-border/50 bg-secondary/30 flex items-center justify-between cursor-pointer"
               onClick={() => setIsExpanded(false)}
             >
@@ -93,105 +96,77 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
                     <MessageSquare className="text-muted-foreground" size={24} />
                   </div>
                   <p className="text-sm text-muted-foreground max-w-xs">
-                    {isDisabled 
+                    {isDisabled
                       ? 'Complete onboarding first.'
                       : 'No messages yet.'}
                   </p>
                 </div>
               )}
-              
-              {chatMessages.map((msg) => {
-                // System messages (like "joined the channel")
-                if (msg.isSystemMessage) {
-                  return (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex justify-center py-2"
-                    >
-                      <div className="text-xs text-muted-foreground bg-secondary/30 px-4 py-2 rounded-full">
-                        {msg.message}
-                      </div>
-                    </motion.div>
-                  );
-                }
 
-                // Agent messages
-                if (msg.agentName) {
-                  return (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex gap-3"
-                    >
-                      <AgentAvatar agentName={msg.agentName} size="sm" />
-                      <div className="max-w-[80%]">
-                        <p className="text-xs font-semibold mb-1" style={{ color: AGENTS[msg.agentName].color }}>
-                          {msg.agentName}
-                        </p>
-                        <div className="bg-secondary/60 text-foreground rounded-2xl rounded-tl-sm px-4 py-2.5">
-                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                }
-
-                // User messages
-                return (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-3 flex-row-reverse"
-                  >
+              {chatMessages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "flex gap-3",
+                    msg.agentName ? "flex-row" : "flex-row-reverse"
+                  )}
+                >
+                  {/* Avatar */}
+                  {msg.agentName ? (
+                    <AgentAvatar agentName={msg.agentName} size="sm" />
+                  ) : (
                     <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                       U
                     </div>
-                    <div className="max-w-[80%] bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5">
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-              
-              {/* Typing indicator */}
-              {typingAgent && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex gap-3"
-                >
-                  <AgentAvatar agentName={typingAgent} size="sm" />
-                  <div className="max-w-[80%]">
-                    <p className="text-xs font-semibold mb-1" style={{ color: AGENTS[typingAgent].color }}>
-                      {typingAgent}
-                    </p>
-                    <div className="bg-secondary/60 rounded-2xl rounded-tl-sm px-4 py-3">
-                      <div className="flex gap-1.5 items-center">
-                        <motion.div
-                          animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ repeat: Infinity, duration: 1.2, delay: 0 }}
-                          className="w-2 h-2 rounded-full bg-muted-foreground"
-                        />
-                        <motion.div
-                          animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ repeat: Infinity, duration: 1.2, delay: 0.2 }}
-                          className="w-2 h-2 rounded-full bg-muted-foreground"
-                        />
-                        <motion.div
-                          animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ repeat: Infinity, duration: 1.2, delay: 0.4 }}
-                          className="w-2 h-2 rounded-full bg-muted-foreground"
-                        />
+                  )}
+
+                  {/* Message bubble */}
+                  <div
+                    className={cn(
+                      "max-w-[80%] rounded-2xl px-4 py-2.5",
+                      msg.agentName
+                        ? "bg-secondary/60 text-foreground rounded-tl-sm"
+                        : "bg-primary text-primary-foreground rounded-tr-sm"
+                    )}
+                  >
+                    {msg.agentName && (
+                      <p
+                        className="text-xs font-semibold mb-1"
+                        style={{ color: AGENTS[msg.agentName].color }}
+                      >
+                        {msg.agentName}
+                      </p>
+                    )}
+
+                    {msg.isTyping ? (
+                      <div className="flex items-center gap-1">
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
                       </div>
-                    </div>
+                    ) : (
+                      <div className="text-sm break-words [&>*]:text-inherit">
+                        <ReactMarkdown>{msg.message}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
+              ))}
+
+
+              {isSending && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
+                    <Loader2 className="animate-spin text-muted-foreground" size={14} />
+                  </div>
+                  <div className="bg-secondary/60 rounded-2xl px-4 py-2.5">
+                    <p className="text-sm text-muted-foreground">Typing...</p>
+                  </div>
+                </div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
 

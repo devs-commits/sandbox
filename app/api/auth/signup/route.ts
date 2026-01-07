@@ -60,7 +60,7 @@ export async function POST(request: Request) {
           })
           .select()
           .single();
-        
+
         dbError = recruiterError;
         userData = recruiterData;
       } else {
@@ -69,8 +69,8 @@ export async function POST(request: Request) {
           .insert({
             // We let the database generate its own primary 'id' (e.g. 1, 2, 3 or uuid)
             // We store the Auth ID in a separate column (Foreign Key)
-            auth_id: data.user.id, 
-            
+            auth_id: data.user.id,
+
             email: email,
             full_name: fullName,
             role: role,
@@ -78,10 +78,15 @@ export async function POST(request: Request) {
             experience_level: experienceLevel,
             wallet_balance: 0, // Default balance
             track: track,
+            // Onboarding state defaults
+            has_completed_onboarding: false,
+            has_completed_tour: false,
+            user_level: null,
+            is_first_task: true,
           })
           .select()
           .single();
-          
+
         dbError = studentError;
         userData = studentData;
       }
@@ -95,32 +100,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: "Account created but profile failed. Please contact support." }, { status: 500 });
       }
 
-      // Generate tasks for students based on their track
-      if (role === 'student' && track && userData) {
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/tasks/generate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: data.user.id, // Use Auth UUID, not public table ID
-              track: track,
-              experienceLevel: experienceLevel,
-            }),
-          });
 
-          const taskResult = await response.json();
-          
-          if (!taskResult.success) {
-            console.error('Failed to generate tasks:', taskResult.error);
-            // Don't fail the signup if task generation fails, just log it
-          }
-        } catch (taskError) {
-          console.error('Error calling task generation endpoint:', taskError);
-          // Don't fail the signup if task generation fails, just log it
-        }
-      }
     }
 
     return NextResponse.json({ success: true, user: data.user, session: data.session });

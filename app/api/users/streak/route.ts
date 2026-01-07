@@ -72,9 +72,9 @@ export async function POST(request: Request) {
     // Update user
     const { error: updateError } = await db
       .from('users')
-      .update({ 
+      .update({
         current_streak: newStreak,
-        last_activity_date: today 
+        last_activity_date: today
       })
       .eq('id', user.id); // Update by primary key
 
