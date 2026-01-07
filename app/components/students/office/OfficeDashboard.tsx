@@ -301,28 +301,36 @@ export function OfficeDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="fixed z-[92] bg-primary text-primary-foreground rounded-xl p-4 shadow-2xl w-80"
+              className="fixed z-[92] bg-primary text-primary-foreground rounded-xl p-4 shadow-2xl max-w-[60vw] w-auto sm:w-80"
               style={{
-                // Position tooltip based on screen size and target position
-                ...(window.innerWidth < 1024
-                  ? {
-                      // Mobile: position above the bottom nav
+              ...(window.innerWidth < 1024
+                ? (() => {
+                    const tooltipWidth = 280;        // Your tooltip width (w-80 ≈ 20rem ≈ 280px)
+                    const screenPadding = 16;        // Safe margin from screen sides
+                    const screenWidth = window.innerWidth;
+                    const centerX = targetPosition.centerX;
+
+                    let left = centerX - tooltipWidth / 2;
+                    if (left < screenPadding) left = screenPadding;
+                    if (left + tooltipWidth > screenWidth - screenPadding) {
+                      left = screenWidth - tooltipWidth - screenPadding;
+                    }
+
+                    return {
                       bottom: 110,
-                      left: targetPosition.centerX,
-                      transform: 'translateX(-50%)',
-                    }
-                  : tourStep === 1
-                  ? {
-                      // Desktop chat button: position above it
-                      bottom: 90,
-                      right: 16,
-                    }
-                  : {
-                      // Desktop sidebar: position to the right
-                      top: targetPosition.centerY - 60,
-                      left: targetPosition.left + targetPosition.width + 20,
-                    }),
-              }}
+                      left,
+                    };
+                  })()
+                : tourStep === 1
+                ? {
+                    bottom: 90,
+                    right: 16,
+                  }
+                : {
+                    top: targetPosition.centerY - 60,
+                    left: targetPosition.left + targetPosition.width + 20,
+                  }),
+                }}
             >
               <div className="flex items-center gap-3 mb-3">
                 <AgentAvatar agentName="Tolu" size="md" />
@@ -348,23 +356,34 @@ export function OfficeDashboard() {
                 </button>
               </div>
 
-              {/* Arrow pointing to target - dynamically positioned */}
-              {window.innerWidth < 1024 ? (
-                <div 
-                  className="absolute top-full w-0 h-0 border-8 border-l-transparent border-r-transparent border-b-transparent border-t-primary"
-                  style={{ left: '50%', transform: 'translateX(-50%)' }}
-                />
-              ) : tourStep === 1 ? (
-                <div className="absolute top-full right-6 w-0 h-0 border-8 border-l-transparent border-r-transparent border-b-transparent border-t-primary" />
-              ) : (
-                <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-8 border-t-transparent border-b-transparent border-l-transparent border-r-primary" />
+              {window.innerWidth < 1024 && (
+                (() => {
+                  // Compute the arrow position relative to the clamped tooltip left
+                  const tooltipWidth = 280;
+                  const screenPadding = 16;
+                  const screenWidth = window.innerWidth;
+                  const centerX = targetPosition.centerX;
+                  let left = centerX - tooltipWidth / 2;
+                  if (left < screenPadding) left = screenPadding;
+                  if (left + tooltipWidth > screenWidth - screenPadding) {
+                    left = screenWidth - tooltipWidth - screenPadding;
+                  }
+
+                  const arrowOffset = centerX - left;
+
+                  return (
+                    <div
+                      className="absolute top-full w-0 h-0 border-8 border-l-transparent border-r-transparent border-b-transparent border-t-primary"
+                      style={{ left: arrowOffset }}
+                    />
+                  );
+                })()
               )}
+
             </motion.div>
           </>
         )}
       </AnimatePresence>
-
-      {/* Desktop Chat Reference for Tour - this is what the tour points to */}
       <CollapsibleChat triggerRef={desktopChatRef} />
 
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
