@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from "../components/students/office/types"
+import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from "../components/students/office/types";
 
 const STORAGE_KEY = 'wdc_office_state';
 
@@ -35,6 +35,7 @@ interface OfficeContextType extends OfficeState {
   isFirstTask: boolean;
   userName: string;
   trackName: string;
+  typingAgent: AgentName | null;
 }
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
@@ -80,6 +81,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [showToluWelcome, setShowToluWelcome] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFirstTask, setIsFirstTask] = useState(persisted.isFirstTask);
+  const [typingAgent, setTypingAgent] = useState<AgentName | null>(null);
 
   // Mock user data - will come from API
   const userName = 'John Snow';
@@ -113,57 +115,86 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setPortfolio(prev => [...prev, item]);
   }, []);
 
+  // Helper to add message with typing indicator
+  const addMessageWithTyping = useCallback(async (agent: AgentName, message: string, typingDuration: number = 2000) => {
+    setTypingAgent(agent);
+    await new Promise(r => setTimeout(r, typingDuration));
+    setTypingAgent(null);
+    const newMessage: ChatMessage = {
+      id: `${Date.now()}-${agent}-${Math.random()}`,
+      agentName: agent,
+      message,
+      timestamp: new Date(),
+    };
+    setChatMessages(prev => [...prev, newMessage]);
+  }, []);
+
   // Generate task with team intro for first task
   const generateTask = useCallback(async () => {
     setIsGeneratingTask(true);
     setIsExpanded(true); // Auto-expand chat
 
     if (isFirstTask) {
-      // First task - full team introduction
-      const introMessages: { agent: AgentName; message: string; delay: number }[] = [
-        { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 0 },
-        { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 2000 },
-        { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi. I want to jump in first. I've seen your upload. I know it might feel intimidating if you're starting with no experience, or maybe you feel overqualified. Relax.`, delay: 4000 },
-        { agent: 'Kemi', message: "My job is simple: I take whatever work you do here and I translate it into a portfolio that gets you hired. Even if you're starting from zero today, in 12 months, I will make sure you look like a pro on paper. You do the work, I'll build the career.", delay: 6000 },
-        { agent: 'Emem', message: `Thanks Kemi. ${userName}, welcome. I don't care about your background, I care about deadlines. We have client deliverables due Thursday. I'll send your first brief in 5 mins.`, delay: 8500 },
-        { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. A heads up: I reject about 60% of first drafts. Don't take it personally, just fix it. Accuracy over speed, please.`, delay: 10500 },
-        { agent: 'Tolu', message: `${userName}, you have the floor. Any questions before I sign off?`, delay: 12500 },
-      ];
+      // First message from Tolu
+      await addMessageWithTyping('Tolu', "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", 2500);
 
-      // Add system message about team joining
-      addChatMessage({
-        id: Date.now().toString(),
-        agentName: null,
-        message: '📢 Emem, Sola, and Coach Kemi joined the channel',
-        timestamp: new Date(),
-        isTyping: false,
-      });
+      await new Promise(r => setTimeout(r, 1000));
 
-      // Queue intro messages with delays
-      for (const msg of introMessages) {
-        await new Promise(r => setTimeout(r, msg.delay === 0 ? 500 : msg.delay - (introMessages[introMessages.indexOf(msg) - 1]?.delay || 0)));
+      // System messages for each agent joining - one by one
+      const joinMessages = ['Emem', 'Sola', 'Coach Kemi'];
+      for (const name of joinMessages) {
+        await new Promise(r => setTimeout(r, 800));
         addChatMessage({
-          id: `${Date.now()}-${msg.agent}`,
-          agentName: msg.agent,
-          message: msg.message,
+          id: `join-${Date.now()}-${name}`,
+          agentName: null,
+          message: `${name} joined the channel`,
           timestamp: new Date(),
+          isSystemMessage: true,
         });
       }
 
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Tolu introduces the intern
+      await addMessageWithTyping('Tolu', `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, 2000);
+
+      await new Promise(r => setTimeout(r, 1200));
+
+      // Kemi's messages
+      await addMessageWithTyping('Kemi', `Hi ${userName}! I'm Kemi. I want to jump in first. I've seen your upload. I know it might feel intimidating if you're starting with no experience, or maybe you feel overqualified. Relax.`, 3500);
+
+      await new Promise(r => setTimeout(r, 800));
+
+      await addMessageWithTyping('Kemi', "My job is simple: I take whatever work you do here and I translate it into a portfolio that gets you hired. Even if you're starting from zero today, in 12 months, I will make sure you look like a pro on paper. You do the work, I'll build the career.", 4000);
+
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Emem
+      await addMessageWithTyping('Emem', `Thanks Kemi. ${userName}, welcome. I don't care about your background, I care about deadlines. We have client deliverables due Thursday. I'll send your first brief in 5 mins.`, 3000);
+
+      await new Promise(r => setTimeout(r, 1200));
+
+      // Sola
+      await addMessageWithTyping('Sola', `Hi ${userName}. I'm Sola. I review all technical output. A heads up: I reject about 60% of first drafts. Don't take it personally, just fix it. Accuracy over speed, please.`, 3500);
+
+      await new Promise(r => setTimeout(r, 1000));
+
+      // Tolu signs off
+      await addMessageWithTyping('Tolu', `${userName}, you have the floor. Any questions before I sign off?`, 2000);
+
+      await new Promise(r => setTimeout(r, 2500));
     }
 
-    // Generate the task
-    addChatMessage({
-      id: Date.now().toString(),
-      agentName: 'Emem',
-      message: isFirstTask 
+    // Generate the task message
+    await addMessageWithTyping(
+      'Emem',
+      isFirstTask 
         ? "Here's your first task. Read the brief carefully. Deadline is non-negotiable."
         : "New task assigned. Check your desk.",
-      timestamp: new Date(),
-    });
+      2500
+    );
 
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1000));
     
     // TODO: POST to /api/tasks/generate
     const mockTask: Task = {
@@ -179,12 +210,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
     setTasks(prev => [...prev, mockTask]);
     
-    addChatMessage({
-      id: (Date.now() + 1).toString(),
-      agentName: 'Emem',
-      message: `Task: "${mockTask.title}"\nDeadline: ${mockTask.deadline}\n\nGet it done.`,
-      timestamp: new Date(),
-    });
+    await addMessageWithTyping('Emem', `Task: "${mockTask.title}"\nDeadline: ${mockTask.deadline}\n\nGet it done.`, 2000);
 
     if (isFirstTask) {
       setIsFirstTask(false);
@@ -192,7 +218,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
 
     setIsGeneratingTask(false);
-  }, [addChatMessage, isFirstTask, userName, trackName, userLevel]);
+  }, [addChatMessage, addMessageWithTyping, isFirstTask, userName, trackName, userLevel]);
 
   // Submit bio/CV - now triggers the welcome popup
   const submitBio = useCallback(async (bio: string, file?: File) => {
@@ -202,25 +228,14 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setShowToluWelcome(true);
   }, []);
 
-  // Called when Tolu welcome popup is closed
-  const handleToluWelcomeClose = useCallback(() => {
-    setShowToluWelcome(false);
-    completeOnboarding();
-  }, [completeOnboarding]);
-
   // Submit work
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     // TODO: POST to /api/tasks/{taskId}/submit
     updateTaskStatus(taskId, 'submitted');
     setIsExpanded(true);
     
-    addChatMessage({
-      id: Date.now().toString(),
-      agentName: 'Sola',
-      message: "I've received your submission. Let me review it carefully...",
-      timestamp: new Date(),
-    });
-  }, [updateTaskStatus, addChatMessage]);
+    await addMessageWithTyping('Sola', "I've received your submission. Let me review it carefully...", 2000);
+  }, [updateTaskStatus, addMessageWithTyping]);
 
   // Send message
   const sendMessage = useCallback(async (message: string) => {
@@ -232,8 +247,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       timestamp: new Date(),
     });
 
-    await new Promise(r => setTimeout(r, 1500));
-    
     let responder: AgentName = 'Sola';
     let response = "I'm reviewing your query. Please be more specific about what you need help with.";
     
@@ -249,13 +262,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       response = "All administrative matters are handled after you complete your probation period. Focus on the work for now.";
     }
 
-    addChatMessage({
-      id: (Date.now() + 1).toString(),
-      agentName: responder,
-      message: response,
-      timestamp: new Date(),
-    });
-  }, [addChatMessage]);
+    await addMessageWithTyping(responder, response, 2000);
+  }, [addChatMessage, addMessageWithTyping]);
 
   return (
     <OfficeContext.Provider
@@ -291,6 +299,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         isFirstTask,
         userName,
         trackName,
+        typingAgent,
       }}
     >
       {children}
