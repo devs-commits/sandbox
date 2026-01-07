@@ -73,7 +73,7 @@ export function CollapsibleChat() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Meeting Room</h3>
-                  <p className="text-xs text-muted-foreground">Professional comms only</p>
+                  <p className="text-xs text-muted-foreground">Professional communication only</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8">

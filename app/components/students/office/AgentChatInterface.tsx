@@ -55,8 +55,8 @@ export function AgentChatInterface() {
             <MessageSquare className="text-primary" size={16} />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground text-sm">Meeting Room</h3>
-            <p className="text-xs text-muted-foreground">Professional comms only</p>
+            <h3 className="font-semibold text-foreground text-sm"> Meeting Room</h3>
+            <p className="text-xs text-muted-foreground">Professional communications only</p>
           </div>
         </div>
       </div>
