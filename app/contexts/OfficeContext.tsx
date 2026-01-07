@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
 import { supabase } from '../../lib/supabase';
@@ -24,6 +25,7 @@ interface OfficeContextType extends OfficeState {
   generateTask: () => Promise<void>;
   isGeneratingTask: boolean;
   isLoadingTasks: boolean;
+  isLoadingOnboarding: boolean;
   activeView: 'desk' | 'meeting' | 'archives';
   setActiveView: (view: 'desk' | 'meeting' | 'archives') => void;
   submitBio: (bio: string, file?: File) => Promise<void>;
@@ -91,6 +93,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error('Error fetching onboarding state:', error);
+          // If user not found in public table, redirect to login
+          if (error.code === 'PGRST116') {
+            console.log('User not found in public table for auth_id:', userId);
+            window.location.href = '/login';
+            return;
+          }
         } else if (data) {
           setHasCompletedOnboarding(data.has_completed_onboarding || false);
           setHasCompletedTour(data.has_completed_tour || false);
@@ -105,6 +113,11 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           } else {
             setPhaseState('lobby');
           }
+        } else {
+          // No data found - redirect to login
+          console.log('No user data found for auth_id:', userId);
+          window.location.href = '/login';
+          return;
         }
       } catch (error) {
         console.error('Error fetching onboarding state:', error);
@@ -118,7 +131,10 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
   // Function to persist state to Supabase
   const persistState = useCallback(async (state: Partial<PersistedState>) => {
-    if (!userId) return;
+    if (!userId) {
+      console.warn('persistState: No userId available, skipping update');
+      return;
+    }
 
     try {
       const updateData: Record<string, any> = {};
@@ -127,12 +143,21 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       if (state.userLevel !== undefined) updateData.user_level = state.userLevel;
       if (state.isFirstTask !== undefined) updateData.is_first_task = state.isFirstTask;
 
-      await supabase
+      console.log('persistState: Updating user', userId, 'with data:', updateData);
+
+      const { data, error } = await supabase
         .from('users')
         .update(updateData)
-        .eq('auth_id', userId);
+        .eq('auth_id', userId)
+        .select();
+
+      if (error) {
+        console.error('persistState: Supabase error:', error);
+      } else {
+        console.log('persistState: Update successful, returned:', data);
+      }
     } catch (error) {
-      console.error('Error persisting onboarding state:', error);
+      console.error('persistState: Exception:', error);
     }
   }, [userId]);
 
@@ -166,10 +191,15 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setPhaseState('tour');
   }, [persistState]);
 
+  // State to trigger team intro after tour completes
+  const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
+
   const completeTour = useCallback(() => {
     setHasCompletedTour(true);
     persistState({ hasCompletedTour: true });
     setPhaseState('working');
+    // Trigger team intro and task generation
+    setShouldTriggerTeamIntro(true);
   }, [persistState]);
 
   const addPortfolioItem = useCallback((item: UserPortfolio) => {
@@ -205,8 +235,21 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
+            resources: (t.resources || []).map((r: any, i: number) => ({
+              id: `res-${t.id}-${i}`,
+              title: r.title,
+              category: 'Task Guide',
+              description: r.description,
+              content: r.content
+            }))
           }));
           setTasks(mappedTasks);
+
+          // Set current task to the active one (pending) or the most recent one
+          const activeTask = mappedTasks.find(t => t.status === 'pending') || mappedTasks[mappedTasks.length - 1];
+          if (activeTask) {
+            setCurrentTask(activeTask);
+          }
 
           // If we have existing tasks, skip first task intro
           if (mappedTasks.length > 0 && isFirstTask) {
@@ -224,22 +267,24 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchTasks();
   }, [userId, trackName, isFirstTask, persistState]);
 
+  // Ensure currentTask is set if we have tasks but no current selection
+  useEffect(() => {
+    if (!currentTask && tasks.length > 0) {
+      const activeTask = tasks.find(t => t.status === 'pending') || tasks[tasks.length - 1];
+      if (activeTask) {
+        console.log("Auto-selecting current task:", activeTask.id);
+        setCurrentTask(activeTask);
+      }
+    }
+  }, [tasks, currentTask]);
+
   // Generate task with team intro for first task
   const generateTask = useCallback(async () => {
     setIsGeneratingTask(true);
     setIsExpanded(true); // Auto-expand chat
 
     if (isFirstTask) {
-      // First task - full team introduction
-      const introMessages: { agent: AgentName; message: string; delay: number }[] = [
-        { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 0 },
-        { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 2000 },
-        { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi. I want to jump in first. I've seen your upload. I know it might feel intimidating if you're starting with no experience, or maybe you feel overqualified. Relax.`, delay: 4000 },
-        { agent: 'Kemi', message: "My job is simple: I take whatever work you do here and I translate it into a portfolio that gets you hired. Even if you're starting from zero today, in 12 months, I will make sure you look like a pro on paper. You do the work, I'll build the career.", delay: 6000 },
-        { agent: 'Emem', message: `Thanks Kemi. ${userName}, welcome. I don't care about your background, I care about deadlines. We have client deliverables due Thursday. I'll send your first brief in 5 mins.`, delay: 8500 },
-        { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. A heads up: I reject about 60% of first drafts. Don't take it personally, just fix it. Accuracy over speed, please.`, delay: 10500 },
-        { agent: 'Tolu', message: `${userName}, you have the floor. Any questions before I sign off?`, delay: 12500 },
-      ];
+      const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
       // Add system message about team joining
       addChatMessage({
@@ -250,18 +295,97 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         isTyping: false,
       });
 
-      // Queue intro messages with delays
-      for (const msg of introMessages) {
-        await new Promise(r => setTimeout(r, msg.delay === 0 ? 500 : msg.delay - (introMessages[introMessages.indexOf(msg) - 1]?.delay || 0)));
-        addChatMessage({
-          id: `${Date.now()}-${msg.agent}`,
-          agentName: msg.agent,
-          message: msg.message,
-          timestamp: new Date(),
+      try {
+        // Call AI backend for personalized intro messages
+        const response = await fetch(`${AI_BACKEND_URL}/onboarding-intro`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            user_name: userName,
+            track: trackName,
+            user_level: userLevel,
+            bio_summary: null // Could be passed from submitBio
+          })
         });
+
+        if (response.ok) {
+          const data = await response.json();
+          const messages = data.messages || [];
+
+          // Show each message with typing indicator first
+          let lastDelay = 0;
+          for (const msg of messages) {
+            const typingDelay = msg.typing_delay_ms - lastDelay;
+
+            // Show typing indicator
+            const typingId = `typing-${Date.now()}`;
+            addChatMessage({
+              id: typingId,
+              agentName: msg.agent as AgentName,
+              message: '',
+              timestamp: new Date(),
+              isTyping: true,
+            });
+
+            // Wait for typing simulation (capped at 5s for realism)
+            await new Promise(r => setTimeout(r, Math.min(typingDelay, 5000)));
+
+            // Remove typing indicator and add actual message
+            setChatMessages(prev => prev.filter(m => m.id !== typingId));
+            addChatMessage({
+              id: `${Date.now()}-${msg.agent}`,
+              agentName: msg.agent as AgentName,
+              message: msg.message,
+              timestamp: new Date(),
+            });
+
+            // Natural reading pause before next person starts typing
+            // Random gap between 1s and 2.5s
+            await new Promise(r => setTimeout(r, 1000 + Math.random() * 1500));
+            lastDelay = msg.typing_delay_ms;
+          }
+        } else {
+          throw new Error('AI response not ok');
+        }
+      } catch (error) {
+        console.error('Onboarding intro failed, using fallback:', error);
+        // Fallback to hardcoded messages with delays
+        const fallbackMessages: { agent: AgentName; message: string; delay: number }[] = [
+          { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 0 },
+          { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 2000 },
+          { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 4000 },
+          { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 6000 },
+          { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in 5 mins.`, delay: 8000 },
+          { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 10000 },
+          { agent: 'Tolu', message: `${userName}, any questions before I sign off?`, delay: 12000 },
+        ];
+
+        for (const msg of fallbackMessages) {
+          const typingId = `typing-${Date.now()}`;
+          addChatMessage({
+            id: typingId,
+            agentName: msg.agent,
+            message: '',
+            timestamp: new Date(),
+            isTyping: true,
+          });
+
+          await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+
+          setChatMessages(prev => prev.filter(m => m.id !== typingId));
+          addChatMessage({
+            id: `${Date.now()}-${msg.agent}`,
+            agentName: msg.agent,
+            message: msg.message,
+            timestamp: new Date(),
+          });
+
+          await new Promise(r => setTimeout(r, 400));
+        }
       }
 
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 2000));
     }
 
     // Generate the task
@@ -303,6 +427,13 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             status: 'pending',
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
+            resources: (generatedTask.resources || []).map((r: any, i: number) => ({
+              id: `new-res-${i}`,
+              title: r.title,
+              category: 'Task Guide',
+              description: r.description,
+              content: r.content
+            }))
           };
 
           setTasks(prev => [...prev, newTask]);
@@ -355,11 +486,59 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
 
     setIsGeneratingTask(false);
-  }, [addChatMessage, isFirstTask, userName, trackName, userLevel]);
+  }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages]);
+
+  // Auto-trigger team intro and first task when tour completes
+  useEffect(() => {
+    if (shouldTriggerTeamIntro && !isGeneratingTask && tasks.length === 0) {
+      setShouldTriggerTeamIntro(false);
+      setIsExpanded(true); // Open the chat panel
+      generateTask();
+    }
+  }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length]);
 
   // Submit bio/CV - calls AI backend for assessment
   const submitBio = useCallback(async (bio: string, file?: File) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+    let cvUrl: string | null = null;
+
+    // Upload CV file to Supabase Storage if provided
+    if (file && userId) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('cv-uploads')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('CV upload error:', uploadError);
+        } else if (uploadData) {
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('cv-uploads')
+            .getPublicUrl(uploadData.path);
+          cvUrl = urlData?.publicUrl || null;
+          console.log('CV uploaded to:', cvUrl);
+
+          // Save CV URL to user's profile
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ cv_url: cvUrl })
+            .eq('auth_id', userId);
+
+          if (updateError) {
+            console.error('Error saving CV URL to user:', updateError);
+          }
+        }
+      } catch (uploadErr) {
+        console.error('CV upload exception:', uploadErr);
+      }
+    }
 
     try {
       const response = await fetch(`${AI_BACKEND_URL}/assess-bio`, {
@@ -368,13 +547,16 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           user_id: userId, // From auth context
           bio_text: bio,
-          track: trackName
+          track: trackName,
+          cv_url: cvUrl // Pass CV URL to AI for context
         })
       });
 
       if (response.ok) {
         const data = await response.json();
         setUserLevel(data.assessed_level as UserLevel);
+        // Persist the user level to Supabase
+        persistState({ userLevel: data.assessed_level });
         // Store Tolu's response for the welcome popup
         addChatMessage({
           id: Date.now().toString(),
@@ -392,7 +574,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
 
     setShowToluWelcome(true);
-  }, [trackName, addChatMessage]);
+  }, [trackName, addChatMessage, userId, persistState]);
 
   // Called when Tolu welcome popup is closed
   const handleToluWelcomeClose = useCallback(() => {
@@ -416,19 +598,45 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     });
 
     try {
+      // 1. Upload file to Supabase Storage
+      let fileUrl: string | null = null;
+      if (file && userId) {
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${userId}/tasks/${taskId}/${Date.now()}.${fileExt}`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('submissions') // Use dedicated bucket
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Submission upload error:', uploadError);
+          } else if (uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('submissions')
+              .getPublicUrl(uploadData.path);
+            fileUrl = urlData.publicUrl;
+          }
+        } catch (err) {
+          console.error('Submission upload exception:', err);
+        }
+      }
+
       // Get the task details
       const task = tasks.find(t => t.id === taskId);
 
-      // For now, we'll send the file name and notes as content
-      // In production, you'd upload the file and extract content
+      // 2. Send to AI Backend for Review
       const response = await fetch(`${AI_BACKEND_URL}/review-submission`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
           task_id: taskId,
-          file_url: file.name,
-          file_content: notes || `[Submitted file: ${file.name}]`,
+          file_url: fileUrl || file.name, // Pass real URL if upload succeeded, else name
+          file_content: notes,
           task_title: task?.title || 'Unknown Task',
           task_brief: task?.description || '',
           chat_history: chatMessages.slice(-5).map(m => ({
@@ -583,6 +791,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         generateTask,
         isGeneratingTask,
         isLoadingTasks,
+        isLoadingOnboarding,
         activeView,
         setActiveView,
         submitBio,

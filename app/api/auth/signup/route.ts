@@ -100,32 +100,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: "Account created but profile failed. Please contact support." }, { status: 500 });
       }
 
-      // Generate tasks for students based on their track
-      if (role === 'student' && track && userData) {
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/tasks/generate`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: data.user.id, // Use Auth UUID, not public table ID
-              track: track,
-              experienceLevel: experienceLevel,
-            }),
-          });
 
-          const taskResult = await response.json();
-
-          if (!taskResult.success) {
-            console.error('Failed to generate tasks:', taskResult.error);
-            // Don't fail the signup if task generation fails, just log it
-          }
-        } catch (taskError) {
-          console.error('Error calling task generation endpoint:', taskError);
-          // Don't fail the signup if task generation fails, just log it
-        }
-      }
     }
 
     return NextResponse.json({ success: true, user: data.user, session: data.session });

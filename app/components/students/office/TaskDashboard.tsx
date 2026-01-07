@@ -21,6 +21,7 @@ export function TaskDashboard() {
   const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks } = useOffice();
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [previewTask, setPreviewTask] = useState<Task | null>(null);
 
   const getStatusIcon = (status: Task['status']) => {
     switch (status) {
@@ -62,7 +63,8 @@ export function TaskDashboard() {
   };
 
   const handleTaskClick = (task: Task) => {
-    setCurrentTask(currentTask?.id === task.id ? null : task);
+    setCurrentTask(task);
+    setPreviewTask(previewTask?.id === task.id ? null : task);
   };
 
   return (
@@ -89,25 +91,20 @@ export function TaskDashboard() {
             className="flex flex-col items-center justify-center h-full text-center py-12"
           >
             <div className="w-20 h-20 rounded-2xl bg-secondary/50 flex items-center justify-center mb-6">
-              <Coffee className="text-muted-foreground" size={36} />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No tasks yet</h3>
-            <p className="text-sm text-muted-foreground max-w-xs mb-6">
-              Click the button below to get your first assignment from Emem. Time to earn your keep.
-            </p>
-            <Button onClick={generateTask} disabled={isGeneratingTask} className="gap-2">
               {isGeneratingTask ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Please wait...
-                </>
+                <Loader2 className="text-primary animate-spin" size={36} />
               ) : (
-                <>
-                  <Sparkles size={16} />
-                  Generate Your First Task
-                </>
+                <Coffee className="text-muted-foreground" size={36} />
               )}
-            </Button>
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {isGeneratingTask ? 'Preparing your first task...' : 'Your desk is empty'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              {isGeneratingTask
+                ? 'The team is reviewing your profile and preparing an assignment.'
+                : 'Head to the Meeting Room - the team wants to introduce themselves.'}
+            </p>
           </motion.div>
         ) : (
           <div className="grid gap-4">
@@ -149,78 +146,82 @@ export function TaskDashboard() {
       </div>
 
       {/* Task Detail Panel - Bottom Sheet */}
-      {currentTask && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
-          onClick={() => setCurrentTask(null)}
-        >
+      {
+        previewTask && (
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="w-full max-w-2xl bg-card border-t border-x border-border rounded-t-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+            onClick={() => setPreviewTask(null)}
           >
-            {/* Handle bar */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
-            </div>
-
-            {/* Content */}
-            <div className="px-5 pb-2">
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                  {formatTrackName(currentTask.type)}
-                </span>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock size={12} /> {currentTask.deadline}
-                  </span>
-                </div>
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="w-full max-w-2xl bg-card border-t border-x border-border rounded-t-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Handle bar */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
               </div>
-              <h3 className="font-semibold text-foreground text-lg mb-2">{currentTask.title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                {currentTask.description?.replace(/[#*`_~\[\]]/g, '').substring(0, 150)}...
-              </p>
-            </div>
 
-            {/* Actions */}
-            <div className="px-5 pb-5 flex gap-3">
-              {currentTask.status !== 'approved' && currentTask.status !== 'submitted' && currentTask.status !== 'under-review' && (
-                <Button onClick={() => setSubmissionTask(currentTask)} className="flex-1 gap-2">
-                  <Upload size={16} /> Submit Work
+              {/* Content */}
+              <div className="px-5 pb-2">
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
+                    {formatTrackName(previewTask.type)}
+                  </span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> {previewTask.deadline}
+                    </span>
+                  </div>
+                </div>
+                <h3 className="font-semibold text-foreground text-lg mb-2">{previewTask.title}</h3>
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                  {previewTask.description?.replace(/[#*`_~\[\]]/g, '').substring(0, 150)}...
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="px-5 pb-5 flex gap-3">
+                {previewTask.status !== 'approved' && previewTask.status !== 'submitted' && previewTask.status !== 'under-review' && (
+                  <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2">
+                    <Upload size={16} /> Submit Work
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={() => setDetailTask(previewTask)}
+                >
+                  <FileText size={16} /> View Full Details
                 </Button>
-              )}
-              <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                onClick={() => setDetailTask(currentTask)}
-              >
-                <FileText size={16} /> View Full Details
-              </Button>
-            </div>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
+        )
+      }
 
-      {submissionTask && (
-        <SubmissionModal
-          isOpen={!!submissionTask}
-          onClose={() => setSubmissionTask(null)}
-          taskId={submissionTask.id}
-          taskTitle={submissionTask.title}
-        />
-      )}
+      {
+        submissionTask && (
+          <SubmissionModal
+            isOpen={!!submissionTask}
+            onClose={() => setSubmissionTask(null)}
+            taskId={submissionTask.id}
+            taskTitle={submissionTask.title}
+          />
+        )
+      }
 
       <TaskDetailModal
         isOpen={!!detailTask}
         onClose={() => setDetailTask(null)}
         task={detailTask}
       />
-    </div>
+    </div >
   );
 }

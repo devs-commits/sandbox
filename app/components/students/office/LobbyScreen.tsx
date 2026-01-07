@@ -5,8 +5,12 @@ import { CVUploadModal } from '../../../components/students/office/modals/CvUplo
 import { ToluWelcomePopup } from '../../../components/students/office/modals/ToluWelcomePopup';
 
 export function LobbyScreen() {
-  const { phase, showToluWelcome, setShowToluWelcome, completeOnboarding, userName } = useOffice();
+  const { phase, showToluWelcome, setShowToluWelcome, completeOnboarding, userName, chatMessages } = useOffice();
   const showCVModal = phase === 'lobby' && !showToluWelcome;
+
+  // Get the first Tolu message (AI response from bio assessment)
+  const toluMessage = chatMessages.find(msg => msg.agentName === 'Tolu');
+  const aiResponse = toluMessage?.message;
 
   const handleToluWelcomeClose = () => {
     setShowToluWelcome(false);
@@ -21,7 +25,7 @@ export function LobbyScreen() {
         transition={{ duration: 0.6 }}
         className="text-center max-w-lg"
       >
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.8 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.2, type: 'spring' }}
@@ -29,7 +33,7 @@ export function LobbyScreen() {
         >
           <Building2 className="text-primary" size={48} />
         </motion.div>
-        
+
         <h1 className="text-4xl font-bold text-foreground mb-4">Welcome to WDC HQ</h1>
         <p className="text-lg text-muted-foreground mb-2">
           The lobby is quiet. Everyone is working.
@@ -40,11 +44,12 @@ export function LobbyScreen() {
       </motion.div>
 
       <CVUploadModal isOpen={showCVModal} />
-      
-      <ToluWelcomePopup 
-        isOpen={showToluWelcome} 
+
+      <ToluWelcomePopup
+        isOpen={showToluWelcome}
         onClose={handleToluWelcomeClose}
         userName={userName}
+        aiResponse={aiResponse}
       />
     </div>
   );

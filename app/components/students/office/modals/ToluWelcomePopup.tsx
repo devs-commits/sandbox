@@ -9,11 +9,12 @@ interface ToluWelcomePopupProps {
   isOpen: boolean;
   onClose: () => void;
   userName?: string;
+  aiResponse?: string;
 }
 
 type MessageStep = 'initial' | 'processing' | 'final';
 
-export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern' }: ToluWelcomePopupProps) {
+export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern', aiResponse }: ToluWelcomePopupProps) {
   const [step, setStep] = useState<MessageStep>('initial');
   const [canClose, setCanClose] = useState(false);
 
@@ -161,7 +162,7 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern' }: ToluW
                   </div>
                   <div className="bg-secondary/60 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]">
                     <p className="text-sm text-foreground leading-relaxed">
-                      Okay, I've read it. Whether you have a Master's degree or this is your first time typing on a laptop, the rule here is the same: <strong>Output is everything.</strong> I am setting your starting capacity based on this upload. If you are uneducated in this field, we start you at the Foundation. If you are a pro, we start you at the Deep End. Do not fake it - Sola will catch you.
+                      {aiResponse || "Okay, I've reviewed your background. Whether you have a Master's degree or this is your first time in this field, the rule here is the same: Output is everything. I am setting your starting capacity based on your background. Do not fake it - Sola will catch you."}
                     </p>
                   </div>
                 </motion.div>
