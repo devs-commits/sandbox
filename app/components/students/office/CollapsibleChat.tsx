@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, ChevronDown, Send, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
-import { AGENTS, AgentName } from './types';
+import { AGENTS} from './types';
 import { AgentAvatar } from './AgentAvatar';
 
 export function CollapsibleChat() {
