@@ -365,11 +365,8 @@ export function OfficeDashboard() {
       </AnimatePresence>
 
       {/* Desktop Chat Reference for Tour - this is what the tour points to */}
-
-      {/* Collapsible Chat - Desktop only (like LinkedIn) */}
       <CollapsibleChat triggerRef={desktopChatRef} />
 
-      {/* Modals */}
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </div>
   );
