@@ -5,7 +5,6 @@ import { MessageSquare, X, ChevronDown, Send, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS, AgentName } from './types';
-import { cn } from '@/lib/utils';
 import { AgentAvatar } from './AgentAvatar';
 
 export function CollapsibleChat() {
