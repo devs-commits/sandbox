@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, ChevronDown, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, ChevronDown, Send} from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS} from './types';
@@ -73,7 +73,7 @@ export function CollapsibleChat() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Meeting Room</h3>
-                  <p className="text-xs text-muted-foreground">Professional communications only</p>
+                  <p className="text-xs text-muted-foreground">Professional comms only</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8">
