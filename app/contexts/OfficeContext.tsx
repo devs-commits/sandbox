@@ -147,42 +147,37 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         addChatMessage({
           id: `join-${Date.now()}-${name}`,
           agentName: null,
-          message: `${name} joined the channel`,
+          message: `${name} joined the room`,
           timestamp: new Date(),
           isSystemMessage: true,
         });
       }
 
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise(r => setTimeout(r, 10000));
 
       // Tolu introduces the intern
-      await addMessageWithTyping('Tolu', `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, 2000);
+      await addMessageWithTyping('Tolu', `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, 1000);
 
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, 5000));
 
       // Kemi's messages
-      await addMessageWithTyping('Kemi', `Hi ${userName}! I'm Kemi. I want to jump in first. I've seen your upload. I know it might feel intimidating if you're starting with no experience, or maybe you feel overqualified. Relax.`, 3500);
+      await addMessageWithTyping('Kemi', `Hi ${userName}! I'm Kemi. I want to jump in first. I've seen your upload. I know it might feel intimidating if you're starting with no experience, or maybe you feel overqualified. Relax.`, 7000);
 
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 4000));
 
-      await addMessageWithTyping('Kemi', "My job is simple: I take whatever work you do here and I translate it into a portfolio that gets you hired. Even if you're starting from zero today, in 12 months, I will make sure you look like a pro on paper. You do the work, I'll build the career.", 4000);
+      await addMessageWithTyping('Kemi', "My job is simple: I take whatever work you do here and I translate it into a portfolio that gets you hired. Even if you're starting from zero today, in 12 months, I will make sure you look like a pro on paper. You do the work, I'll build the career.", 10000);
 
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 4000));
 
       // Emem
-      await addMessageWithTyping('Emem', `Thanks Kemi. ${userName}, welcome. I don't care about your background, I care about deadlines. We have client deliverables due Thursday. I'll send your first brief in 5 mins.`, 3000);
+      await addMessageWithTyping('Emem', `Thanks Kemi. ${userName}, welcome. I don't care about your background, I care about deadlines.`, 8000);
 
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, 4000));
 
       // Sola
-      await addMessageWithTyping('Sola', `Hi ${userName}. I'm Sola. I review all technical output. A heads up: I reject about 60% of first drafts. Don't take it personally, just fix it. Accuracy over speed, please.`, 3500);
+      await addMessageWithTyping('Sola', `Hi ${userName}. I'm Sola. I review all technical output. A heads up: I reject about 60% of first drafts. Don't take it personally, just fix it. Accuracy over speed, please.`, 8000);
 
-      await new Promise(r => setTimeout(r, 1000));
-
-      // Tolu signs off
-      await addMessageWithTyping('Tolu', `${userName}, you have the floor. Any questions before I sign off?`, 2000);
-
-      await new Promise(r => setTimeout(r, 2500));
+      await new Promise(r => setTimeout(r, 10000));
     }
 
     // Generate the task message

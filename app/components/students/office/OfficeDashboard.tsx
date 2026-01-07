@@ -16,12 +16,12 @@ const TOUR_STEPS = [
   {
     target: 'desk',
     title: 'Your Desk',
-    description: "This is your Desk. If it's empty, you're not getting paid. Check here every morning.",
+    description: "This is your Desk. Check here every morning.",
   },
   {
     target: 'meeting',
     title: 'The Meeting Room',
-    description: "This is where we talk. Professional comms only. No 'pls' or 'u'. We use full sentences here.",
+    description: "This is where we talk. Professional communications only. No 'pls' or 'u'. We use full sentences here.",
   },
   {
     target: 'archives',
@@ -51,7 +51,7 @@ export function OfficeDashboard() {
   const archivesMobileRef = useRef<HTMLButtonElement | null>(null);
 
   // Desktop chat button ref (for the collapsible chat trigger in tour)
-  const desktopChatRef = useRef<HTMLDivElement | null>(null);
+  const desktopChatRef = useRef<HTMLButtonElement | null>(null);
 
   const isTourActive = phase === 'tour';
 
@@ -365,13 +365,9 @@ export function OfficeDashboard() {
       </AnimatePresence>
 
       {/* Desktop Chat Reference for Tour - this is what the tour points to */}
-      <div 
-        ref={desktopChatRef}
-        className="fixed bottom-20 right-4 w-14 h-14 pointer-events-none hidden lg:block z-[45]"
-      />
 
       {/* Collapsible Chat - Desktop only (like LinkedIn) */}
-      <CollapsibleChat />
+      <CollapsibleChat triggerRef={desktopChatRef} />
 
       {/* Modals */}
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />

@@ -7,7 +7,11 @@ import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS} from './types';
 import { AgentAvatar } from './AgentAvatar';
 
-export function CollapsibleChat() {
+interface CollapsibleChatProps {
+  triggerRef?: React.Ref<HTMLButtonElement>;
+}
+
+export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
   const { chatMessages, sendMessage, phase, isExpanded, setIsExpanded, typingAgent } = useOffice();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -217,6 +221,7 @@ export function CollapsibleChat() {
           </motion.div>
         ) : (
           <motion.button
+            ref ={triggerRef} 
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
