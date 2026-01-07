@@ -598,19 +598,45 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     });
 
     try {
+      // 1. Upload file to Supabase Storage
+      let fileUrl: string | null = null;
+      if (file && userId) {
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${userId}/tasks/${taskId}/${Date.now()}.${fileExt}`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('submissions') // Use dedicated bucket
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Submission upload error:', uploadError);
+          } else if (uploadData) {
+            const { data: urlData } = supabase.storage
+              .from('submissions')
+              .getPublicUrl(uploadData.path);
+            fileUrl = urlData.publicUrl;
+          }
+        } catch (err) {
+          console.error('Submission upload exception:', err);
+        }
+      }
+
       // Get the task details
       const task = tasks.find(t => t.id === taskId);
 
-      // For now, we'll send the file name and notes as content
-      // In production, you'd upload the file and extract content
+      // 2. Send to AI Backend for Review
       const response = await fetch(`${AI_BACKEND_URL}/review-submission`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
           task_id: taskId,
-          file_url: file.name,
-          file_content: notes || `[Submitted file: ${file.name}]`,
+          file_url: fileUrl || file.name, // Pass real URL if upload succeeded, else name
+          file_content: notes,
           task_title: task?.title || 'Unknown Task',
           task_brief: task?.description || '',
           chat_history: chatMessages.slice(-5).map(m => ({
