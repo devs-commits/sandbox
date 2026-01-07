@@ -11,6 +11,7 @@ export interface Agent {
   role: string;
   avatar: string;
   color: string;
+  image?: string;
 }
 
 export interface ChatMessage {
