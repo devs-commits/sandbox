@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { StudentHeader } from "../../components/students/StudentHeader";    
+import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
-import { FileText, Clock, Eye, User, ArrowRight, Download, Flame, Loader2 } from "lucide-react";
+import { FileText, Clock, Eye, User, ArrowRight, Download, Flame, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContexts";
 import { supabase } from "../../../lib/supabase";
 import { TaskGenerator } from "../../components/students/TaskGenerator";
@@ -28,7 +28,7 @@ export default function page() {
 
   const fetchTasks = async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -36,7 +36,7 @@ export default function page() {
         .select('*')
         .eq('user', user.id)
         .order('id', { ascending: true });
-        
+
       if (error) {
         console.error("Error fetching tasks:", error);
       } else {
@@ -104,7 +104,7 @@ export default function page() {
   return (
     <div className="min-h-screen bg-background">
       <StudentHeader title="Headquarters" />
-      
+
       <div className="p-4 lg:p-6 space-y-6">
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -160,9 +160,9 @@ export default function page() {
           {/* Progress bar */}
           <div className="mb-4">
             <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-purple-600 h-2 rounded-full transition-all duration-500 ease-out" 
-                style={{ width: `${Math.min((streak / 84) * 100, 100)}%` }} 
+              <div
+                className="bg-purple-600 h-2 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.min((streak / 84) * 100, 100)}%` }}
               />
             </div>
             <div className="flex justify-between items-center mt-1">
@@ -185,8 +185,8 @@ export default function page() {
                   <p className="text-xs text-orange-400">Available after 12 weeks</p>
                 </div>
               </div>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => handleDownloadLetter("Work Letter of Reference")}
               >
@@ -204,8 +204,8 @@ export default function page() {
                   <p className="text-xs text-orange-400">Available after 24 weeks</p>
                 </div>
               </div>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={() => handleDownloadLetter("Visa Letter of Reference")}
               >
@@ -219,7 +219,7 @@ export default function page() {
         {/* My Tasks */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-4">My Tasks ({tasks.length})</h2>
-          
+
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -227,8 +227,8 @@ export default function page() {
           ) : tasks.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {tasks.slice(0, 3).map((task) => (
-                <div 
-                  key={task.id} 
+                <div
+                  key={task.id}
                   className="bg-card border border-border rounded-xl p-4 flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => handleTaskClick(task.id)}
                 >
@@ -253,8 +253,23 @@ export default function page() {
               ))}
             </div>
           ) : (
-            // Fallback: If task generation failed on signup (0 tasks), allow user to generate them here
-            <TaskGenerator onTasksGenerated={fetchTasks} />
+            // Fallback: If no tasks, direct them to the office
+            <div className="flex flex-col items-center justify-center p-8 border border-dashed border-border rounded-xl bg-card/50">
+              <div className="bg-primary/10 p-3 rounded-full mb-4">
+                <Sparkles className="text-primary h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Initialize Your Workspace</h3>
+              <p className="text-muted-foreground text-center max-w-md mb-6">
+                Your desk is waiting. Visit the Virtual Office to meet the team and get your first assignment.
+              </p>
+              <Button
+                onClick={() => router.push('/student/office')}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Enter Virtual Office
+              </Button>
+            </div>
           )}
         </div>
       </div>

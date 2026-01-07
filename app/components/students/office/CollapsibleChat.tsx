@@ -134,9 +134,17 @@ export function CollapsibleChat() {
                         {msg.agentName}
                       </p>
                     )}
-                    <div className="text-sm break-words [&>*]:text-inherit [&_strong]:font-bold [&_code]:bg-black/20 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1">
-                      <ReactMarkdown>{msg.message}</ReactMarkdown>
-                    </div>
+                    {msg.isTyping ? (
+                      <div className="flex items-center gap-1">
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></span>
+                      </div>
+                    ) : (
+                      <div className="text-sm break-words [&>*]:text-inherit [&_strong]:font-bold [&_code]:bg-black/20 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1">
+                        <ReactMarkdown>{msg.message}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}

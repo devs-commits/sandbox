@@ -45,66 +45,66 @@ export async function POST(request: Request) {
 
     // 1. Get Task Count and Previous Performance
     const dbClient = supabaseAdmin || supabase;
-    
+
     // Get task count for task_number
     const { count } = await dbClient
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('user', userId);
-    
+      .from('tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user', userId);
+
     const taskNumber = (count || 0) + 1;
 
     // Get previous task performance
     let previousPerformance = "N/A";
-    
+
     // Find the last completed task
     const { data: lastTask } = await dbClient
-        .from('tasks')
-        .select('id')
-        .eq('user', userId)
-        .eq('completed', true)
-        .order('id', { ascending: false })
+      .from('tasks')
+      .select('id')
+      .eq('user', userId)
+      .eq('completed', true)
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (lastTask) {
+      // Get the last assistant message (feedback) for this task
+      const { data: lastMsg } = await dbClient
+        .from('chat_history')
+        .select('content')
+        .eq('task_id', lastTask.id)
+        .eq('role', 'assistant')
+        .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
-    if (lastTask) {
-        // Get the last assistant message (feedback) for this task
-        const { data: lastMsg } = await dbClient
-            .from('chat_history')
-            .select('content')
-            .eq('task_id', lastTask.id)
-            .eq('role', 'assistant')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-            
-        if (lastMsg) {
-            previousPerformance = lastMsg.content;
-        }
+      if (lastMsg) {
+        previousPerformance = lastMsg.content;
+      }
     }
 
     // 2. Call Python Backend for Task Generation
     const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
     const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            track,
-            experience_level: experienceLevel,
-            task_number: taskNumber,
-            previous_task_performance: previousPerformance,
-            user_city: location?.city,
-            user_country: location?.country,
-            user_country_code: location?.country_code
-        })
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        track,
+        experience_level: experienceLevel,
+        task_number: taskNumber,
+        previous_task_performance: previousPerformance,
+        user_city: location?.city,
+        user_country: location?.country
+      })
     });
 
     if (!backendResponse.ok) {
-        const errorText = await backendResponse.text();
-        throw new Error(`Backend API Error: ${backendResponse.status} - ${errorText}`);
+      const errorText = await backendResponse.text();
+      throw new Error(`Backend API Error: ${backendResponse.status} - ${errorText}`);
     }
 
     const responseData = await backendResponse.json();
@@ -112,27 +112,12 @@ export async function POST(request: Request) {
 
     let generatedTasks: any[] = [];
 
-    if (Array.isArray(responseData)) {
-        generatedTasks = responseData;
-    } else if (responseData && typeof responseData === 'object') {
-        // Handle case where response is an object (e.g. { tasks: [...] })
-        if (Array.isArray(responseData.tasks)) {
-            generatedTasks = responseData.tasks;
-        } else if (responseData.title && (responseData.brief_content || responseData.description)) {
-             // Handle single task object
-             generatedTasks = [responseData];
-        } else {
-            // Try to find any array property if 'tasks' key is missing
-            const arrayVal = Object.values(responseData).find(v => Array.isArray(v));
-            if (arrayVal) {
-                generatedTasks = arrayVal as any[];
-            } else {
-                console.error("Invalid AI Response Structure:", responseData);
-                throw new Error("Invalid response format from AI: received object but could not find tasks array or single task structure");
-            }
-        }
+    if (responseData && Array.isArray(responseData.tasks)) {
+      generatedTasks = responseData.tasks;
     } else {
-        throw new Error("Invalid response format from AI");
+      console.warn("Unexpected response structure, trying fallback parsing");
+      // ... (keep fallback logic if needed, or simplify)
+      generatedTasks = Array.isArray(responseData) ? responseData : [responseData];
     }
 
     // Prepare tasks with user_id and new schema fields
@@ -144,7 +129,8 @@ export async function POST(request: Request) {
       task_track: track,
       ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
       completed: false,
-      task_number: taskNumber + index
+      task_number: taskNumber + index,
+      resources: task.educational_resources || [] // Save generated resources
     }));
     // Use admin client to bypass RLS, or fall back to regular client
     // dbClient is already defined above

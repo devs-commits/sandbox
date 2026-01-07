@@ -32,6 +32,7 @@ export interface Task {
   clientConstraints?: string;
   score?: number;
   feedback?: string;
+  resources?: ArchiveItem[]; // AI generated resources specific to this task
 }
 
 export interface UserPortfolio {
@@ -57,6 +58,7 @@ export interface ArchiveItem {
   category: string;
   description: string;
   link?: string;
+  content?: string; // Markdown content
 }
 
 export const AGENTS: Record<AgentName, Agent> = {
