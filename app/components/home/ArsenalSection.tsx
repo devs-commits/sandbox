@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import FeatureCardDark from './FeatureCardDark';
 import { Building2, FileText, Briefcase, Users } from 'lucide-react';
-
+import FeatureCardLight from './FeatureCardLight';
 import virtualOffice from '../../../public/virtual-office.jpg';
 import recommendationLetter from '../../../public/recommendation-letter.png';
 import livePortfolio from '../../../public/portfolio.png';
@@ -60,6 +60,18 @@ const ArsenalSection = ({ variant = 'dark' }: ArsenalSectionProps) => {
               Most courses give you videos. We give you assets that get you hired. This is what your subscription actually buys.
             </p>
           </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {features.map((feature, index) => (
+              <FeatureCardLight
+                key={feature.title}
+                image={feature.image.src}
+                title={feature.title}
+                description={feature.description}
+                delay={index * 0.1}
+              />
+            ))}
+          </div>
         </div>
       </section>
     );

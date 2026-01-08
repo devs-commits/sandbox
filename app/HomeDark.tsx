@@ -13,18 +13,12 @@ import SponsorModal from '../app/components/home/SponsorModal';
 const HomeDark = () => {
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
   const [isSponsorOpen, setIsSponsorOpen] = useState(false);
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState({ name: '', price: '' });
 
   const plans: Record<string, string> = {
     'The Monthly Grind': '15,000',
     'The Career Accelerator': '45,000',
     'The Titan': '150,000',
-  };
-
-  const handlePayClick = (planName: string) => {
-    setSelectedPlan({ name: planName, price: plans[planName] || '15,000' });
-    setIsPaymentOpen(true);
   };
 
   const handleSponsorClick = (planName: string) => {
@@ -42,13 +36,12 @@ const HomeDark = () => {
         onSecureSpotClick={() => setIsWaitlistOpen(true)}
         onMentorPayClick={() => setIsSponsorOpen(true)}
       />
-      <ArsenalSection variant="dark" />
+      <ArsenalSection variant="light" />
       <div id="chat">
         <ChatSectionDark />
       </div>
       <PricingSection 
         variant="dark" 
-        onPayClick={handlePayClick}
         onSponsorClick={handleSponsorClick}
       />
       <CTASectionDark onSecureSpotClick={() => setIsWaitlistOpen(true)} />
