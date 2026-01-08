@@ -5,9 +5,11 @@ import { Send, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS, AgentName } from './types';
+import { AgentAvatar } from './AgentAvatar';
+import { cn } from '@/lib/utils';
 
 export function AgentChatInterface() {
-  const { chatMessages, sendMessage, phase } = useOffice();
+  const { chatMessages, sendMessage, phase,typingAgent } = useOffice();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -55,58 +57,61 @@ export function AgentChatInterface() {
             <MessageSquare className="text-primary" size={16} />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground text-sm">Meeting Room</h3>
-            <p className="text-xs text-muted-foreground">Professional comms only</p>
+            <h3 className="font-semibold text-foreground text-sm"> Meeting Room</h3>
+            <p className="text-xs text-muted-foreground">Professional communications only</p>
           </div>
         </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {chatMessages.length === 0 && (
+        {chatMessages.length === 0 && !typingAgent && (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
-            <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-4">
-              <MessageSquare className="text-muted-foreground" size={28} />
+            <div className="w-14 h-14 rounded-xl bg-secondary/50 flex items-center justify-center mb-3">
+              <MessageSquare className="text-muted-foreground" size={24} />
             </div>
             <p className="text-sm text-muted-foreground max-w-xs">
-              {isDisabled 
-                ? 'Complete onboarding to start chatting with the team.'
-                : 'No messages yet. The team will contact you when needed.'}
+              {isDisabled
+              ? 'Complete onboarding first.'
+              : 'No messages yet.'}
             </p>
-          </div>
-        )}
+            </div>
+          )}
         
         {chatMessages.map((msg) => (
           <motion.div
-            key={msg.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`flex gap-3 ${msg.agentName ? '' : 'flex-row-reverse'}`}
-          >
-            {msg.agentName ? (
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-lg"
-                style={getAgentStyle(msg.agentName)}
-              >
-                {AGENTS[msg.agentName].avatar}
-              </div>
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold shrink-0">
-                U
-              </div>
+          key={msg.id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            "flex gap-3",
+             msg.agentName ? "flex-row" : "flex-row-reverse"
+        )}
+        >
+          {msg.agentName ? (
+            <AgentAvatar agentName={msg.agentName} size="sm" />
+          ) : (
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
+            U
+            </div>
+          )}
+            {/* Message bubble */}
+          <div
+          className={cn(
+            "max-w-[80%] rounded-2xl px-4 py-2.5",
+             msg.agentName
+             ? "bg-secondary/60 text-foreground rounded-tl-sm"
+            : "bg-primary text-primary-foreground rounded-tr-sm"
             )}
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                msg.agentName
-                  ? 'bg-secondary/80 text-foreground'
-                  : 'bg-primary text-primary-foreground'
-              }`}
+          >
+          {msg.agentName && (
+            <p
+            className="text-xs font-semibold mb-1"
+            style={{ color: AGENTS[msg.agentName].color }}
             >
-              {msg.agentName && (
-                <p className="text-xs font-semibold mb-1" style={{ color: AGENTS[msg.agentName].color }}>
-                  {msg.agentName} • {AGENTS[msg.agentName].role}
-                </p>
-              )}
+          {msg.agentName}
+          </p>
+          )}
               <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
               <p className="text-xs opacity-50 mt-2">
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

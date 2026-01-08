@@ -1,15 +1,21 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, ChevronDown, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, ChevronDown, Send} from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS, AgentName } from './types';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { AgentAvatar } from './AgentAvatar';
+import { Loader2 } from 'lucide-react';
 
-export function CollapsibleChat() {
-  const { chatMessages, sendMessage, phase, isExpanded, setIsExpanded } = useOffice();
+interface CollapsibleChatProps {
+  triggerRef?: React.Ref<HTMLButtonElement>;
+}
+
+export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
+  const { chatMessages, sendMessage, phase, isExpanded, setIsExpanded, typingAgent } = useOffice();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -24,12 +30,12 @@ export function CollapsibleChat() {
     prevMessageCount.current = chatMessages.length;
   }, [chatMessages.length, isExpanded, setIsExpanded]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change or typing
   useEffect(() => {
     if (isExpanded) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatMessages, isExpanded]);
+  }, [chatMessages, isExpanded, typingAgent]);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -49,16 +55,11 @@ export function CollapsibleChat() {
     }
   };
 
-  const getAgentStyle = (agentName: AgentName) => {
-    const agent = AGENTS[agentName];
-    return { backgroundColor: agent.color };
-  };
-
   const isDisabled = phase === 'lobby' || phase === 'tour';
   const unreadCount = chatMessages.length;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 hidden lg:block">
+    <div className="fixed bottom-4 right-4 z-50 hidden lg:block">
       <AnimatePresence>
         {isExpanded ? (
           <motion.div
@@ -66,7 +67,7 @@ export function CollapsibleChat() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25 }}
-            className="w-[500px] h-[600px] bg-card border border-border/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="w-96 h-[500px] bg-card border border-border/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div
@@ -79,7 +80,7 @@ export function CollapsibleChat() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Meeting Room</h3>
-                  <p className="text-xs text-muted-foreground">Professional comms only</p>
+                  <p className="text-xs text-muted-foreground">Professional communication only</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -88,8 +89,8 @@ export function CollapsibleChat() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {chatMessages.length === 0 && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {chatMessages.length === 0 && !typingAgent && (
                 <div className="flex flex-col items-center justify-center h-full text-center py-8">
                   <div className="w-14 h-14 rounded-xl bg-secondary/50 flex items-center justify-center mb-3">
                     <MessageSquare className="text-muted-foreground" size={24} />
@@ -107,47 +108,53 @@ export function CollapsibleChat() {
                   key={msg.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex gap-3 ${msg.agentName ? '' : 'flex-row-reverse'}`}
+                  className={cn(
+                    "flex gap-3",
+                    msg.agentName ? "flex-row" : "flex-row-reverse"
+                  )}
                 >
+                  {/* Avatar */}
                   {msg.agentName ? (
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
-                      style={getAgentStyle(msg.agentName)}
-                    >
-                      {AGENTS[msg.agentName].avatar}
-                    </div>
+                    <AgentAvatar agentName={msg.agentName} size="sm" />
                   ) : (
                     <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                       U
                     </div>
                   )}
+
+                  {/* Message bubble */}
                   <div
                     className={cn(
                       "max-w-[80%] rounded-2xl px-4 py-2.5",
                       msg.agentName
-                        ? 'bg-secondary/60 text-foreground rounded-tl-sm'
-                        : 'bg-primary text-primary-foreground rounded-tr-sm'
+                        ? "bg-secondary/60 text-foreground rounded-tl-sm"
+                        : "bg-primary text-primary-foreground rounded-tr-sm"
                     )}
                   >
                     {msg.agentName && (
-                      <p className="text-xs font-semibold mb-1" style={{ color: AGENTS[msg.agentName].color }}>
+                      <p
+                        className="text-xs font-semibold mb-1"
+                        style={{ color: AGENTS[msg.agentName].color }}
+                      >
                         {msg.agentName}
                       </p>
                     )}
+
                     {msg.isTyping ? (
                       <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></span>
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
                       </div>
                     ) : (
-                      <div className="text-sm break-words [&>*]:text-inherit [&_strong]:font-bold [&_code]:bg-black/20 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:my-1">
+                      <div className="text-sm break-words [&>*]:text-inherit">
                         <ReactMarkdown>{msg.message}</ReactMarkdown>
                       </div>
                     )}
                   </div>
                 </motion.div>
               ))}
+
 
               {isSending && (
                 <div className="flex gap-3">
@@ -189,6 +196,7 @@ export function CollapsibleChat() {
           </motion.div>
         ) : (
           <motion.button
+            ref ={triggerRef} 
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}

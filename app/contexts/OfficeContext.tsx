@@ -38,6 +38,7 @@ interface OfficeContextType extends OfficeState {
   isFirstTask: boolean;
   userName: string;
   trackName: string;
+  typingAgent: AgentName | null;
 }
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
@@ -323,15 +324,18 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     if (isFirstTask) {
       const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
-      // Add system message about team joining
-      addChatMessage({
-        id: Date.now().toString(),
-        agentName: null,
-        message: '📢 Emem, Sola, and Coach Kemi joined the channel',
-        timestamp: new Date(),
-        isTyping: false,
-      });
+      await new Promise(r => setTimeout(r, 1000));
 
+      // // System messages for each agent joining - one by one
+      // const joinMessages = ['Emem', 'Sola', 'Coach Kemi'];
+      // for (const name of joinMessages) {
+      //   await new Promise(r => setTimeout(r, 800));
+      //   addChatMessage({
+      //     id: `join-${Date.now()}-${name}`,
+      //     agentName: null,
+      //     message: `${name} joined the room`,
+      //     timestamp: new Date(),
+      //     isSystemMessage: true,
       try {
         // Call AI backend for personalized intro messages
         const response = await fetch(`${AI_BACKEND_URL}/onboarding-intro`, {
@@ -389,11 +393,11 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         console.error('Onboarding intro failed, using fallback:', error);
         // Fallback to hardcoded messages with delays
         const fallbackMessages: { agent: AgentName; message: string; delay: number }[] = [
-          { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 0 },
+          { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 10000 },
           { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 2000 },
-          { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 4000 },
-          { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 6000 },
-          { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in 5 mins.`, delay: 8000 },
+          { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 8000 },
+          { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 12000 },
+          { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in 5 mins.`, delay: 10000 },
           { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 10000 },
           { agent: 'Tolu', message: `${userName}, any questions before I sign off?`, delay: 12000 },
         ];
@@ -426,14 +430,14 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
 
     // Generate the task
-    addChatMessage({
-      id: Date.now().toString(),
-      agentName: 'Emem',
-      message: isFirstTask
-        ? "Here's your first task. Read the brief carefully. Deadline is non-negotiable."
-        : "New task assigned. Check your desk.",
-      timestamp: new Date(),
-    });
+   addChatMessage({
+  id: Date.now().toString(),
+  agentName: 'Emem',
+  message: isFirstTask
+    ? "Here's your first task. Read the brief carefully. Deadline is non‑negotiable."
+    : "New task assigned. Check your desk.",
+  timestamp: new Date(),  // required by ChatMessage type
+});
 
     try {
       // Call the real task generation API
@@ -881,6 +885,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         isFirstTask,
         userName,
         trackName,
+        typingAgent: null,
       }}
     >
       {children}

@@ -48,7 +48,7 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25 }}
-            className="w-full max-w-lg bg-card border border-border/50 rounded-3xl p-8 shadow-2xl"
+            className="w-full max-w-sm sm:max-w-md md:max-w-lg bg-card border border-border/50 rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl"
           >
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">

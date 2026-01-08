@@ -11,6 +11,7 @@ export interface Agent {
   role: string;
   avatar: string;
   color: string;
+  image?: StaticImageData;
 }
 
 export interface ChatMessage {
@@ -19,6 +20,7 @@ export interface ChatMessage {
   message: string;
   timestamp: Date;
   isTyping?: boolean;
+  isSystemMessage?: boolean;
 }
 
 export interface Task {
@@ -69,6 +71,11 @@ export interface PerformanceMetrics {
   communication: number;
   overallRating: string;
 }
+import { StaticImageData } from 'next/image';
+import toluImage from '../../../../public/tolu.jpg';
+import solaImage from '../../../../public/sola.jpg';
+import kemiImage from '../../../../public/kemi.jpg';
+import ememImage from '../../../../public/emem.jpg';
 
 export const AGENTS: Record<AgentName, Agent> = {
   Tolu: {
@@ -76,24 +83,28 @@ export const AGENTS: Record<AgentName, Agent> = {
     role: 'Onboarding Officer',
     avatar: 'T',
     color: 'hsl(187 100% 42%)',
+    image: toluImage,
   },
   Emem: {
     name: 'Emem',
     role: 'Project Manager',
     avatar: 'E',
     color: 'hsl(280 70% 50%)',
+    image: ememImage,
   },
   Sola: {
     name: 'Sola',
     role: 'Technical Supervisor',
     avatar: 'S',
     color: 'hsl(25 95% 53%)',
+    image: solaImage,
   },
   Kemi: {
     name: 'Kemi',
     role: 'Career Coach',
     avatar: 'K',
     color: 'hsl(142 70% 45%)',
+    image: kemiImage,
   },
 };
 
