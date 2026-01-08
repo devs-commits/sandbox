@@ -84,7 +84,7 @@ const ReviewsScroll = ({ variant = 'dark' }: ReviewsScrollProps) => {
             name={review.name}
             location={review.location}
             content={review.content}
-            avatar={review.avatar}
+            avatar={review.avatar.src}
             variant={variant}
           />
         ))}
