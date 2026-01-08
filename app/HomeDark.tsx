@@ -1,3 +1,4 @@
+"use client";
 import { useState } from 'react';
 import NavbarDark from '../app/components/home/NavbarDark';
 import HeroSectionDark from '../app/components/home/HeroSectionDark';
