@@ -9,6 +9,9 @@ import CTASectionDark from '../app/components/home/CTASectionDark';
 import FooterDark from '../app/components/home/FooterDark';
 import WaitlistModal from '../app/components/home/WaitListModal';
 import SponsorModal from '../app/components/home/SponsorModal';
+import Link from 'next/link';
+import Image from 'next/image';
+import wdcLogo from '../public/wdc-logo.jpg';
 
 const HomeDark = () => {
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
@@ -28,10 +31,17 @@ const HomeDark = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <NavbarDark 
+      {/* <NavbarDark 
         onJoinWaitlistClick={() => setIsWaitlistOpen(true)}
         onChatClick={() => document.getElementById('chat')?.scrollIntoView({ behavior: 'smooth' })}
-      />
+      /> */}
+        <header className="relative z-10 w-full py-4 border border-b-muted-foreground">
+            <div className="max-w-7xl ml-[100px]">
+              <Link href="/" className="inline-block">
+                <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[120px] sm:h-[55px] sm:w-[200px]" />
+              </Link>
+            </div>
+        </header>
       <HeroSectionDark 
         onSecureSpotClick={() => setIsWaitlistOpen(true)}
         onMentorPayClick={() => setIsSponsorOpen(true)}
@@ -40,12 +50,12 @@ const HomeDark = () => {
       <div id="chat">
         <ChatSectionDark />
       </div>
-      <PricingSection 
+      {/* <PricingSection 
         variant="dark" 
         onSponsorClick={handleSponsorClick}
-      />
-      <CTASectionDark onSecureSpotClick={() => setIsWaitlistOpen(true)} />
-      <FooterDark />
+      /> */}
+      {/* <CTASectionDark onSecureSpotClick={() => setIsWaitlistOpen(true)} /> */}
+      {/* <FooterDark /> */}
 
       <WaitlistModal isOpen={isWaitlistOpen} onClose={() => setIsWaitlistOpen(false)} variant="dark" />
       <SponsorModal isOpen={isSponsorOpen} onClose={() => setIsSponsorOpen(false)} planName={selectedPlan.name || 'The Career Accelerator'} variant="dark" />
