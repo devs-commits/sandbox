@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
-import corporateTraining from '@/assets/corporate-training.jpg';
+import corporateTraining from '../../../public/corporate-training.jpg';
 import Image from 'next/image';
 
 interface CTASectionDarkProps {
