@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Lock, Loader2 } from "lucide-react";
@@ -24,7 +24,7 @@ const tracks = [
 
 const RECRUITER_PRICE = "₦ 35,500";
 
-const SignUp = () => {
+const SignUpContent = () => {
   const router = useRouter();
   const { signup, isLoading } = useAuth();
   const searchParams = useSearchParams();
@@ -165,6 +165,18 @@ const SignUp = () => {
         </AuthCard>
       </div>
     </div>
+  );
+};
+
+const SignUp = () => {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <SignUpContent />
+    </Suspense>
   );
 };
 
