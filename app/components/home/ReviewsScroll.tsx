@@ -1,6 +1,5 @@
 "use client";
-import { useRef, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useRef, useState } from 'react';
 import ReviewCard from './ReviewCard';
 import avatarFemale from '@/assets/avatar-female.png';
 import avatarMale from '@/assets/avatar-male.png';
@@ -85,7 +84,7 @@ const ReviewsScroll = ({ variant = 'dark' }: ReviewsScrollProps) => {
             name={review.name}
             location={review.location}
             content={review.content}
-            avatar={review.avatar}
+            // avatar={review.avatar}
             variant={variant}
           />
         ))}
