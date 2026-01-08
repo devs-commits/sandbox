@@ -8,7 +8,6 @@ import CTASectionDark from '../app/components/home/CTASectionDark';
 import FooterDark from '../app/components/home/FooterDark';
 import WaitlistModal from '../app/components/home/WaitListModal';
 import SponsorModal from '../app/components/home/SponsorModal';
-// import PaymentModal from '@/components/PaymentModal';
 
 const HomeDark = () => {
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
