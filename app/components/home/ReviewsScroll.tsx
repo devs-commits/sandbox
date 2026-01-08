@@ -1,8 +1,9 @@
 "use client";
 import { useRef, useState } from 'react';
 import ReviewCard from './ReviewCard';
-import avatarFemale from '@/assets/avatar-female.png';
-import avatarMale from '@/assets/avatar-male.png';
+import avatarFemale from '../../../public/aishat.png';
+import avatarMale from '../../../public/chidi.png';
+import avatarSamuel from '../../../public/samuel.png';
 
 interface ReviewsScrollProps {
   variant?: 'dark' | 'light';
@@ -25,7 +26,7 @@ const reviews = [
     name: 'Samuel, Abuja.',
     location: 'Abuja',
     content: "I've done courses before, but none tested me like this. Three turns with Tolu felt like a real HR screening. I finally understood why recruiters ghost me.",
-    avatar: avatarMale,
+    avatar: avatarSamuel,
   },
   {
     name: 'Blessing, Port Harcourt.',
@@ -37,13 +38,13 @@ const reviews = [
     name: 'Emeka, Enugu.',
     location: 'Enugu',
     content: "Finally, a platform that treats you like a professional, not a student. The strict deadlines changed my work ethic completely.",
-    avatar: avatarMale,
+    avatar: avatarSamuel,
   },
   {
-    name: 'Fatima, Kano.',
+    name: 'Fatiu, Kano.',
     location: 'Kano',
     content: "I got my recommendation letter 2 days after graduation. Used it for my visa application. Still can't believe this costs only ₦15k/month.",
-    avatar: avatarFemale,
+    avatar: avatarMale,
   },
 ];
 
