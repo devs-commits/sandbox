@@ -12,20 +12,18 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
-  const { userLevel, tasks, portfolio } = useOffice();
+  const { userLevel, tasks, portfolio, performanceMetrics } = useOffice();
   const [showMockInterview, setShowMockInterview] = useState(false);
 
   const completedTasks = tasks.filter(t => t.status === 'approved').length;
   const totalTasks = tasks.length;
   const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Mock performance metrics
-  const metrics = {
-    technicalAccuracy: 78,
-    deliverySpeed: 65,
-    communication: 82,
-    overallRating: 'Junior Intern',
-  };
+  // Use dynamic metrics or fallbacks
+  const accuracy = performanceMetrics?.technicalAccuracy ?? 0;
+  const speed = performanceMetrics?.deliverySpeed ?? 0;
+  const comms = performanceMetrics?.communication ?? 0;
+  const rating = performanceMetrics?.overallRating ?? 'Junior Intern';
 
   return (
     <AnimatePresence>
@@ -83,7 +81,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     <CheckCircle className="text-primary" size={16} />
                     <span className="text-sm text-muted-foreground">Technical Accuracy</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.technicalAccuracy}%</p>
+                  <p className="text-2xl font-bold text-foreground">{accuracy}%</p>
                   <p className="text-xs text-muted-foreground">Reviewed by Sola</p>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
@@ -91,7 +89,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     <Clock className="text-primary" size={16} />
                     <span className="text-sm text-muted-foreground">Delivery Speed</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.deliverySpeed}%</p>
+                  <p className="text-2xl font-bold text-foreground">{speed}%</p>
                   <p className="text-xs text-muted-foreground">Tracked by Emem</p>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
@@ -99,7 +97,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     <TrendingUp className="text-primary" size={16} />
                     <span className="text-sm text-muted-foreground">Communication</span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{metrics.communication}%</p>
+                  <p className="text-2xl font-bold text-foreground">{comms}%</p>
                   <p className="text-xs text-muted-foreground">Sentiment Analysis</p>
                 </div>
               </div>
@@ -132,7 +130,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               {/* Appraisal */}
               <div className="bg-secondary/50 border border-border rounded-xl p-4">
                 <p className="text-sm text-muted-foreground mb-1">Overall Rating</p>
-                <p className="text-lg font-semibold text-foreground">{metrics.overallRating}</p>
+                <p className="text-lg font-semibold text-foreground">{rating}</p>
                 <p className="text-xs text-muted-foreground mt-2">
                   Next appraisal in 14 days. Improve delivery speed to advance to Associate level.
                 </p>

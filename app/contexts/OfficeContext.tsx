@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio } from "../components/students/office/types"
+import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
 import { supabase } from '../../lib/supabase';
 
@@ -70,6 +70,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [showToluWelcome, setShowToluWelcome] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFirstTask, setIsFirstTask] = useState(true);
+  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
+  const [messageCount, setMessageCount] = useState(0);
 
   // Get user data from auth context
   const userName = user?.fullName || 'New Intern';
@@ -126,7 +128,41 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       }
     };
 
+
+
+    const fetchPerformanceMetrics = async () => {
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('performance_reports')
+          .select('*')
+          .eq('user_id', userId)
+          .order('assessment_date', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          if (error.code !== 'PGRST116') { // Ignore no rows found
+            console.error('Error fetching performance metrics:', error);
+          }
+        } else if (data) {
+          setPerformanceMetrics({
+            technicalAccuracy: data.technical_accuracy || 0,
+            deliverySpeed: data.reliability_speed || 0,
+            communication: data.communication_score || 0,
+            overallRating: data.current_level || 'Junior Intern',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching performance metrics:', error);
+      }
+    };
+
     fetchOnboardingState();
+    fetchPerformanceMetrics();
   }, [userId]);
 
   // Function to persist state to Supabase
@@ -282,6 +318,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const generateTask = useCallback(async () => {
     setIsGeneratingTask(true);
     setIsExpanded(true); // Auto-expand chat
+    setMessageCount(0); // Reset message count for new task
 
     if (isFirstTask) {
       const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -660,6 +697,31 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         if (data.passed) {
           updateTaskStatus(taskId, 'approved');
 
+          // Persist performance metrics if available
+          if (data.technical_accuracy !== undefined) {
+            const newMetrics = {
+              technicalAccuracy: data.technical_accuracy,
+              deliverySpeed: data.reliability_speed,
+              communication: data.communication_score,
+              overallRating: userLevel || 'Level 1'
+            };
+            setPerformanceMetrics(newMetrics); // Update local state
+
+            // Save to Supabase
+            try {
+              await supabase.from('performance_reports').insert({
+                user_id: userId,
+                technical_accuracy: data.technical_accuracy,
+                reliability_speed: data.reliability_speed,
+                communication_score: data.communication_score,
+                current_level: userLevel || 'Level 1',
+                assessment_date: new Date().toISOString()
+              });
+            } catch (err) {
+              console.error('Error saving performance report:', err);
+            }
+          }
+
           // If passed, Kemi adds the portfolio bullet
           if (data.portfolio_bullet) {
             await new Promise(r => setTimeout(r, 2000));
@@ -702,6 +764,19 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   // Send message - calls AI backend for agent routing
   const sendMessage = useCallback(async (message: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+
+    // Check message limit (5 per task)
+    if (messageCount >= 5) {
+      addChatMessage({
+        id: Date.now().toString(),
+        agentName: null, // System message style
+        message: "SYSTEM: You have reached the question limit (5) for this task. Please submit your work to proceed.",
+        timestamp: new Date(),
+      });
+      return;
+    }
+
+    setMessageCount(prev => prev + 1);
 
     // Add user message immediately
     addChatMessage({
@@ -766,7 +841,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         timestamp: new Date(),
       });
     }
-  }, [addChatMessage, tasks, userLevel, trackName, chatMessages]);
+  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount]);
 
   return (
     <OfficeContext.Provider
@@ -792,12 +867,14 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         isGeneratingTask,
         isLoadingTasks,
         isLoadingOnboarding,
+
         activeView,
         setActiveView,
         submitBio,
         submitWork,
         sendMessage,
         showToluWelcome,
+        performanceMetrics, // Add to context value
         setShowToluWelcome,
         isExpanded,
         setIsExpanded,

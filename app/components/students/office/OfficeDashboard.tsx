@@ -30,12 +30,13 @@ const TOUR_STEPS = [
 ];
 
 export function OfficeDashboard() {
-  const { 
-    phase, 
-    tourStep, 
-    setTourStep, 
-    completeTour, 
-    activeView, 
+  const {
+    phase,
+    userLevel, // Destructure userLevel
+    tourStep,
+    setTourStep,
+    completeTour,
+    activeView,
     setActiveView,
   } = useOffice();
   const [showProfile, setShowProfile] = useState(false);
@@ -124,7 +125,7 @@ export function OfficeDashboard() {
           </div>
           <div>
             <h1 className="font-bold text-foreground text-sm">WDC Office</h1>
-            <p className="text-xs text-muted-foreground">Level 1 • Probation</p>
+            <p className="text-xs text-muted-foreground">{userLevel || 'Levelll 1'} • Probation</p>
           </div>
         </div>
         <Button
@@ -156,7 +157,7 @@ export function OfficeDashboard() {
             <span className="text-xs text-muted-foreground mt-1 block text-center">Desk</span>
             {renderTourTooltip(0, 'right')}
           </div>
-          
+
           {/* Tour step for Meeting Room - positioned here but no button */}
           {isTourActive && tourStep === 1 && (
             <div className="relative mt-2">
@@ -164,7 +165,7 @@ export function OfficeDashboard() {
               {renderTourTooltip(1, 'right')}
             </div>
           )}
-          
+
           <div className="relative mt-2">
             <Button
               ref={archivesRef}
@@ -206,7 +207,7 @@ export function OfficeDashboard() {
           <span className="text-xs text-muted-foreground mt-1">Desk</span>
           {renderTourTooltip(0, 'bottom')}
         </div>
-        
+
         <div className="relative flex flex-col items-center">
           <Button
             variant={activeView === 'meeting' ? 'default' : 'ghost'}
@@ -218,13 +219,13 @@ export function OfficeDashboard() {
             )}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Chat</span>
           {renderTourTooltip(1, 'bottom')}
         </div>
-        
+
         <div className="relative flex flex-col items-center">
           <Button
             variant={activeView === 'archives' ? 'default' : 'ghost'}
@@ -240,7 +241,7 @@ export function OfficeDashboard() {
           <span className="text-xs text-muted-foreground mt-1">Archives</span>
           {renderTourTooltip(2, 'bottom')}
         </div>
-        
+
         <div className="flex flex-col items-center">
           <Button
             variant="ghost"
@@ -258,7 +259,7 @@ export function OfficeDashboard() {
         <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40 pointer-events-none" />
       )}
 
-    
+
       <CollapsibleChat />
 
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />

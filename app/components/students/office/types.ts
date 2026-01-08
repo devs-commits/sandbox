@@ -49,7 +49,9 @@ export interface OfficeState {
   chatMessages: ChatMessage[];
   portfolio: UserPortfolio[];
   tourStep: number;
+
   hasCompletedOnboarding: boolean;
+  performanceMetrics: PerformanceMetrics | null;
 }
 
 export interface ArchiveItem {
@@ -59,6 +61,13 @@ export interface ArchiveItem {
   description: string;
   link?: string;
   content?: string; // Markdown content
+}
+
+export interface PerformanceMetrics {
+  technicalAccuracy: number;
+  deliverySpeed: number;
+  communication: number;
+  overallRating: string;
 }
 
 export const AGENTS: Record<AgentName, Agent> = {

@@ -1,4 +1,4 @@
-  "use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { StudentHeader } from "@/app/components/students/StudentHeader"
@@ -139,10 +139,32 @@ export default function PortfolioPage() {
   }
 
   const handleCopyLink = () => {
-    const url = window.location.href
+    // Construct public CV URL
+    const url = `${window.location.origin}/cv/${user?.id}`
     navigator.clipboard.writeText(url)
-    toast.success("Link copied to clipboard")
+    toast.success("Public CV link copied to clipboard")
     setIsShareOpen(false)
+  }
+
+  const getShareUrl = (platform: string) => {
+    if (!user?.id) return "";
+    const url = encodeURIComponent(`${window.location.origin}/cv/${user.id}`);
+    const text = encodeURIComponent(`Check out my virtual office portfolio at WDC Labs!`);
+
+    switch (platform) {
+      case 'whatsapp': return `https://wa.me/?text=${text}%20${url}`;
+      case 'twitter': return `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+      case 'linkedin': return `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+      case 'facebook': return `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      case 'email': return `mailto:?subject=My WDC Portfolio&body=${text}%20${url}`;
+      case 'telegram': return `https://t.me/share/url?url=${url}&text=${text}`;
+      default: return "";
+    }
+  }
+
+  const openShare = (platform: string) => {
+    const url = getShareUrl(platform);
+    if (url) window.open(url, '_blank', 'width=600,height=400');
   }
 
   // Derive skills from completed tasks
@@ -299,24 +321,22 @@ export default function PortfolioPage() {
           <DialogContent className="bg-[#0f172a] border-slate-800 text-white sm:max-w-md p-0 overflow-hidden [&>button]:hidden">
             <div className="p-6 pb-0">
               <DialogHeader>
-                <DialogTitle className="text-sm font-bold uppercase tracking-wider text-slate-400 text-left">Share Link To:</DialogTitle>
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider text-slate-400 text-left">Share Public CV</DialogTitle>
               </DialogHeader>
             </div>
             <div className="grid grid-cols-4 gap-y-8 gap-x-4 p-6">
               <ShareOption icon={LinkIcon} label="Copy link" color="bg-blue-500" onClick={handleCopyLink} />
-              <ShareOption icon={Instagram} label="Instagram" color="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500" />
-              <ShareOption icon={MessageCircle} label="Whatsapp" color="bg-green-500" />
-              <ShareOption icon={CircleDashed} label="Status" color="bg-green-500" />
 
-              <ShareOption icon={Facebook} label="Facebook" color="bg-blue-600" />
-              <ShareOption icon={Ghost} label="Snapchat" color="bg-yellow-400" iconColor="text-black" />
-              <ShareOption icon={Send} label="Telegram" color="bg-sky-500" />
-              <ShareOption icon={Music2} label="Tiktok" color="bg-black border border-slate-700" />
+              <ShareOption icon={MessageCircle} label="Whatsapp" color="bg-green-500" onClick={() => openShare('whatsapp')} />
+              <ShareOption icon={Linkedin} label="Linkedin" color="bg-blue-700" onClick={() => openShare('linkedin')} />
+              <ShareOption icon={Twitter} label="X" color="bg-black border border-slate-700" onClick={() => openShare('twitter')} />
 
-              <ShareOption icon={Linkedin} label="Linkedin" color="bg-blue-700" />
-              <ShareOption icon={Mail} label="Email" color="bg-blue-500" />
-              <ShareOption icon={AtSign} label="Thread" color="bg-black border border-slate-700" />
-              <ShareOption icon={Twitter} label="X" color="bg-black border border-slate-700" />
+              <ShareOption icon={Mail} label="Email" color="bg-blue-500" onClick={() => openShare('email')} />
+              <ShareOption icon={TelegramIcon} label="Telegram" color="bg-sky-500" onClick={() => openShare('telegram')} />
+              <ShareOption icon={Facebook} label="Facebook" color="bg-blue-600" onClick={() => openShare('facebook')} />
+
+              {/* Placeholders / Less common */}
+              <ShareOption icon={Instagram} label="Instagram" color="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500" onClick={handleCopyLink} />
             </div>
           </DialogContent>
         </Dialog>
@@ -326,9 +346,12 @@ export default function PortfolioPage() {
   )
 }
 
+// Helper for Telegram Icon (using Send icon as fallback/alias in imports, but defining clearly here if needed or reused)
+const TelegramIcon = Send;
+
 function ShareOption({ icon: Icon, label, color, iconColor = "text-white", onClick }: { icon: any, label: string, color: string, iconColor?: string, onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-3 group w-full">
+    <button onClick={onClick} className="flex flex-col items-center gap-3 group w-full outline-none">
       <div className={cn("w-12 h-12 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 shadow-lg", color)}>
         <Icon className={cn("w-6 h-6", iconColor)} />
       </div>
