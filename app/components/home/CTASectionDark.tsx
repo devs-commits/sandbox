@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/button';
 import corporateTraining from '@/assets/corporate-training.jpg';
+import Image from 'next/image';
 
 interface CTASectionDarkProps {
   onSecureSpotClick?: () => void;
@@ -17,7 +18,7 @@ const CTASectionDark = ({ onSecureSpotClick }: CTASectionDarkProps) => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <img 
+            <Image
               src={corporateTraining} 
               alt="Corporate training session"
               className="rounded-2xl shadow-2xl w-full object-cover h-64 md:h-80"
