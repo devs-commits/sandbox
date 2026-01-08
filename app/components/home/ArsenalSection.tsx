@@ -2,10 +2,10 @@ import { motion } from 'framer-motion';
 import FeatureCardDark from './FeatureCardDark';
 import { Building2, FileText, Briefcase, Users } from 'lucide-react';
 
-import virtualOffice from '@/assets/virtual-office.png';
-import recommendationLetter from '@/assets/recommendation-letter.png';
-import livePortfolio from '@/assets/live-portfolio.jpg';
-import teamMeeting from '@/assets/team-meeting.jpg';
+import virtualOffice from '../../../public/virtual-office.jpg';
+import recommendationLetter from '../../../public/recommendation-letter.jpg';
+import livePortfolio from '../../../public/live-portfolio.jpg';
+import teamMeeting from '../../../public/team-meeting.jpg';
 
 interface ArsenalSectionProps {
   variant?: 'dark' | 'light';
