@@ -3,34 +3,40 @@ import { StudentHeader } from "@/app/components/students/StudentHeader";
 import { useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Copy,
   Link as LinkIcon,
-ShieldCheckIcon,
+  ShieldCheckIcon,
 } from "lucide-react";
 
 // Import modal components
-import { IdentityVerifiedModal } from  "../../components/students/earn/IdentityVerifiedModal";
+import { IdentityVerifiedModal } from "../../components/students/earn/IdentityVerifiedModal";
 import { IdentityFailedModal } from "../../components/students/earn/IdentityFailedModal";
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
 import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
 import { WithdrawFailedModal } from "../../components/students/earn/WithdrawalFailedModal";
 import { SocialIcon } from "../../components/students/earn/SocialIcon";
 
-// Mock data
-const earnData = {
-  totalEarnings: 42000,
-  activeReferrals: 8,
-  referralLink: "wdc.mg/join/john-snow-88",
-  userName: "JOHN SNOW",
-  bvn: "222 *********",
+// Import supabase
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/app/contexts/AuthContexts";
+import { useEffect } from "react";
+
+// Mock data as fallback
+const initialEarnData = {
+  totalEarnings: 0,
+  activeReferrals: 0,
+  referralLink: "Loading...",
+  userName: "User",
+  bvn: "",
 };
 
 const getSocialLinks = (referralLink: string) => {
   const encodedLink = encodeURIComponent(`https://${referralLink}`);
   const shareText = encodeURIComponent("Join me on Warlord Digital Club and start earning! 💰");
-  
+
   return [
     { name: "Copy link", icon: "link", color: "bg-cyan-500/20 text-cyan-500", url: null },
     { name: "Instagram", icon: "instagram", color: "bg-pink-500/20 text-pink-500", url: `https://www.instagram.com/` },
@@ -47,15 +53,16 @@ const getSocialLinks = (referralLink: string) => {
   ];
 };
 
-type ModalType = 
-  | "none" 
-  | "identityVerified" 
-  | "identityFailed" 
-  | "withdraw" 
-  | "withdrawSuccess" 
+type ModalType =
+  | "none"
+  | "identityVerified"
+  | "identityFailed"
+  | "withdraw"
+  | "withdrawSuccess"
   | "withdrawFailed";
 
 export default function EarnMoney() {
+  const { user } = useAuth();
   const [activeModal, setActiveModal] = useState<ModalType>("none");
   const [isVerified, setIsVerified] = useState(false);
   const [bvn, setBvn] = useState("");
@@ -64,14 +71,94 @@ export default function EarnMoney() {
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
 
+  const searchParams = useSearchParams();
+  const [earnData, setEarnData] = useState(initialEarnData);
+
+  useEffect(() => {
+    if (user) {
+      fetchEarnData();
+    }
+
+    // Check for focus param
+    const focus = searchParams.get('focus');
+    if (focus === 'verification') {
+      const section = document.getElementById('verification-section');
+      if (section) {
+        // Small timeout to ensure render
+        setTimeout(() => {
+          section.scrollIntoView({ behavior: 'smooth' });
+        }, 500);
+      }
+    } else if (focus === 'withdraw') {
+      setActiveModal("withdraw");
+    }
+  }, [user, searchParams]);
+
+  const fetchEarnData = async () => {
+    try {
+      // 1. Get Wallet Balance and Referral Code
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, wallet_balance, referral_code, full_name, id_verified, bvn, nin, bank_name, account_number, account_name')
+        .eq('auth_id', user?.id)
+        .single();
+
+      // 2. Get Active Referrals Count
+      const { count, error: refError } = await supabase
+        .from('referrals')
+        .select('*', { count: 'exact', head: true })
+        .eq('referrer_id', userData?.id || 0); // fallback if userData missing
+
+      if (userData) {
+        // Construct full URL if code exists
+        const code = userData.referral_code || "Generate Code";
+        const fullLink = userData.referral_code
+          ? `${window.location.origin}/signup?code=${userData.referral_code}`
+          : "Complete setup to get code";
+
+        setEarnData({
+          totalEarnings: userData.wallet_balance || 0,
+          activeReferrals: count || 0,
+          referralLink: fullLink,
+          userName: userData.full_name || "User",
+          bvn: ""
+        });
+
+        setIsVerified(userData.id_verified || false);
+        setBvn(userData.bvn || "");
+        setNin(userData.nin || "");
+        setBankName(userData.bank_name || "");
+        setAccountNumber(userData.account_number || "");
+      }
+    } catch (error) {
+      console.error("Error fetching earn data:", error);
+    }
+  };
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(earnData.referralLink);
   };
 
-  const handleVerifyIdentity = () => {
+  const handleVerifyIdentity = async () => {
     if (bvn && nin && bvn.length >= 10 && nin.length >= 11) {
-      setIsVerified(true);
-      setActiveModal("identityVerified");
+      try {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            id_verified: true,
+            bvn: bvn,
+            nin: nin
+          })
+          .eq('auth_id', user?.id);
+
+        if (error) throw error;
+
+        setIsVerified(true);
+        setActiveModal("identityVerified");
+      } catch (err) {
+        console.error("Verification error:", err);
+        setActiveModal("identityFailed");
+      }
     } else {
       setActiveModal("identityFailed");
     }
@@ -85,9 +172,39 @@ export default function EarnMoney() {
     }
   };
 
-  const handleWithdraw = () => {
-    if (bankName && accountNumber && amount && parseInt(amount) > 0) {
-      setActiveModal("withdrawSuccess");
+  const handleWithdraw = async () => {
+    const withdrawAmount = parseInt(amount);
+
+    if (
+      bankName &&
+      accountNumber &&
+      withdrawAmount &&
+      withdrawAmount > 0
+    ) {
+      if (withdrawAmount > earnData.totalEarnings) {
+        // Could use a toast here or just fail the modal
+        // For now using withdrawFailed modal, but ideally should be specific
+        console.error("Insufficient funds");
+        setActiveModal("withdrawFailed");
+        return;
+      }
+
+      try {
+        // Save bank details for future use
+        await supabase
+          .from('users')
+          .update({
+            bank_name: bankName,
+            account_number: accountNumber,
+            account_name: earnData.userName
+          })
+          .eq('auth_id', user?.id);
+
+        setActiveModal("withdrawSuccess");
+      } catch (err) {
+        console.error("Withdraw error:", err);
+        setActiveModal("withdrawFailed");
+      }
     } else {
       setActiveModal("withdrawFailed");
     }
@@ -109,13 +226,13 @@ export default function EarnMoney() {
           <div className="bg-[linear-gradient(135deg,hsla(176,50%,12%,1)_0%,hsla(204,48%,12%,1)_45%,hsla(176,50%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
             <div className="relative z-10">
               <h2 className="text-2xl font-bold text-foreground mb-2">
-              Turn Your Network into Net Worth
-            </h2>
-            <p className="text-muted-foreground">
-              Earn N2,000 instantly (once your friend pays the first month subscription)
-              <br />
-              + 10% recurring commission every payment he makes. Cash out anytime.
-            </p>
+                Turn Your Network into Net Worth
+              </h2>
+              <p className="text-muted-foreground">
+                Earn N2,000 instantly (once your friend pays the first month subscription)
+                <br />
+                + 10% recurring commission every payment he makes. Cash out anytime.
+              </p>
             </div>
             <div className="absolute right-0 top-0 w-1/3 h-full bg-green-500/10 skew-x-12 transform translate-x-10"></div>
           </div>
@@ -131,7 +248,7 @@ export default function EarnMoney() {
                 <h2 className="text-3xl font-bold text-foreground">
                   ₦{earnData.totalEarnings.toLocaleString()}
                 </h2>
-                <Button 
+                <Button
                   onClick={handleWithdrawClick}
                   className="bg-[hsla(145,100%,39%,1)] hover:bg-[hsla(145,100%,39%,1)]/90 text-primary-foreground px-6 text-foreground"
                 >
@@ -161,19 +278,19 @@ export default function EarnMoney() {
           {/* Bottom Row - Verification and Referral Link */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Identity Verification Card */}
-            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
+            <div id="verification-section" className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
               <div className="flex items-center justify-between mb-6 relative z-10">
                 <div className="flex items-center gap-3">
                   <ShieldCheckIcon className="w-5 h-5 text-primary" />
                   <h3 className="font-bold text-foreground">Identity Verification</h3>
                 </div>
                 <div className="p-1 rounded-md">
-                  <Image 
-                    src="/cbn-logo.png" 
-                    alt="CBN Logo" 
-                    width={40} 
-                    height={40} 
-                    className="object-contain w-10 h-10" 
+                  <Image
+                    src="/cbn-logo.png"
+                    alt="CBN Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain w-10 h-10"
                   />
                 </div>
               </div>
@@ -208,7 +325,7 @@ export default function EarnMoney() {
                 </div>
               </div>
 
-              <Button 
+              <Button
                 onClick={handleVerifyIdentity}
                 className="w-full h-11 mt-6 bg-primary hover:bg-primary/90 text-white"
               >
@@ -265,16 +382,16 @@ export default function EarnMoney() {
       </main>
 
       {/* Modals */}
-      <IdentityVerifiedModal 
-        open={activeModal === "identityVerified"} 
-        onClose={closeModal} 
+      <IdentityVerifiedModal
+        open={activeModal === "identityVerified"}
+        onClose={closeModal}
       />
-      
-      <IdentityFailedModal 
-        open={activeModal === "identityFailed"} 
-        onClose={closeModal} 
+
+      <IdentityFailedModal
+        open={activeModal === "identityFailed"}
+        onClose={closeModal}
       />
-      
+
       <WithdrawModal
         open={activeModal === "withdraw"}
         onClose={closeModal}
@@ -288,13 +405,13 @@ export default function EarnMoney() {
         setAmount={setAmount}
         onWithdraw={handleWithdraw}
       />
-      
+
       <WithdrawSuccessModal
         open={activeModal === "withdrawSuccess"}
         onClose={closeModal}
         amount={amount}
       />
-      
+
       <WithdrawFailedModal
         open={activeModal === "withdrawFailed"}
         onClose={closeModal}

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Lock, Loader2 } from "lucide-react";
 import { AuthCard } from "../components/auth/AuthCard";
@@ -27,6 +27,7 @@ const RECRUITER_PRICE = "₦ 35,500";
 const SignUp = () => {
   const router = useRouter();
   const { signup, isLoading } = useAuth();
+  const searchParams = useSearchParams();
   const [role, setRole] = useState<"student" | "recruiter">("student");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ const SignUp = () => {
   const [paymentMethod, setPaymentMethod] = useState("visa");
   const [error, setError] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
-  const [referralLink, setReferralLink] = useState("");
+  const [referralLink, setReferralLink] = useState(searchParams.get('code') || "");
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -67,7 +68,7 @@ const SignUp = () => {
       setError("Please select a track");
       return;
     }
-    if (role === "student" && !experienceLevel){
+    if (role === "student" && !experienceLevel) {
       setError("Please select your level of experience");
       return;
     }
@@ -100,7 +101,7 @@ const SignUp = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        
+
         <AuthCard title="Join WDC Labs" onClose={() => router.push("/")} className="bg-background">
           <form onSubmit={handleSubmit} className="space-y-4 ">
             {error && (
@@ -110,17 +111,17 @@ const SignUp = () => {
             )}
 
             <RoleToggle value={role} onChange={setRole} />
-            
+
             <AuthInput label="Full Name" placeholder="John Doe" value={fullName} onChange={setFullName} />
             <AuthInput label="Email" type="email" placeholder="john@example.com" value={email} onChange={setEmail} />
             <AuthInput label="Password" type="password" placeholder="Create password (min 8 characters)" value={password} onChange={setPassword} />
             <AuthSelect label="Country" value={country} onChange={setCountry} options={countryOptions} placeholder="Select Country" />
-            
+
             {role === "student" && (
               <AuthSelect label="Select Track" value={track} onChange={setTrack} options={tracks} placeholder="Select Track" />
             )}
             {role === "student" && (
-              <AuthSelect 
+              <AuthSelect
                 label="Experience Level"
                 value={experienceLevel}
                 onChange={setExperienceLevel}
@@ -128,20 +129,20 @@ const SignUp = () => {
                 placeholder="Select Experience Level"
               />
             )}
-            <AuthInput 
-              label="Referral Code (Optional)" 
-              placeholder="Enter referral code" 
-              value={referralLink} 
-              onChange={setReferralLink} 
+            <AuthInput
+              label="Referral Code (Optional)"
+              placeholder="Enter referral code"
+              value={referralLink}
+              onChange={setReferralLink}
             />
-            
+
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-muted-foreground">Monthly Subscription</span>
               <span className="text-lg font-bold text-foreground">{subscriptionPrice}</span>
             </div>
-            
+
             <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
-            
+
             <Button type="submit" className="w-full mt-4" size="lg" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -155,7 +156,7 @@ const SignUp = () => {
                 </>
               )}
             </Button>
-            
+
             <p className="text-center text-sm text-muted-foreground mt-4">
               Already have an account?{" "}
               <Link href="/login" className="text-primary hover:underline">Login</Link>

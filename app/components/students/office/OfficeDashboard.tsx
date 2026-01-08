@@ -31,12 +31,13 @@ const TOUR_STEPS = [
 ];
 
 export function OfficeDashboard() {
-  const { 
-    phase, 
-    tourStep, 
-    setTourStep, 
-    completeTour, 
-    activeView, 
+  const {
+    phase,
+    userLevel, // Destructure userLevel
+    tourStep,
+    setTourStep,
+    completeTour,
+    activeView,
     setActiveView,
   } = useOffice();
   const [showProfile, setShowProfile] = useState(false);
@@ -146,7 +147,7 @@ export function OfficeDashboard() {
           </div>
           <div>
             <h1 className="font-bold text-foreground text-sm">WDC Office</h1>
-            <p className="text-xs text-muted-foreground">Level 1 • Probation</p>
+            <p className="text-xs text-muted-foreground">{userLevel || 'Levelll 1'} • Probation</p>
           </div>
         </div>
         <Button
@@ -250,7 +251,7 @@ export function OfficeDashboard() {
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Archives</span>
         </div>
-        
+
         <div className="flex flex-col items-center">
           <Button
             variant="ghost"

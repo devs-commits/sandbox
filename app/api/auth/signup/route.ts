@@ -48,6 +48,9 @@ export async function POST(request: Request) {
       let dbError;
       let userData;
 
+      // Generate a unique referral code for the NEW user
+      const newReferralCode = `${fullName.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
+
       if (role === 'recruiter') {
         const { data: recruiterData, error: recruiterError } = await dbClient
           .from('recruiters')
@@ -67,10 +70,7 @@ export async function POST(request: Request) {
         const { data: studentData, error: studentError } = await dbClient
           .from('users')
           .insert({
-            // We let the database generate its own primary 'id' (e.g. 1, 2, 3 or uuid)
-            // We store the Auth ID in a separate column (Foreign Key)
             auth_id: data.user.id,
-
             email: email,
             full_name: fullName,
             role: role,
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
             experience_level: experienceLevel,
             wallet_balance: 0, // Default balance
             track: track,
-            // Onboarding state defaults
+            referral_code: newReferralCode,
             has_completed_onboarding: false,
             has_completed_tour: false,
             user_level: null,
@@ -89,6 +89,40 @@ export async function POST(request: Request) {
 
         dbError = studentError;
         userData = studentData;
+
+        // Process Referral Reward (Student only)
+        // If a referral link/code was provided, find the referrer and reward them
+        if (!studentError && studentData && body.referralLink) {
+          const refCode = body.referralLink.trim();
+          // Find referrer
+          const { data: referrer, error: refError } = await dbClient
+            .from('users')
+            .select('id, wallet_balance')
+            .eq('referral_code', refCode)
+            .single();
+
+          if (referrer && !refError) {
+            const reward = 2000;
+
+            // 1. Update Referrer Wallet
+            await dbClient
+              .from('users')
+              .update({ wallet_balance: (referrer.wallet_balance || 0) + reward })
+              .eq('id', referrer.id);
+
+            // 2. Create Referral Record
+            await dbClient
+              .from('referrals')
+              .insert({
+                referrer_id: referrer.id,
+                referee_id: studentData.id,
+                status: 'completed',
+                reward_amount: reward
+              });
+
+            console.log(`Referral processed: ${referrer.id} referred ${studentData.id}. Reward: ${reward}`);
+          }
+        }
       }
 
       if (dbError) {

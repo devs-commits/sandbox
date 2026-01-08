@@ -51,7 +51,9 @@ export interface OfficeState {
   chatMessages: ChatMessage[];
   portfolio: UserPortfolio[];
   tourStep: number;
+
   hasCompletedOnboarding: boolean;
+  performanceMetrics: PerformanceMetrics | null;
 }
 
 export interface ArchiveItem {
@@ -63,6 +65,12 @@ export interface ArchiveItem {
   content?: string; // Markdown content
 }
 
+export interface PerformanceMetrics {
+  technicalAccuracy: number;
+  deliverySpeed: number;
+  communication: number;
+  overallRating: string;
+}
 import { StaticImageData } from 'next/image';
 import toluImage from '../../../../public/tolu.jpg';
 import solaImage from '../../../../public/sola.jpg';

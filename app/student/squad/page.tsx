@@ -35,6 +35,7 @@ export default function Squad() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState("");
+  const [isClaiming, setIsClaiming] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -77,7 +78,7 @@ export default function Squad() {
         }
         throw new Error(data.error);
       }
-      
+
       toast.success("Squad created successfully!");
       fetchSquad(); // Refresh to show squad view
     } catch (error: any) {
@@ -105,6 +106,30 @@ export default function Squad() {
       toast.error(error.message || "Failed to join squad");
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleClaimReferral = async () => {
+    if (!referralCodeInput.trim()) return;
+    setIsClaiming(true);
+    try {
+      const res = await fetch('/api/users/referral', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id, referralCode: referralCodeInput }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to claim code");
+      }
+
+      toast.success("Referral code claimed successfully!");
+      setReferralCodeInput(""); // Clear input
+    } catch (error: any) {
+      toast.error(error.message || "Failed to claim referral");
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -153,13 +178,13 @@ export default function Squad() {
                   <p className="text-sm text-muted-foreground">Start a new circle. You'll be the Squad Leader.</p>
                 </div>
                 <div className="space-y-3">
-                  <Input 
-                    placeholder="Squad Name (e.g. The A-Team)" 
+                  <Input
+                    placeholder="Squad Name (e.g. The A-Team)"
                     value={newSquadName}
                     onChange={(e) => setNewSquadName(e.target.value)}
                     className="bg-background"
                   />
-                  <Button 
+                  <Button
                     className="w-full bg-primary hover:bg-primary/90"
                     onClick={handleCreateSquad}
                     disabled={isCreating || !newSquadName}
@@ -176,23 +201,32 @@ export default function Squad() {
                   <p className="text-sm text-muted-foreground">Have an invite code? Enter it here.</p>
                 </div>
                 <div className="space-y-3">
-                  <Input 
-                    placeholder="Enter 6-digit Code" 
+                  <Input
+                    placeholder="Enter 6-digit Code"
                     value={inviteCodeInput}
                     onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
                     maxLength={6}
                     className="bg-background uppercase tracking-widest"
                   />
                   <p className="text-sm text-muted-foreground">Enter Referral code</p>
-                  <Input
-                    placeholder="Enter Referral code"
-                    value={referralCodeInput}
-                    onChange={(e) => setReferralCodeInput(e.target.value)}
-                    maxLength={8}
-                    className="bg-background tracking-widest"
-                   />
-                  <Button 
-                    variant="secondary" 
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter Referral code"
+                      value={referralCodeInput}
+                      onChange={(e) => setReferralCodeInput(e.target.value)}
+                      className="bg-background tracking-widest"
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={handleClaimReferral}
+                      disabled={isClaiming || !referralCodeInput}
+                      className="whitespace-nowrap"
+                    >
+                      {isClaiming ? <Loader2 className="w-4 h-4 animate-spin" /> : "Claim"}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="secondary"
                     className="w-full"
                     onClick={handleJoinSquad}
                     disabled={isJoining || inviteCodeInput.length < 6}
@@ -225,7 +259,7 @@ export default function Squad() {
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
                 <Badge className="bg-[hsla(273,96%,64%,1)] text-foreground border-purple-500/30 text-xs">
-                <Flame size={14} className="mr-1" />
+                  <Flame size={14} className="mr-1" />
                   SQUAD STREAK: 0 DAYS
                 </Badge>
                 {filledSlots === 4 && (
@@ -238,8 +272,8 @@ export default function Squad() {
                 {filledSlots < 4 ? `Invite ${emptySlots} more friends.` : "Squad Goals Active!"}
               </h2>
               <p className="text-muted-foreground">
-                {filledSlots < 4 
-                  ? "Fill your squad to unlock the 45% discount and squad bonuses." 
+                {filledSlots < 4
+                  ? "Fill your squad to unlock the 45% discount and squad bonuses."
                   : "Keep your streak alive to maintain your rewards."}
               </p>
             </div>
@@ -250,8 +284,8 @@ export default function Squad() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Render Real Members */}
             {squad.members.map((member) => (
-              <div 
-                key={member.userId} 
+              <div
+                key={member.userId}
                 className="rounded-xl p-6 flex flex-col items-center justify-center min-h-[160px] bg-card border border-primary/30"
               >
                 <div className={`w-14 h-14 rounded-full ${member.role === 'leader' ? 'bg-primary' : 'bg-purple-500'} flex items-center justify-center mb-3`}>
@@ -268,8 +302,8 @@ export default function Squad() {
 
             {/* Render Empty Slots */}
             {Array.from({ length: emptySlots }).map((_, i) => (
-              <div 
-                key={`empty-${i}`} 
+              <div
+                key={`empty-${i}`}
                 className="rounded-xl p-6 flex flex-col items-center justify-center min-h-[160px] border-2 border-dashed border-muted-foreground/30 bg-transparent"
               >
                 <div className="w-12 h-12 rounded-full bg-muted-foreground/20 flex items-center justify-center mb-3">
@@ -290,8 +324,8 @@ export default function Squad() {
                 </p>
                 <p className="text-foreground font-mono text-2xl font-bold tracking-widest">{squad.invite_code}</p>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="border-border text-foreground hover:bg-secondary"
                 onClick={handleCopyLink}
               >

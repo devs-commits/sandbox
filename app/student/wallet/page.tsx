@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
@@ -14,24 +15,65 @@ import {
 } from "../../components/ui/dialog";
 
 // Mock data - replace with backend integration
-const walletData = {
-  balance: 42000,
-  bankName: "Parallex Bank",
-  accountNumber: "0079484763",
-  accountName: "John Snow",
-  earnedTotal: 42000,
+// Import supabase
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/app/contexts/AuthContexts";
+import { useEffect } from "react";
+
+// Initial state
+const initialWalletData = {
+  balance: 0,
+  bankName: "Add Bank Details",
+  accountNumber: "****",
+  accountName: "User",
+  earnedTotal: 0,
   loanTarget: 100000,
   loanAmount: 50000,
   interestRate: "2.5%/Month",
   duration: "30 Days",
   repayment: "Bounty Hunter Earning",
+  isVerified: false,
 };
 
 type ModalType = "locked" | "eligible" | "granted" | null;
 
 export default function GlobalWallet() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [modalType, setModalType] = useState<ModalType>(null);
-  const loanProgress = (walletData.earnedTotal / walletData.loanTarget) * 100;
+  const [walletData, setWalletData] = useState(initialWalletData);
+
+  useEffect(() => {
+    if (user) {
+      fetchWalletData();
+    }
+  }, [user]);
+
+  const fetchWalletData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('wallet_balance, bank_name, account_number, account_name, id_verified')
+        .eq('auth_id', user?.id)
+        .single();
+
+      if (data) {
+        setWalletData(prev => ({
+          ...prev,
+          balance: data.wallet_balance || 0,
+          bankName: data.bank_name || "Add Bank Details",
+          accountNumber: data.account_number || "****",
+          accountName: data.account_name || user?.fullName || "User",
+          earnedTotal: data.wallet_balance || 0,
+          isVerified: data.id_verified || false
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching wallet:", err);
+    }
+  };
+
+  const loanProgress = Math.min((walletData.earnedTotal / walletData.loanTarget) * 100, 100);
   const isEligible = walletData.earnedTotal >= walletData.loanTarget;
 
   const handleRequestLoan = () => {
@@ -100,13 +142,25 @@ export default function GlobalWallet() {
                 Powered by Parallex Bank licensed by CBN
               </p>
               <div className="flex items-center gap-1">
-               <Image src="/first.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
-               <Image src="/middle.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
-               <Image src="/lucide_shield.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4}/>
+                <Image src="/first.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4} />
+                <Image src="/middle.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4} />
+                <Image src="/lucide_shield.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4} />
               </div>
             </div>
 
-            <Button className="w-full bg-[hsla(145,100%,39%,1)] hover:bg-green/90 text-white">
+            <Button
+              className="w-full bg-[hsla(145,100%,39%,1)] hover:bg-green/90 text-white"
+              onClick={() => {
+                if (!walletData.isVerified) {
+                  // Redirect to Earn page for verification if NOT verified
+                  router.push("/student/earn?focus=verification");
+                } else {
+                  // Open Withdraw Modal (or redirect to Earn page focused on withdrawal if preferred)
+                  // For now, let's redirect to Earn page focused on withdrawal section since that's where the modal existed
+                  router.push("/student/earn?focus=withdraw");
+                }
+              }}
+            >
               Withdraw
             </Button>
           </div>
@@ -117,7 +171,7 @@ export default function GlobalWallet() {
             <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 text-green-400"/>
+                  <TrendingUp className="w-5 h-5 text-green-400" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground mb-1">Inflation Hedge</h3>
@@ -165,7 +219,7 @@ export default function GlobalWallet() {
         <Dialog open={modalType === "locked"} onOpenChange={() => setModalType(null)}>
           <DialogContent className="bg-card border-border max-w-md">
             <DialogHeader className="text-center">
-              <button 
+              <button
                 onClick={() => setModalType(null)}
                 className="absolute right-4 top-4 text-foreground hover:text-foreground"
               >
@@ -181,7 +235,7 @@ export default function GlobalWallet() {
               <p className="text-muted-foreground mb-6">
                 Once unlocked, you'll be able to request loans to purchase: Laptops, Accessories, Learning tools, Work essentials.
               </p>
-              <Button 
+              <Button
                 className="bg-primary hover:bg-coral/90 text-white px-8"
                 onClick={() => setModalType(null)}
               >
@@ -195,7 +249,7 @@ export default function GlobalWallet() {
         <Dialog open={modalType === "eligible"} onOpenChange={() => setModalType(null)}>
           <DialogContent className="bg-card border-border max-w-md">
             <DialogHeader className="text-center">
-              <button 
+              <button
                 onClick={() => setModalType(null)}
                 className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
               >
@@ -212,7 +266,7 @@ export default function GlobalWallet() {
               <p className="text-muted-foreground mb-6">
                 You are eligible to access our Career Support Loan to purchase work tools such as laptops, accessories, and learning equipment.
               </p>
-              
+
               <div className="bg-secondary rounded-lg p-4 mb-6 text-left">
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Interest Rate:</span>
@@ -228,7 +282,7 @@ export default function GlobalWallet() {
                 </div>
               </div>
 
-              <Button 
+              <Button
                 className="w-full bg-green hover:bg-green/90 text-white"
                 onClick={handleAcceptLoan}
               >
@@ -242,7 +296,7 @@ export default function GlobalWallet() {
         <Dialog open={modalType === "granted"} onOpenChange={() => setModalType(null)}>
           <DialogContent className="bg-card border-border max-w-md">
             <DialogHeader className="text-center">
-              <button 
+              <button
                 onClick={() => setModalType(null)}
                 className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
               >
@@ -256,7 +310,7 @@ export default function GlobalWallet() {
               <p className="text-muted-foreground mb-6">
                 Your loan application has been received. Your account will be funded within 24-72 hours.
               </p>
-              <Button 
+              <Button
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-8"
                 onClick={() => setModalType(null)}
               >
