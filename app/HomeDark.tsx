@@ -31,17 +31,17 @@ const HomeDark = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* <NavbarDark 
+      <NavbarDark 
         onJoinWaitlistClick={() => setIsWaitlistOpen(true)}
         onChatClick={() => document.getElementById('chat')?.scrollIntoView({ behavior: 'smooth' })}
-      /> */}
-        <header className="relative z-10 w-full py-4 border border-b-muted-foreground">
+      />
+        {/* <header className="relative z-10 w-full py-4 border border-b-muted-foreground">
             <div className="max-w-7xl ml-[100px]">
               <Link href="/" className="inline-block">
                 <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[120px] sm:h-[55px] sm:w-[200px]" />
               </Link>
             </div>
-        </header>
+        </header> */}
       <HeroSectionDark 
         onSecureSpotClick={() => setIsWaitlistOpen(true)}
         onMentorPayClick={() => setIsSponsorOpen(true)}
