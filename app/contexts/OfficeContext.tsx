@@ -399,7 +399,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 16000 },
           { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 14000 },
           { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 12000 },
-        // { agent: 'Tolu', message: `${userName}, any questions before I sign off?`, delay: 12000 },
+        // { agent: 'Tolu', message: `${userName}, 
+        //  any questions before I sign off?`, delay: 12000 },
         ];
 
         for (const msg of fallbackMessages) {
