@@ -7,9 +7,9 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
         <header className="relative z-10 w-full py-4 border border-b-muted-foreground">
-            <div className="max-w-7xl ml-[100px]">
+            <div className="max-w-7xl ml-[50px] sm:ml-[50px]">
               <Link href="/" className="inline-block">
-                <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[120px] sm:h-[55px] sm:w-[200px]" />
+                <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[200px] sm:h-[55px] sm:w-[200px]" />
               </Link>
             </div>
         </header>
