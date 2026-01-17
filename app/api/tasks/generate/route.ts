@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Call Python Backend for Task Generation
-    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://127.0.0.1:8001';
 
     const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
       method: 'POST',
