@@ -168,7 +168,7 @@ export default function GlobalWallet() {
           {/* Side Cards */}
           <div className="space-y-4">
             {/* Inflation Hedge */}
-            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-5 border border-border">
+            {/* <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-5 border border-border">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
                   <TrendingUp className="w-5 h-5 text-green-400" />
@@ -180,7 +180,7 @@ export default function GlobalWallet() {
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Career Support Loan */}
             <div className="bg-[hsla(261,56%,20%,1)] rounded-xl p-5 border border-border">
