@@ -2,14 +2,20 @@ import { Button } from "../components/ui/button";
 import Link from "next/link";
 import wdcLogo from "../../public/wdc-logo.jpg";
 import Image from "next/image";
+import actd from "../../public/actd-logo.png";
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-        <header className="relative z-10 w-full py-4 border border-b-muted-foreground">
+        <header className="flex h-16 items-center justify-between">
             <div className="max-w-7xl ml-[50px] sm:ml-[50px]">
               <Link href="/" className="inline-block">
                 <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[200px] sm:h-[55px] sm:w-[200px]" />
+              </Link>
+            </div>
+            <div className="max-w-7xl justify-left md:mr-20 sm:mr-5 mt-5">
+              <Link href="/" className="inline-block">
+                <Image src={actd} alt="ACTD Logo" className="h-[50px] w-[60px] sm:h-[65px] sm:w-[65px]" />
               </Link>
             </div>
         </header>
