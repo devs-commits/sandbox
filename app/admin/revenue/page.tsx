@@ -102,7 +102,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     
     return (
       <div className="bg-[#0F2137] border border-border/30 rounded-lg p-3 shadow-lg">
-        <p className="text-cyan text-sm font-medium mb-2">{dateLabel}</p>
+        <p className="text-cyan-500 text-sm font-medium mb-2">{dateLabel}</p>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between gap-8">
             <span className="text-muted-foreground">Subscription:</span>
@@ -153,9 +153,6 @@ export default function Revenue({ onMenuClick }: RevenueProps) {
     <>
       <AdminHeader title="Revenue Analytics" subtitle="High-level view of revenue-related activity" />
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
-        <p className="text-muted-foreground mb-6">
-          High-level view of revenue-related activity.
-        </p>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
