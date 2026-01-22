@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Coffee } from 'lucide-react';
+import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Coffee, Target } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { Task } from './types';
@@ -78,7 +78,7 @@ export function TaskDashboard() {
       </div>
 
       {/* Task List */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
         {isLoadingTasks ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <Loader2 className="text-primary animate-spin mb-4" size={36} />
@@ -107,41 +107,90 @@ export function TaskDashboard() {
             </p>
           </motion.div>
         ) : (
-          <div className="grid gap-4">
-            {tasks.map((task, index) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`bg-card/80 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-primary ring-2 ring-primary/20' : 'border-border/50'
-                  }`}
-                onClick={() => handleTaskClick(task)}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                    {formatTrackName(task.type)}
-                  </span>
-                  <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
-                    {getStatusIcon(task.status)}
-                    {getStatusLabel(task.status)}
-                  </span>
+          <>
+            {/* Regular Tasks Section */}
+            {tasks.filter(t => t.difficulty !== 'Bounty').length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Assigned Tasks</h3>
+                <div className="grid gap-4">
+                  {tasks.filter(t => t.difficulty !== 'Bounty').map((task, index) => (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className={`bg-card/80 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-primary ring-2 ring-primary/20' : 'border-border/50'
+                        }`}
+                      onClick={() => handleTaskClick(task)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
+                          {formatTrackName(task.type)}
+                        </span>
+                        <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
+                          {getStatusIcon(task.status)}
+                          {getStatusLabel(task.status)}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
+                      <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
+                        <ReactMarkdown>{task.description}</ReactMarkdown>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Clock size={12} /> Due: {task.deadline}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <FileText size={12} /> {task.attachments.length} files
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
-                <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
-                  <ReactMarkdown>{task.description}</ReactMarkdown>
+              </div>
+            )}
+
+            {/* Accepted Bounties Section */}
+            {tasks.filter(t => t.difficulty === 'Bounty').length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Target size={16} /> Accepted Bounties
+                </h3>
+                <div className="grid gap-4">
+                  {tasks.filter(t => t.difficulty === 'Bounty').map((task, index) => (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className={`bg-yellow-500/5 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-yellow-500/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-yellow-500 ring-2 ring-yellow-500/20' : 'border-yellow-500/20'
+                        }`}
+                      onClick={() => handleTaskClick(task)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <span className="text-xs font-medium bg-yellow-500/20 text-yellow-600 px-3 py-1 rounded-full">
+                          BOUNTY
+                        </span>
+                        <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
+                          {getStatusIcon(task.status)}
+                          {getStatusLabel(task.status)}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
+                      <div className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                        <ReactMarkdown>{task.description}</ReactMarkdown>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Clock size={12} /> {task.deadline === 'Flexible' ? 'Urgent' : task.deadline}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Clock size={12} /> Due: {task.deadline}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <FileText size={12} /> {task.attachments.length} files
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

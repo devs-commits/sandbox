@@ -366,7 +366,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             title: t.title,
             description: t.brief_content,
             type: t.task_track || trackName,
-            deadline: 'In 2 days', // Could parse from ai_persona_config
+            deadline: t.ai_persona_config.deadline,
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
