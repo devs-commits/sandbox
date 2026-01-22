@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
-import { ShieldCheckIcon, TrendingUp, Lock, X } from "lucide-react";
+import { ShieldCheckIcon, Lock, X } from "lucide-react";
 import Image from "next/image";
 
 import {
@@ -142,9 +142,9 @@ export default function GlobalWallet() {
                 Powered by Parallex Bank licensed by CBN
               </p>
               <div className="flex items-center gap-1">
-                <Image src="/first.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4} />
-                <Image src="/middle.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4} />
-                <Image src="/lucide_shield.png" alt="Logo" className="h-5 w-6 object-contain" width={4} height={4} />
+                <Image src="/first.png" alt="Logo" className="h-9 w-9 object-contain" width={4} height={4} />
+                <Image src="/middle.png" alt="Logo" className="h-9 w-9 object-contain" width={4} height={4} />
+                <ShieldCheckIcon className="w-9 h-9 text-primary object-contain" />
               </div>
             </div>
 
