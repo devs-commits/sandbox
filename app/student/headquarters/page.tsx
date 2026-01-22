@@ -78,6 +78,7 @@ export default function page() {
   }, [user]);
 
   const getDifficultyColor = (difficulty: string) => {
+    if (!difficulty) return 'bg-purple-500/20 text-purple-500';
     switch (difficulty.toLowerCase()) {
       case 'beginner': return 'bg-green-500/20 text-green-500';
       case 'intermediate': return 'bg-yellow-500/20 text-yellow-500';
@@ -216,43 +217,80 @@ export default function page() {
           </div>
         </div>
 
-        {/* My Tasks */}
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-4">My Tasks ({tasks.length})</h2>
-
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : tasks.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {tasks.slice(0, 3).map((task) => (
-                <div
-                  key={task.id}
-                  className="bg-card border border-border rounded-xl p-4 flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => handleTaskClick(task.id)}
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="bg-gray-600/20 text-foreground-500 text-xs px-2 py-0.5 rounded uppercase">
-                      {task.task_track}
-                    </span>
-                    <span className={`${getDifficultyColor(task.difficulty)} text-xs px-2 py-0.5 rounded ml-auto uppercase`}>
-                      {task.difficulty}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold text-foreground text-sm mb-2 line-clamp-2">{task.title}</h3>
-                  <p className="text-xs text-muted-foreground flex-1 mb-4 line-clamp-3">{task.brief_content}</p>
-                  <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <FileText size={14} />
-                      <span className="text-xs">View Details</span>
-                    </div>
-                    <ArrowRight size={18} className="text-muted-foreground" />
-                  </div>
+        {/* My Tasks & Bounties */}
+        <div className="space-y-8">
+          {/* Regular Tasks */}
+          {tasks.filter(t => t.difficulty !== 'Bounty').length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4">My Tasks</h2>
+              {isLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {tasks.filter(t => t.difficulty !== 'Bounty').slice(0, 3).map((task) => (
+                    <div
+                      key={task.id}
+                      className="bg-card border border-border rounded-xl p-4 flex flex-col h-full cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => handleTaskClick(task.id)}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="bg-gray-600/20 text-foreground-500 text-xs px-2 py-0.5 rounded uppercase">
+                          {task.task_track}
+                        </span>
+                        <span className={`${getDifficultyColor(task.difficulty)} text-xs px-2 py-0.5 rounded ml-auto uppercase`}>
+                          {task.difficulty || 'Normal'}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-foreground text-sm mb-2 line-clamp-2">{task.title}</h3>
+                      <p className="text-xs text-muted-foreground flex-1 mb-4 line-clamp-3">{task.brief_content}</p>
+                      <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <FileText size={14} />
+                          <span className="text-xs">View Details</span>
+                        </div>
+                        <ArrowRight size={18} className="text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
+          )}
+
+          {/* Accepted Bounties */}
+          {tasks.filter(t => t.difficulty === 'Bounty').length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Active Bounties</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {tasks.filter(t => t.difficulty === 'Bounty').slice(0, 3).map((task) => (
+                  <div
+                    key={task.id}
+                    className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4 flex flex-col h-full cursor-pointer hover:border-yellow-500/50 transition-colors"
+                    onClick={() => handleTaskClick(task.id)}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="bg-yellow-500/20 text-yellow-600 text-xs px-2 py-0.5 rounded uppercase font-medium">
+                        BOUNTY
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-foreground text-sm mb-2 line-clamp-2">{task.title}</h3>
+                    <p className="text-xs text-muted-foreground flex-1 mb-4 line-clamp-3">{task.brief_content}</p>
+                    <div className="flex items-center justify-between pt-3 border-t border-yellow-500/10 mt-auto">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock size={14} className="text-yellow-600" />
+                        <span className="text-xs text-yellow-600">Urgent</span>
+                      </div>
+                      <ArrowRight size={18} className="text-yellow-600" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tasks.length === 0 && !isLoading && (
             // Fallback: If no tasks, direct them to the office
             <div className="flex flex-col items-center justify-center p-8 border border-dashed border-border rounded-xl bg-card/50">
               <div className="bg-primary/10 p-3 rounded-full mb-4">

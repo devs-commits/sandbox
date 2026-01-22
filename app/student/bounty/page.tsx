@@ -232,6 +232,7 @@ export default function BountyHunter() {
         title: bounty.title,
         brief_content: bounty.description,
         task_track: bounty.type || 'General',
+        difficulty: 'Bounty',
         completed: false,
         resources: [],
         // We can store deadline info if needed, or other metadata

@@ -20,11 +20,6 @@ const TOUR_STEPS = [
     description: "This is your Desk. Check here every morning.",
   },
   {
-    target: 'bounty',
-    title: 'Bounty Board',
-    description: "Looking for extra work? Accept bounties here to earn extra rewards.",
-  },
-  {
     target: 'meeting',
     title: 'The Meeting Room',
     description: "This is where we talk. Professional communications only. No 'pls' or 'u'. We use full sentences here.",
@@ -49,13 +44,11 @@ export function OfficeDashboard() {
   const [showProfile, setShowProfile] = useState(false);
 
   const deskRef = useRef<HTMLButtonElement | null>(null);
-  const bountyRef = useRef<HTMLButtonElement | null>(null);
   const archivesRef = useRef<HTMLButtonElement | null>(null);
   const chatRef = useRef<HTMLButtonElement | null>(null);
 
   // Mobile refs
   const deskMobileRef = useRef<HTMLButtonElement | null>(null);
-  const bountyMobileRef = useRef<HTMLButtonElement | null>(null);
   const chatMobileRef = useRef<HTMLButtonElement | null>(null);
   const archivesMobileRef = useRef<HTMLButtonElement | null>(null);
 
@@ -64,7 +57,7 @@ export function OfficeDashboard() {
 
   const isTourActive = phase === 'tour';
 
-  const handleNavClick = (view: 'desk' | 'meeting' | 'archives' | 'bounty') => {
+  const handleNavClick = (view: 'desk' | 'meeting' | 'archives') => {
     setActiveView(view);
   };
 
@@ -93,13 +86,10 @@ export function OfficeDashboard() {
       case 0: // Desk
         targetRef = isMobile ? deskMobileRef : deskRef;
         break;
-      case 1: // Bounty
-        targetRef = isMobile ? bountyMobileRef : bountyRef;
-        break;
-      case 2: // Chat/Meeting
+      case 1: // Chat/Meeting (Adjusted index)
         targetRef = isMobile ? chatMobileRef : desktopChatRef;
         break;
-      case 3: // Archives
+      case 2: // Archives (Adjusted index)
         targetRef = isMobile ? archivesMobileRef : archivesRef;
         break;
     }
@@ -136,8 +126,6 @@ export function OfficeDashboard() {
     switch (activeView) {
       case 'archives':
         return <ArchivesView />;
-      case 'bounty':
-        return <BountyBoard />;
       case 'meeting':
         // Mobile only - on desktop we use CollapsibleChat
         return (
@@ -146,6 +134,7 @@ export function OfficeDashboard() {
           </div>
         );
       default:
+        // Desk view handles regular task dashboard
         return <TaskDashboard />;
     }
   };
@@ -174,7 +163,7 @@ export function OfficeDashboard() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Desktop (Desk, Bounty, Archives) */}
+        {/* Sidebar - Desktop (Desk, Archives) */}
         <nav className="hidden lg:flex flex-col w-20 border-r border-border/50 bg-card/50 items-center py-6 gap-2">
           <div className="flex flex-col items-center">
             <Button
@@ -190,22 +179,6 @@ export function OfficeDashboard() {
               <Briefcase size={20} />
             </Button>
             <span className="text-xs text-muted-foreground mt-1">Desk</span>
-          </div>
-
-          <div className="flex flex-col items-center mt-2">
-            <Button
-              ref={bountyRef}
-              variant={activeView === 'bounty' ? 'default' : 'ghost'}
-              size="icon"
-              onClick={() => handleNavClick('bounty')}
-              className={cn(
-                "w-12 h-12 rounded-xl transition-all",
-                activeView === 'bounty' && "bg-primary text-primary-foreground shadow-lg"
-              )}
-            >
-              <Target size={20} />
-            </Button>
-            <span className="text-xs text-muted-foreground mt-1">Bounty</span>
           </div>
 
           <div className="flex flex-col items-center mt-2">
@@ -247,22 +220,6 @@ export function OfficeDashboard() {
             <Briefcase size={20} />
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Desk</span>
-        </div>
-
-        <div className="flex flex-col items-center">
-          <Button
-            ref={bountyMobileRef}
-            variant={activeView === 'bounty' ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => handleNavClick('bounty')}
-            className={cn(
-              "w-12 h-12 rounded-xl",
-              activeView === 'bounty' && "bg-primary text-primary-foreground"
-            )}
-          >
-            <Target size={20} />
-          </Button>
-          <span className="text-xs text-muted-foreground mt-1">Bounty</span>
         </div>
 
         <div className="flex flex-col items-center">
