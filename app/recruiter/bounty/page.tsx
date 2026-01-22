@@ -1,245 +1,431 @@
-"use client"
-import { useState } from "react";
+"use client";
 import { RecruiterHeader } from "@/app/components/recruiter/RecruiterHeader";
-import { Badge } from "../../components/ui/badge";
+import { useState, useMemo, useEffect } from "react";
+import { Card, CardContent } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
-import { Clock, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
+import { Search, Activity, CheckCircle, XCircle, Target, Eye, Trash2 } from "lucide-react";
+import { CreateBountyModal, BountyFormData } from "../../components/admin/bounty/CreateBountyModal";
+import { BountyDetailsModal, BountyDetails } from "../../components/admin/bounty/BountyDetailsModal";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
-interface Bounty {
-  id: string;
-  type: string;
-  duration: string;
-  title: string;
-  description: string;
-  instructions: string[];
-  deliverables: string[];
-  reward: number;
-  slotsLeft: number;
-}
+export default function BountyManagement() {
+  const [bounties, setBounties] = useState<BountyDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterBy, setFilterBy] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedBounty, setSelectedBounty] = useState<BountyDetails | null>(null);
 
-const bounties: Bounty[] = [
-  {
-    id: "1",
-    type: "QA TESTING",
-    duration: "30 mins",
-    title: "App Testing: Kuda Beta",
-    description: "Test the new Kuda Beta mobile app and evaluate performance, UI flow, and basic functionality. You will be required to identify bugs, usability issues, and UX inconsistencies.",
-    instructions: [
-      "Install the Kuda Beta app using the test link provided.",
-      "Complete a full onboarding flow (Sign up → Login → Dashboard).",
-      "Test core features: Transfers, Savings, Navigation.",
-      "Record issues:",
-      "Prepare your submission as a single PDF or ZIP file."
-    ],
-    deliverables: [
-      "At least 3 identified bugs",
-      "Screenshots/video proof",
-      "Your device type (Android/iOS)",
-      "Summary of overall experience"
-    ],
-    reward: 5000,
-    slotsLeft: 45,
-  },
-  {
-    id: "2",
-    type: "AI TRAINING",
-    duration: "1 hr",
-    title: "Voice Recording: Yoruba",
-    description: "Record voice samples in Yoruba language for AI training dataset. You will be required to follow specific scripts and recording guidelines.",
-    instructions: [
-      "Download the recording app from the provided link.",
-      "Read and record the provided scripts clearly.",
-      "Ensure minimal background noise.",
-      "Submit all recordings in the required format."
-    ],
-    deliverables: [
-      "Minimum 50 voice recordings",
-      "Clear audio without background noise",
-      "Recordings in WAV format"
-    ],
-    reward: 6500,
-    slotsLeft: 120,
-  },
-  {
-    id: "3",
-    type: "RESEARCH",
-    duration: "2hrs",
-    title: "Lead Gen: Fintech CEOs",
-    description: "Research and compile a list of Fintech CEOs and their contact information for business development purposes.",
-    instructions: [
-      "Research Fintech companies in Nigeria.",
-      "Identify and verify CEO contact information.",
-      "Compile data in the provided spreadsheet format.",
-      "Verify all information for accuracy."
-    ],
-    deliverables: [
-      "Minimum 20 verified CEO contacts",
-      "Company name, CEO name, email, LinkedIn",
-      "Submitted in Excel format"
-    ],
-    reward: 15000,
-    slotsLeft: 10,
-  },
-];
+  // Fetch bounties on mount
+  const fetchBounties = async () => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
 
-interface BountyDetailPanelProps {
-  bounty: Bounty;
-  onClose: () => void;
-}
+      const res = await fetch('/api/recruiter/bounty', {
+        headers: {
+          'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+        }
+      });
+      const data = await res.json();
 
-function BountyDetailPanel({ bounty, onClose }: BountyDetailPanelProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      <div 
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
-      
-      {/* Panel - 50% of total viewport width from right */}
-      <div className="absolute right-0 top-0 h-full w-1/2 bg-card border-l border-border overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
-              <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/30">{bounty.type}</Badge>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-coral hover:text-coral/80 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+      if (data.success) {
+        // Transform API data to BountyDetails
+        const mappedBounties: BountyDetails[] = data.data.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          category: b.type, // Mapping DB 'type' to UI 'category'
+          audience: "Both", // Default as not in DB
+          reward: `₦${b.reward.toLocaleString()}`,
+          status: b.status === "active" ? "Live" : (b.status === "draft" ? "Unpublish" : "Closed"),
+          createdAt: new Date(b.created_at).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+          }),
+          // Map participant count to a dummy array of that length to preserve existing logic
+          participants: Array(b.bounty_submissions?.[0]?.count || 0).fill({}),
+          totalSlots: b.slots_total || 1, // Store total slots for calculation
+        }));
+        setBounties(mappedBounties);
+      } else {
+        toast.error(data.error || "Failed to fetch bounties");
+      }
+    } catch (error) {
+      toast.error("An error occurred while fetching bounties");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          <div className="space-y-6">
-            <div>
-              <h2 className="font-semibold text-foreground mb-2">Description</h2>
-              <p className="text-muted-foreground text-sm">{bounty.description}</p>
-            </div>
+  useEffect(() => {
+    fetchBounties();
+  }, []);
 
-            <div>
-              <h2 className="font-semibold text-foreground mb-2">Instructions</h2>
-              <ol className="list-decimal list-inside space-y-2 text-muted-foreground text-sm">
-                {bounty.instructions.map((instruction, index) => (
-                  <li key={index}>
-                    {instruction}
-                    {index === 3 && (
-                      <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
-                        <li>Screenshots or screen recording</li>
-                        <li>Clear explanation of the issue</li>
-                        <li>Steps to reproduce</li>
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
+  // Filtered bounties based on search and filter
+  const filteredBounties = useMemo(() => {
+    return bounties.filter((bounty) => {
+      const matchesSearch =
+        bounty.title.toLowerCase().includes(search.toLowerCase()) ||
+        bounty.reward.toLowerCase().includes(search.toLowerCase());
 
-            <div>
-              <h2 className="font-semibold text-foreground mb-2">What to Submit (Deliverables)</h2>
-              <p className="text-muted-foreground text-sm mb-2">Your submission must include:</p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm">
-                {bounty.deliverables.map((item, index) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
-              <p className="text-muted-foreground text-sm mt-2">Upload formats: PDF, DOCX, ZIP</p>
-            </div>
+      const matchesFilter =
+        filterBy === "all" ||
+        (filterBy === "live" && bounty.status === "Live") ||
+        (filterBy === "closed" && bounty.status === "Closed") ||
+        (filterBy === "unpublish" && bounty.status === "Unpublish");
 
-            <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow-500/30 rounded-lg p-4">
-              <p className="text-[hsla(47,62%,50%,1)] text-sm">
-                Note: You have to click on start task to claim your slot and once you click Start Task, the 24-hour countdown begins. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {bounty.slotsLeft} slots left, and slots reduce in real time.
-              </p>
-            </div>
+      return matchesSearch && matchesFilter;
+    });
+  }, [bounties, search, filterBy]);
 
-            <div className="pt-4">
-              <p className="text-muted-foreground text-sm mb-4">
-                CLAIM: <span className="text-foreground font-medium">{bounty.slotsLeft} left</span>
-              </p>
-              <Button className="w-full bg-primary hover:bg-primary/90 text-black text-lg font-semibold py-6">
-                Start Task
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+  // Pagination
+  const itemsPerPage = 6;
+  const totalItems = filteredBounties.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-function BountyCard({
-  bounty,
-  onClick,
-}: {
-  bounty: Bounty;
-  onClick: () => void;
-}) {
-  return (
-    <div 
-      onClick={onClick}
-      className="bg-card rounded-xl p-5 border border-border transition-colors cursor-pointer"
-    >
-      <div className="flex items-center justify-between mb-3">
-        <Badge className="bg-[hsla(47,62%,50%,0.3)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/20">{bounty.type}</Badge>
-        <div className="flex items-center gap-1 text-muted-foreground text-sm">
-          <Clock className="w-4 h-4" />
-          {bounty.duration}
-        </div>
-      </div>
+  const paginatedBounties = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredBounties.slice(start, start + itemsPerPage);
+  }, [filteredBounties, currentPage]);
 
-      <h3 className="font-semibold text-foreground mb-4">{bounty.title}</h3>
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-muted-foreground uppercase">REWARD</p>
-          <p className="text-lg font-bold text-[hsla(151,74%,46%,1)]">₦{bounty.reward.toLocaleString()}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground uppercase">CLAIM</p>
-          <p className="text-foreground font-medium">{bounty.slotsLeft} left</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+  // Stats
+  const stats = useMemo(() => {
+    const total = bounties.length;
+    const active = bounties.filter((b) => b.status === "Live").length;
+    const completed = bounties.filter((b) => b.status === "Closed").length;
+    const unpublished = bounties.filter((b) => b.status === "Unpublish").length;
+    return { total, active, completed, unpublished };
+  }, [bounties]);
 
-export default function BountyHunter() {
-  const [selectedBounty, setSelectedBounty] = useState<Bounty | null>(null);
-  const totalBounties = 124;
+  // Get slots left
+  const getSlotsLeft = (bounty: BountyDetails & { totalSlots?: number }) => {
+    const maxSlots = bounty.totalSlots || 50;
+    return maxSlots - (bounty.participants?.length || 0);
+  };
+
+  // Handle create bounty
+  const handleCreateBounty = async (formData: BountyFormData, publish: boolean) => {
+    const payload = {
+      ...formData,
+      status: publish ? "Live" : "Unpublish"
+    };
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch('/api/recruiter/bounty', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success(publish ? "Bounty published successfully!" : "Bounty saved as draft.");
+        setCreateModalOpen(false);
+        fetchBounties(); // Refresh list
+      } else {
+        toast.error(data.error || "Failed to create bounty");
+      }
+    } catch (error) {
+      toast.error("Failed to create bounty");
+    }
+  };
+
+  // Handle delete bounty
+  const handleDeleteBounty = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation(); // Prevent row click
+    if (!confirm("Are you sure you want to delete this bounty?")) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch(`/api/recruiter/bounty/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+        }
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success("Bounty deleted successfully");
+        fetchBounties(); // Refresh list
+      } else {
+        toast.error(data.error || "Failed to delete bounty");
+      }
+    } catch (error) {
+      toast.error("Failed to delete bounty");
+    }
+  };
+
+  // Handle view bounty
+  const handleViewBounty = (bounty: BountyDetails) => {
+    setSelectedBounty(bounty);
+    setDetailsModalOpen(true);
+  };
+
+  // Handle search change
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  // Handle filter change
+  const handleFilterChange = (value: string) => {
+    setFilterBy(value);
+    setCurrentPage(1);
+  };
+
+  // Page numbers
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    const maxVisiblePages = 3;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 2) {
+        pages.push(1, 2, 3);
+      } else if (currentPage >= totalPages - 1) {
+        pages.push(totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(currentPage - 1, currentPage, currentPage + 1);
+      }
+    }
+
+    return pages;
+  };
 
   return (
     <>
-      <RecruiterHeader
-        title="Bounty Hunter Network"
-        subtitle="Complete micro-tasks. Earn Cash instantly."
-      />
-      <main className="flex-1 p-4 lg:p-6">
-        <div className="flex justify-end mb-6">
-          <Badge variant="outline" className="text-sm px-4 py-2 bg-card border-primary/30">
-            <span className="text-[hsla(275,96%,52%,1)] font-bold">{totalBounties}</span>
-            <span className="ml-2 text-muted-foreground">Bounties Available</span>
-          </Badge>
+      <RecruiterHeader title="Bounty Management" subtitle="Create and keep monitoring active published bounty hunter." />
+      <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        {/* Overview Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <h2 className="text-xl font-semibold text-foreground">Overview</h2>
+          <Button
+            className="bg-primary hover:bg-primary/90 text-foreground"
+            onClick={() => setCreateModalOpen(true)}
+          >
+            Create Bounty Hunter
+          </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bounties.map((bounty) => (
-            <BountyCard
-              key={bounty.id}
-              bounty={bounty}
-              onClick={() => setSelectedBounty(bounty)}
-            />
-          ))}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
+                <Target className="h-4 w-4" />
+                <span>TOTAL BOUNTY HUNTER</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-foreground">{stats.total}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
+                <Activity className="h-4 w-4" />
+                <span>ACTIVE BOUNTY HUNTER</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-[hsla(135,59%,49%,1)]">{stats.active}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
+                <CheckCircle className="h-4 w-4" />
+                <span>COMPLETED BOUNTY HUNTER</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-foreground">{stats.completed}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-[hsla(216,36%,18%,1)] border-border/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
+                <XCircle className="h-4 w-4" />
+                <span>UNPUBLISH BOUNTY HUNTER</span>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold text-foreground">{stats.unpublished}</p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Detail Panel */}
-        {selectedBounty && (
-          <BountyDetailPanel 
-            bounty={selectedBounty} 
-            onClose={() => setSelectedBounty(null)} 
-          />
-        )}
+        {/* Search and Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="md:col-span-3">
+            <p className="text-sm text-muted-foreground mb-2">Search</p>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by title, amount"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-10 bg-[hsla(216,36%,18%,1)] border-border/30"
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">Filter by</p>
+            <Select value={filterBy} onValueChange={handleFilterChange}>
+              <SelectTrigger className="bg-[hsla(216,36%,18%,1)] border-border/30">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="live">Live</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="unpublish">Unpublish</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Bounties Table */}
+        <div className="rounded-lg overflow-hidden border border-border/30">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-[hsla(273,96%,64%,0.3)] hover:bg-[hsla(273,96%,64%,0.3)]/20">
+                <TableHead className="text-foreground font-semibold">Bounty Name</TableHead>
+                <TableHead className="text-foreground font-semibold hidden sm:table-cell">Audience</TableHead>
+                <TableHead className="text-foreground font-semibold">Reward</TableHead>
+                <TableHead className="text-foreground font-semibold hidden md:table-cell">Slots Left</TableHead>
+                <TableHead className="text-foreground font-semibold hidden lg:table-cell">Submissions</TableHead>
+                <TableHead className="text-foreground font-semibold">Status</TableHead>
+                <TableHead className="text-foreground font-semibold">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    Loading bounties...
+                  </TableCell>
+                </TableRow>
+              ) : paginatedBounties.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    No bounties found. Create one to get started!
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedBounties.map((bounty) => (
+                  <TableRow key={bounty.id} className="border-border/30">
+                    <TableCell className="text-foreground">{bounty.title}</TableCell>
+                    <TableCell className="text-muted-foreground hidden sm:table-cell">{bounty.audience}</TableCell>
+                    <TableCell className="text-foreground font-medium">{bounty.reward}</TableCell>
+                    <TableCell className="text-muted-foreground hidden md:table-cell">{getSlotsLeft(bounty)}</TableCell>
+                    <TableCell className="text-muted-foreground hidden lg:table-cell">{bounty.participants.length}</TableCell>
+                    <TableCell>
+                      <span className={`${bounty.status === "Live"
+                          ? "text-emerald-400"
+                          : bounty.status === "Closed"
+                            ? "text-red-400"
+                            : "text-muted-foreground"
+                        }`}>
+                        {bounty.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleViewBounty(bounty)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View</span>
+                        </button>
+                        <button
+                          className="flex items-center gap-1 text-red-500/70 hover:text-red-500"
+                          onClick={(e) => handleDeleteBounty(e, bounty.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
+          <p className="text-sm text-muted-foreground">
+            Showing {startItem}-{endItem} of {totalItems}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            {getPageNumbers().map((page) => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "ghost"}
+                size="sm"
+                className={currentPage === page ? "bg-primary" : ""}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </Button>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </main>
+
+      {/* Modals */}
+      <CreateBountyModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onSave={handleCreateBounty}
+      />
+      <BountyDetailsModal
+        open={detailsModalOpen}
+        onOpenChange={setDetailsModalOpen}
+        bounty={selectedBounty}
+      />
     </>
   );
 }
