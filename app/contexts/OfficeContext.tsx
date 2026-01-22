@@ -1,7 +1,6 @@
-"use client";
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics } from "../components/students/office/types"
+import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
 import { supabase } from '../../lib/supabase';
 
@@ -26,8 +25,8 @@ interface OfficeContextType extends OfficeState {
   isGeneratingTask: boolean;
   isLoadingTasks: boolean;
   isLoadingOnboarding: boolean;
-  activeView: 'desk' | 'meeting' | 'archives';
-  setActiveView: (view: 'desk' | 'meeting' | 'archives') => void;
+  activeView: 'desk' | 'meeting' | 'archives' | 'bounty';
+  setActiveView: (view: 'desk' | 'meeting' | 'archives' | 'bounty') => void;
   submitBio: (bio: string, file?: File) => Promise<void>;
   submitWork: (taskId: string, file: File, notes: string) => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
@@ -39,6 +38,7 @@ interface OfficeContextType extends OfficeState {
   userName: string;
   trackName: string;
   typingAgent: AgentName | null;
+  acceptBounty: (bounty: Bounty) => Promise<void>;
 }
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
@@ -59,6 +59,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [bounties, setBounties] = useState<Bounty[]>([]); // New state for bounties
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
   const [tourStep, setTourStep] = useState(0);
@@ -67,7 +68,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [isGeneratingTask, setIsGeneratingTask] = useState(false);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
-  const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives'>('desk');
+  const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives' | 'bounty'>('desk');
   const [showToluWelcome, setShowToluWelcome] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFirstTask, setIsFirstTask] = useState(true);
@@ -78,6 +79,37 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const userName = user?.fullName || 'New Intern';
   const trackName = user?.track || 'General';
   const userId = user?.id || null;
+
+  // Fetch bounties when user is available
+  useEffect(() => {
+    const fetchBounties = async () => {
+      if (!userId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('bounties')
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error("Error fetching bounties:", error);
+        } else if (data) {
+          // Parse jsonb fields
+          const mappedBounties: Bounty[] = data.map((b: any) => ({
+            ...b,
+            instructions: typeof b.instructions === 'string' ? JSON.parse(b.instructions) : b.instructions,
+            deliverables: typeof b.deliverables === 'string' ? JSON.parse(b.deliverables) : b.deliverables,
+          }));
+          setBounties(mappedBounties);
+        }
+      } catch (error) {
+        console.error("Error fetching bounties:", error);
+      }
+    };
+
+    fetchBounties();
+  }, [userId]);
 
   // Fetch onboarding state from Supabase when user is available
   useEffect(() => {
@@ -221,6 +253,72 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       console.error('Error updating task status in database:', error);
     }
   }, []);
+
+  // Accept a bounty - creates a task and submission record
+  const acceptBounty = useCallback(async (bounty: Bounty) => {
+    if (!userId) return;
+
+    try {
+      // 1. Create bounty submission record (pending)
+      const { data: submission, error: subError } = await supabase
+        .from('bounty_submissions')
+        .insert({
+          bounty_id: bounty.id,
+          user_id: userId,
+          status: 'pending' // pending approval
+        })
+        .select()
+        .single();
+
+      if (subError) throw subError;
+
+      // 2. Create a task in 'tasks' table so it appears in "Your Desk"
+      const newTaskData = {
+        user: userId,
+        title: bounty.title,
+        brief_content: bounty.description,
+        task_track: bounty.type || 'General',
+        completed: false,
+        resources: [], // We could populate this from bounty instructions
+      };
+
+      const { data: taskData, error: taskError } = await supabase
+        .from('tasks')
+        .insert(newTaskData)
+        .select()
+        .single();
+
+      if (taskError) throw taskError;
+
+      // Update local task state
+      const newTask: Task = {
+        id: taskData.id.toString(),
+        title: taskData.title,
+        description: taskData.brief_content,
+        type: taskData.task_track,
+        deadline: bounty.duration || 'Flexible',
+        status: 'pending',
+        attachments: [],
+        clientConstraints: bounty.instructions?.join('\n'), // Pass instructions as constraints
+        resources: []
+      };
+
+      setTasks(prev => [newTask, ...prev]);
+      setCurrentTask(newTask);
+      setActiveView('desk'); // Switch to desk to see the new task
+
+      // Trigger chat message
+      addChatMessage({
+        id: Date.now().toString(),
+        agentName: 'Emem',
+        message: `You've accepted the bounty "${bounty.title}". It's on your desk. Get started.`,
+        timestamp: new Date()
+      });
+
+    } catch (error) {
+      console.error("Error accepting bounty:", error);
+    }
+  }, [userId, addChatMessage]);
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
@@ -399,8 +497,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 16000 },
           { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 14000 },
           { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 12000 },
-        // { agent: 'Tolu', message: `${userName}, 
-        //  any questions before I sign off?`, delay: 12000 },
+          // { agent: 'Tolu', message: `${userName}, 
+          //  any questions before I sign off?`, delay: 12000 },
         ];
 
         for (const msg of fallbackMessages) {
@@ -431,14 +529,14 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
 
     // Generate the task
-   addChatMessage({
-  id: Date.now().toString(),
-  agentName: 'Emem',
-  message: isFirstTask
-    ? "Here's your first task. Read the brief carefully. Deadline is non‑negotiable."
-    : "New task assigned. Check your desk.",
-  timestamp: new Date(),  // required by ChatMessage type
-});
+    addChatMessage({
+      id: Date.now().toString(),
+      agentName: 'Emem',
+      message: isFirstTask
+        ? "Here's your first task. Read the brief carefully. Deadline is non‑negotiable."
+        : "New task assigned. Check your desk.",
+      timestamp: new Date(),  // required by ChatMessage type
+    });
 
     try {
       // Call the real task generation API
@@ -855,6 +953,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         userLevel,
         currentTask,
         tasks,
+        bounties, // Add bounties
         chatMessages,
         portfolio,
         tourStep,
@@ -879,7 +978,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         submitWork,
         sendMessage,
         showToluWelcome,
-        performanceMetrics, // Add to context value
+        performanceMetrics,
         setShowToluWelcome,
         isExpanded,
         setIsExpanded,
@@ -887,6 +986,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         userName,
         trackName,
         typingAgent: null,
+        acceptBounty, // Add acceptBounty
       }}
     >
       {children}
