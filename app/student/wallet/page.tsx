@@ -143,7 +143,6 @@ export default function GlobalWallet() {
               </p>
               <div className="flex items-center gap-1">
                 <Image src="/first.png" alt="Logo" className="h-9 w-9 object-contain" width={4} height={4} />
-                <Image src="/middle.png" alt="Logo" className="h-9 w-9 object-contain" width={4} height={4} />
                 <ShieldCheckIcon className="w-9 h-9 text-primary object-contain" />
               </div>
             </div>
@@ -167,20 +166,6 @@ export default function GlobalWallet() {
 
           {/* Side Cards */}
           <div className="space-y-4">
-            {/* Inflation Hedge */}
-            {/* <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-5 border border-border">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 text-green-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Inflation Hedge</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Don't let devaluation eat your salary. Hold funds in USD/GBP.
-                  </p>
-                </div>
-              </div>
-            </div> */}
 
             {/* Career Support Loan */}
             <div className="bg-[hsla(261,56%,20%,1)] rounded-xl p-5 border border-border">
@@ -209,7 +194,7 @@ export default function GlobalWallet() {
                 onClick={handleRequestLoan}
               >
                 <Lock className="w-4 h-4 mr-2" />
-                Request Career Loan (Locked)
+                Request Career Loan
               </Button>
             </div>
           </div>
