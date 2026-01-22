@@ -108,23 +108,3 @@ export const AGENTS: Record<AgentName, Agent> = {
   },
 };
 
-export const MOCK_ARCHIVES: ArchiveItem[] = [
-  {
-    id: '1',
-    title: 'Data Cleaning Best Practices',
-    category: 'Data Analytics',
-    description: 'Guidelines for handling missing values, outliers, and data validation.',
-  },
-  {
-    id: '2',
-    title: 'SEO Audit Checklist',
-    category: 'Digital Marketing',
-    description: 'Complete checklist for technical and on-page SEO audits.',
-  },
-  {
-    id: '3',
-    title: 'Network Security Fundamentals',
-    category: 'Cybersecurity',
-    description: 'Core concepts for understanding network vulnerabilities.',
-  },
-];
