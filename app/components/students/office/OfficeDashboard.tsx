@@ -1,12 +1,13 @@
 "use client";
-import { useState, useRef, useEffect} from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, BookOpen, User, MessageSquare} from 'lucide-react';
+import { Briefcase, BookOpen, User, MessageSquare, Target } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AgentChatInterface } from '../../students/office/AgentChatInterface';
 import { TaskDashboard } from '../../students/office/TaskDashboard';
 import { ArchivesView } from '../../students/office/ArchivesView';
+import { BountyBoard } from '../../students/office/BountyBoard';
 import { ProfileModal } from './modals/ProfileModal';
 import { CollapsibleChat } from './CollapsibleChat';
 import { AgentAvatar } from './AgentAvatar';
@@ -17,6 +18,11 @@ const TOUR_STEPS = [
     target: 'desk',
     title: 'Your Desk',
     description: "This is your Desk. Check here every morning.",
+  },
+  {
+    target: 'bounty',
+    title: 'Bounty Board',
+    description: "Looking for extra work? Accept bounties here to earn extra rewards.",
   },
   {
     target: 'meeting',
@@ -43,11 +49,13 @@ export function OfficeDashboard() {
   const [showProfile, setShowProfile] = useState(false);
 
   const deskRef = useRef<HTMLButtonElement | null>(null);
+  const bountyRef = useRef<HTMLButtonElement | null>(null);
   const archivesRef = useRef<HTMLButtonElement | null>(null);
   const chatRef = useRef<HTMLButtonElement | null>(null);
 
   // Mobile refs
   const deskMobileRef = useRef<HTMLButtonElement | null>(null);
+  const bountyMobileRef = useRef<HTMLButtonElement | null>(null);
   const chatMobileRef = useRef<HTMLButtonElement | null>(null);
   const archivesMobileRef = useRef<HTMLButtonElement | null>(null);
 
@@ -56,7 +64,7 @@ export function OfficeDashboard() {
 
   const isTourActive = phase === 'tour';
 
-  const handleNavClick = (view: 'desk' | 'meeting' | 'archives') => {
+  const handleNavClick = (view: 'desk' | 'meeting' | 'archives' | 'bounty') => {
     setActiveView(view);
   };
 
@@ -76,19 +84,22 @@ export function OfficeDashboard() {
   const getTourTargetPosition = () => {
     const isMobile = window.innerWidth < 1024;
     let targetRef:
-  | React.RefObject<HTMLButtonElement | null>
-  | React.RefObject<HTMLDivElement | null>
-  | null = null;
+      | React.RefObject<HTMLButtonElement | null>
+      | React.RefObject<HTMLDivElement | null>
+      | null = null;
 
 
     switch (tourStep) {
       case 0: // Desk
         targetRef = isMobile ? deskMobileRef : deskRef;
         break;
-      case 1: // Chat/Meeting
+      case 1: // Bounty
+        targetRef = isMobile ? bountyMobileRef : bountyRef;
+        break;
+      case 2: // Chat/Meeting
         targetRef = isMobile ? chatMobileRef : desktopChatRef;
         break;
-      case 2: // Archives
+      case 3: // Archives
         targetRef = isMobile ? archivesMobileRef : archivesRef;
         break;
     }
@@ -125,6 +136,8 @@ export function OfficeDashboard() {
     switch (activeView) {
       case 'archives':
         return <ArchivesView />;
+      case 'bounty':
+        return <BountyBoard />;
       case 'meeting':
         // Mobile only - on desktop we use CollapsibleChat
         return (
@@ -139,7 +152,7 @@ export function OfficeDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex flex-col">
-      {/* Header */}
+      {/* Header logic remains same */}
       <header className="h-16 border-b border-border/50 bg-card/80 backdrop-blur-sm px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -147,21 +160,21 @@ export function OfficeDashboard() {
           </div>
           <div>
             <h1 className="font-bold text-foreground text-sm">WDC Office</h1>
-            <p className="text-xs text-muted-foreground">{userLevel || 'Levelll 1'} • Probation</p>
+            <p className="text-xs text-muted-foreground">{userLevel || 'Level 1'} • Probation</p>
           </div>
         </div>
         <Button
           variant="ghost"
-          size="icon"
           onClick={() => setShowProfile(true)}
-          className="rounded-full"
+          className="h-auto py-1.5 px-2 flex flex-col gap-0.5 rounded-xl hover:bg-primary"
         >
-          <User size={20} />
+          <User size={18} />
+          <span className="text-[10px] font-medium text-foreground">Profile</span>
         </Button>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Desktop (only Desk and Archives, no Chat) */}
+        {/* Sidebar - Desktop (Desk, Bounty, Archives) */}
         <nav className="hidden lg:flex flex-col w-20 border-r border-border/50 bg-card/50 items-center py-6 gap-2">
           <div className="flex flex-col items-center">
             <Button
@@ -178,7 +191,23 @@ export function OfficeDashboard() {
             </Button>
             <span className="text-xs text-muted-foreground mt-1">Desk</span>
           </div>
-          
+
+          <div className="flex flex-col items-center mt-2">
+            <Button
+              ref={bountyRef}
+              variant={activeView === 'bounty' ? 'default' : 'ghost'}
+              size="icon"
+              onClick={() => handleNavClick('bounty')}
+              className={cn(
+                "w-12 h-12 rounded-xl transition-all",
+                activeView === 'bounty' && "bg-primary text-primary-foreground shadow-lg"
+              )}
+            >
+              <Target size={20} />
+            </Button>
+            <span className="text-xs text-muted-foreground mt-1">Bounty</span>
+          </div>
+
           <div className="flex flex-col items-center mt-2">
             <Button
               ref={archivesRef}
@@ -219,7 +248,23 @@ export function OfficeDashboard() {
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Desk</span>
         </div>
-        
+
+        <div className="flex flex-col items-center">
+          <Button
+            ref={bountyMobileRef}
+            variant={activeView === 'bounty' ? 'default' : 'ghost'}
+            size="icon"
+            onClick={() => handleNavClick('bounty')}
+            className={cn(
+              "w-12 h-12 rounded-xl",
+              activeView === 'bounty' && "bg-primary text-primary-foreground"
+            )}
+          >
+            <Target size={20} />
+          </Button>
+          <span className="text-xs text-muted-foreground mt-1">Bounty</span>
+        </div>
+
         <div className="flex flex-col items-center">
           <Button
             ref={chatMobileRef}
@@ -235,7 +280,7 @@ export function OfficeDashboard() {
           </Button>
           <span className="text-xs text-muted-foreground mt-1">Chat</span>
         </div>
-        
+
         <div className="flex flex-col items-center">
           <Button
             ref={archivesMobileRef}
@@ -264,6 +309,7 @@ export function OfficeDashboard() {
           <span className="text-xs text-muted-foreground mt-1">Profile</span>
         </div>
       </nav>
+
 
       {/* Tour Spotlight Overlay - Highlights the target element */}
       <AnimatePresence>
@@ -304,8 +350,8 @@ export function OfficeDashboard() {
               exit={{ opacity: 0, y: 10 }}
               className="fixed z-[92] bg-primary text-primary-foreground rounded-xl p-4 shadow-2xl max-w-[60vw] w-auto sm:w-80"
               style={{
-              ...(window.innerWidth < 1024
-                ? (() => {
+                ...(window.innerWidth < 1024
+                  ? (() => {
                     const tooltipWidth = 280;        // Your tooltip width (w-80 ≈ 20rem ≈ 280px)
                     const screenPadding = 16;        // Safe margin from screen sides
                     const screenWidth = window.innerWidth;
@@ -322,16 +368,16 @@ export function OfficeDashboard() {
                       left,
                     };
                   })()
-                : tourStep === 1
-                ? {
-                    bottom: 90,
-                    right: 16,
-                  }
-                : {
-                    top: targetPosition.centerY - 60,
-                    left: targetPosition.left + targetPosition.width + 20,
-                  }),
-                }}
+                  : tourStep === 1
+                    ? {
+                      bottom: 90,
+                      right: 16,
+                    }
+                    : {
+                      top: targetPosition.centerY - 60,
+                      left: targetPosition.left + targetPosition.width + 20,
+                    }),
+              }}
             >
               <div className="flex items-center gap-3 mb-3">
                 <AgentAvatar agentName="Tolu" size="md" />

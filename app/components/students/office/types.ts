@@ -37,6 +37,22 @@ export interface Task {
   resources?: ArchiveItem[]; // AI generated resources specific to this task
 }
 
+export interface Bounty {
+  id: number;
+  created_at: string;
+  recruiter_id: number;
+  title: string;
+  description: string;
+  type: string;
+  duration: string;
+  reward: number;
+  slots_total: number;
+  slots_filled: number;
+  instructions: string[];
+  deliverables: string[];
+  status: string;
+}
+
 export interface UserPortfolio {
   skillTag: string;
   bulletPoint: string;
@@ -48,8 +64,10 @@ export interface OfficeState {
   userLevel: UserLevel | null;
   currentTask: Task | null;
   tasks: Task[];
+  bounties: Bounty[];
   chatMessages: ChatMessage[];
   portfolio: UserPortfolio[];
+
   tourStep: number;
 
   hasCompletedOnboarding: boolean;
