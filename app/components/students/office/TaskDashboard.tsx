@@ -73,7 +73,6 @@ export function TaskDashboard() {
       <div className="p-6 border-b border-border/50">
         <div>
           <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
-          <p className="text-sm text-muted-foreground">If it's empty, you're not getting paid</p>
         </div>
       </div>
 
