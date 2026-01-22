@@ -101,20 +101,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     const dateLabel = `Dec ${label.split(" ")[1]}, 2025`;
     
     return (
-      <div className="bg-[#0F2137] border border-border/30 rounded-lg p-3 shadow-lg">
+      <div className="bg-background border border-border/30 rounded-lg p-3 shadow-lg">
         <p className="text-cyan-500 text-sm font-medium mb-2">{dateLabel}</p>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between gap-8">
             <span className="text-muted-foreground">Subscription:</span>
-            <span className="text-foreground font-medium">₦{data.subscription.toLocaleString()}</span>
+            <span className="text-green-500 font-medium">₦{data.subscription.toLocaleString()}</span>
           </div>
           <div className="flex justify-between gap-8">
             <span className="text-muted-foreground">Recruiter Unlocks:</span>
-            <span className="text-green font-medium">₦{data.recruiterUnlocks.toLocaleString()}</span>
+            <span className="text-green-500 font-medium">₦{data.recruiterUnlocks.toLocaleString()}</span>
           </div>
           <div className="flex justify-between gap-8">
             <span className="text-muted-foreground">Total Revenue:</span>
-            <span className="text-cyan font-medium">₦{data.total.toLocaleString()}</span>
+            <span className="text-green-500 font-medium">₦{data.total.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -172,7 +172,7 @@ export default function Revenue({ onMenuClick }: RevenueProps) {
                     ) : (
                       <TrendingDown className="h-3 w-3 text-destructive" />
                     )}
-                    <span className={`text-xs ${stat.isPositive ? 'text-green' : 'text-destructive'}`}>
+                    <span className={`text-xs ${stat.isPositive ? 'text-green-500' : 'text-destructive'}`}>
                       {stat.change}
                     </span>
                   </div>
@@ -254,7 +254,7 @@ export default function Revenue({ onMenuClick }: RevenueProps) {
                     {filteredData.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`}
-                        fill={hoveredBar === index ? 'hsl(var(--cyan))' : 'hsl(var(--cyan) / 0.7)'}
+                        fill={hoveredBar === index ? 'hsla(189,96%,44%,1)/30' : 'hsla(189, 96%, 44%, 1)'}
                         className="transition-all duration-200"
                       />
                     ))}
