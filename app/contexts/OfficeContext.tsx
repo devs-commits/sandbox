@@ -546,13 +546,20 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: userId, // From auth context
+          // experienceLevel: userLevel || 'Level 1',
+          // location: {
+          //   city: 'Lagos', // TODO: Get from user profile
+          //   country: 'Nigeria'
+          // },
+          user_id: userId,
+          user_name: user?.fullName,
           track: trackName,
-          experienceLevel: userLevel || 'Level 1',
-          location: {
-            city: 'Lagos', // TODO: Get from user profile
-            country: 'Nigeria'
-          }
+          difficulty: "intermediate",
+          task_number: 1,
+          user_city: "Lagos",
+          include_ethical_trap: false,
+          model: "",
+          include_video_brief: true
         })
       });
 
