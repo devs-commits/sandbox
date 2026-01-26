@@ -379,6 +379,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             }))
           }));
           setTasks(mappedTasks);
+          
+          console.log("--------------------All is sent MWUAHAHAHAHAHAHHAH--------------------", tasks)
 
           // Set current task to the active one (pending) or the most recent one
           const activeTask = mappedTasks.find(t => t.status === 'pending') || mappedTasks[mappedTasks.length - 1];
@@ -563,7 +565,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             title: generatedTask.title,
             description: generatedTask.brief_content,
             type: trackName,
-            deadline: 'In 2 days', // TODO: Calculate from ai_persona_config
+            deadline: generatedTask.deadline, // TODO: Calculate from ai_persona_config
             status: 'pending',
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
@@ -592,7 +594,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           title: 'Data Cleansing: Lagos Tech Hub Sales',
           description: 'Find and fix 3 anomalies in the sales data. Calculate real ROAS.',
           type: 'Data Analytics',
-          deadline: 'In 2 days',
+          deadline: 'Due in 24 hrs',
           status: 'pending',
           attachments: ['sales_data.csv'],
           clientConstraints: 'Must use Python. No external libraries except pandas.',
