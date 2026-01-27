@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Coffee, Target } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
@@ -8,6 +8,66 @@ import { Task } from './types';
 import { SubmissionModal } from './modals/SubmissionModal';
 import { TaskDetailModal } from './modals/TaskDetailModal';
 import ReactMarkdown from 'react-markdown';
+
+// Deadline Timer Component
+const DeadlineTimer = ({ deadline }: { deadline: string }) => {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [isUrgent, setIsUrgent] = useState(false);
+
+  useEffect(() => {
+    // If generic string like "Flexible", just return it
+    if (!deadline || !deadline.includes('T')) {
+      setTimeLeft(deadline || 'No Deadline');
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const difference = new Date(deadline).getTime() - new Date().getTime();
+
+      if (difference <= 0) {
+        return "Overdue";
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      // > 1 day: Show Days
+      if (days >= 1) {
+        setIsUrgent(false);
+        return `${days} Days`;
+      }
+
+      // < 1 day, > 1 hour: Show HH:MM
+      if (hours >= 1) {
+        setIsUrgent(true);
+        // Pad with leading zeros
+        return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m`;
+      }
+
+      // < 1 hour: Show MM:SS
+      setIsUrgent(true);
+      return `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+    };
+
+    // Initial calculation
+    setTimeLeft(calculateTimeLeft());
+
+    // Update every second
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [deadline]);
+
+  return (
+    <span className={isUrgent ? "text-amber-500 font-medium" : ""}>
+      {timeLeft}
+    </span>
+  );
+};
 
 // Format track names: "data-analytics" -> "Data Analytics"
 const formatTrackName = (track: string): string => {
@@ -138,7 +198,7 @@ export function TaskDashboard() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1.5">
-                          <Clock size={12} /> Due: {task.deadline}
+                          <Clock size={12} /> Due: <DeadlineTimer deadline={task.deadline} />
                         </span>
                         <span className="flex items-center gap-1.5">
                           <FileText size={12} /> {task.attachments.length} files
@@ -225,7 +285,7 @@ export function TaskDashboard() {
                   </span>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Clock size={12} /> {previewTask.deadline}
+                      <Clock size={12} /> <DeadlineTimer deadline={previewTask.deadline} />
                     </span>
                   </div>
                 </div>

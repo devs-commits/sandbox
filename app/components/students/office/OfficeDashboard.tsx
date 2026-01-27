@@ -7,7 +7,7 @@ import { useOffice } from '../../../contexts/OfficeContext';
 import { AgentChatInterface } from '../../students/office/AgentChatInterface';
 import { TaskDashboard } from '../../students/office/TaskDashboard';
 import { ArchivesView } from '../../students/office/ArchivesView';
-import { BountyBoard } from '../../students/office/BountyBoard';
+
 import { ProfileModal } from './modals/ProfileModal';
 import { CollapsibleChat } from './CollapsibleChat';
 import { AgentAvatar } from './AgentAvatar';

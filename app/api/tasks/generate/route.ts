@@ -13,6 +13,7 @@ const DEFAULT_AI_PERSONA_CONFIG = {
 
 interface TaskDefinition {
   title: string;
+  user_name: string;
   brief_content: string;
   difficulty: string;
   ai_persona_config?: {
@@ -33,7 +34,7 @@ interface TaskDefinition {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, track, experienceLevel, location } = body;
+    const { userId, track, userName, experienceLevel, location, difficulty } = body;
     console.log("Generating tasks for user:", userId, "track:", track, "experienceLevel:", experienceLevel, "location:", location);
 
     if (!userId || !track) {
@@ -93,6 +94,8 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         user_id: userId,
+        user_name: userName,
+        difficulty,
         track,
         experience_level: experienceLevel,
         task_number: taskNumber,
@@ -130,7 +133,8 @@ export async function POST(request: Request) {
       ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
       completed: false,
       task_number: taskNumber + index,
-      resources: task.educational_resources || [] // Save generated resources
+      resources: task.educational_resources || [], // Save generated resources
+      deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() // Default 3 days deadline
     }));
     // Use admin client to bypass RLS, or fall back to regular client
     // dbClient is already defined above

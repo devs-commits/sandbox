@@ -114,7 +114,7 @@ export default function page() {
             <div>
               <span className="text-sm text-muted-foreground">Tasks Done: </span>
               <span className="text-sm font-semibold text-muted-foreground">
-                {tasks.filter(t => t.completed).length}/{tasks.length}
+                {tasks.filter(t => t.completed && t.difficulty !== 'Bounty').length}/{tasks.filter(t => t.difficulty !== 'Bounty').length}
               </span>
             </div>
           </div>

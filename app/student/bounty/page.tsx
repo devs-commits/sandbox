@@ -152,7 +152,8 @@ function BountyCard({
 
 export default function BountyHunter() {
   const [selectedBounty, setSelectedBounty] = useState<Bounty | null>(null);
-  const [bounties, setBounties] = useState<Bounty[]>([]);
+  const [myBounties, setMyBounties] = useState<Bounty[]>([]);
+  const [availableBounties, setAvailableBounties] = useState<Bounty[]>([]);
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const { user } = useAuth();
@@ -161,26 +162,46 @@ export default function BountyHunter() {
   useEffect(() => {
     const fetchBounties = async () => {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+        const { data: allBounties, error: bountiesError } = await supabase
           .from('bounties')
           .select('*')
           .eq('status', 'active')
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error("Error fetching bounties:", error);
-          toast.error("Failed to load bounties");
-        } else if (data) {
-          // Parse jsonb fields
-          const mappedBounties: Bounty[] = data.map((b: any) => ({
+        if (bountiesError) throw bountiesError;
+
+        let parsedBounties: Bounty[] = [];
+        if (allBounties) {
+          parsedBounties = allBounties.map((b: any) => ({
             ...b,
             instructions: typeof b.instructions === 'string' ? JSON.parse(b.instructions) : b.instructions,
             deliverables: typeof b.deliverables === 'string' ? JSON.parse(b.deliverables) : b.deliverables,
           }));
-          setBounties(mappedBounties);
         }
+
+        if (user) {
+          const { data: submissions, error: subError } = await supabase
+            .from('bounty_submissions')
+            .select('bounty_id, status')
+            .eq('student_id', user.user_id);
+
+          if (subError) {
+            console.error("Error fetching submissions:", subError);
+          }
+
+          const takenBountyIds = new Set(submissions?.map(s => s.bounty_id) || []);
+
+          setMyBounties(parsedBounties.filter(b => takenBountyIds.has(b.id)));
+          setAvailableBounties(parsedBounties.filter(b => !takenBountyIds.has(b.id)));
+        } else {
+          setMyBounties([]);
+          setAvailableBounties(parsedBounties);
+        }
+
       } catch (error) {
         console.error("Error fetching bounties:", error);
+        toast.error("Failed to load bounties");
       } finally {
         setLoading(false);
       }
@@ -247,11 +268,12 @@ export default function BountyHunter() {
       // 3. Increment slots_filled in bounties table
       await supabase.rpc('increment_bounty_slots', { bounty_id: bounty.id });
 
-      toast.success("Bounty accepted! Check your Office Desk.");
-      setSelectedBounty(null);
+      toast.success("Bounty accepted!");
 
-      // Redirect to office desk
-      router.push('/student/office');
+      // Refresh local state to move it to "My Bounties"
+      setMyBounties(prev => [bounty, ...prev]);
+      setAvailableBounties(prev => prev.filter(b => b.id !== bounty.id));
+      setSelectedBounty(null);
 
     } catch (error) {
       console.error("Error accepting bounty:", error);
@@ -267,33 +289,68 @@ export default function BountyHunter() {
         title="Bounty Hunter Network"
         subtitle="Complete micro-tasks. Earn Cash instantly."
       />
-      <main className="flex-1 p-4 lg:p-6 mb-20">
-        <div className="flex justify-end mb-6">
-          <Badge variant="outline" className="text-sm px-4 py-2 bg-card border-primary/30">
-            <span className="text-[hsla(275,96%,52%,1)] font-bold">{bounties.length}</span>
-            <span className="ml-2 text-muted-foreground">Bounties Available</span>
-          </Badge>
-        </div>
+      <main className="flex-1 p-4 lg:p-6 mb-20 space-y-10">
 
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : bounties.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
-            <p>No active bounties available right now.</p>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bounties.map((bounty) => (
-              <BountyCard
-                key={bounty.id}
-                bounty={bounty}
-                onClick={() => setSelectedBounty(bounty)}
-              />
-            ))}
-          </div>
+          <>
+            {/* My Active Bounties Section */}
+            {myBounties.length > 0 && (
+              <section>
+                <div className="flex items-center gap-3 mb-6">
+                  <Badge className="bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30 px-3 py-1">
+                    ACTIVE
+                  </Badge>
+                  <h2 className="text-xl font-bold text-foreground">My Active Bounties</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {myBounties.map((bounty) => (
+                    <div key={bounty.id} className="relative opacity-75 hover:opacity-100 transition-opacity">
+                      <div className="absolute top-2 right-2 z-10">
+                        <Badge variant="secondary" className="bg-background/80 backdrop-blur">In Progress</Badge>
+                      </div>
+                      <BountyCard
+                        bounty={bounty}
+                        onClick={() => setSelectedBounty(bounty)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Available Bounties Section */}
+            <section>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-foreground">Available Bounties</h2>
+                <Badge variant="outline" className="text-sm px-4 py-2 bg-card border-primary/30">
+                  <span className="text-[hsla(275,96%,52%,1)] font-bold">{availableBounties.length}</span>
+                  <span className="ml-2 text-muted-foreground">Available</span>
+                </Badge>
+              </div>
+
+              {availableBounties.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground bg-card/50 rounded-xl border border-dashed">
+                  <p>No new bounties available right now.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {availableBounties.map((bounty) => (
+                    <BountyCard
+                      key={bounty.id}
+                      bounty={bounty}
+                      onClick={() => setSelectedBounty(bounty)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
+
 
         {/* Detail Panel */}
         {selectedBounty && (
@@ -304,7 +361,7 @@ export default function BountyHunter() {
             isAccepting={acceptingId === selectedBounty.id}
           />
         )}
-      </main>
+      </main >
     </>
   );
 }
