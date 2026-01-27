@@ -54,10 +54,18 @@ export const TaskGenerator = ({ onTasksGenerated }: TaskGeneratorProps) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: user.id,
+          user_id: user.id,
+          user_name: user.fullName,
           track: user.track,
+          difficulty: "intermediate",
+          task_number: 1,
           experienceLevel: user.experienceLevel,
-          location: location
+          location: location,
+          user_city: "",
+          include_ethical_trap: false,
+          model: null,
+          include_video_brief: true
+
         }),
       });
 
