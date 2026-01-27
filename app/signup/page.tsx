@@ -38,6 +38,8 @@ const SignUpContent = () => {
   const [error, setError] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
   const [referralLink, setReferralLink] = useState(searchParams.get('code') || "");
+  const [wdcLabsTerms, setWdcLabsTerms] = useState(false);
+  const [wdcPrivacy, setWdcPrivacy] = useState(false);
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -72,8 +74,13 @@ const SignUpContent = () => {
       setError("Please select your level of experience");
       return;
     }
-    if (password.length < 8) {
+   if (password.length < 8) {
       setError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (!wdcLabsTerms || !wdcPrivacy) {
+      setError("You must agree to all terms and policies to continue");
       return;
     }
     // Payment integration: Call Paystack/Stripe API here before signup
