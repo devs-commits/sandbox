@@ -5,16 +5,16 @@ import { ExternalLink } from "lucide-react";
 import { TermsAgreementModal } from "./TermsAgreementModal";
 
 interface TermsAgreementProps {
-  wdcLabsTerms: boolean;
+//   wdcLabsTerms: boolean;
   wdcPrivacy: boolean;
-  onWdcLabsTermsChange: (checked: boolean) => void;
+//   onWdcLabsTermsChange: (checked: boolean) => void;
   onWdcPrivacyChange: (checked: boolean) => void;
 }
 
 export const TermsAgreement = ({
-  wdcLabsTerms,
+//   wdcLabsTerms,
   wdcPrivacy,
-  onWdcLabsTermsChange,
+//   onWdcLabsTermsChange,
   onWdcPrivacyChange,
 }: TermsAgreementProps) => {
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -24,11 +24,11 @@ export const TermsAgreement = ({
       <p className="text-xs text-muted-foreground font-medium">By signing up, you agree to:</p>
       
       {/* WDC Labs Terms */}
-      <div className="flex items-start space-x-3">
+      {/* <div className="flex items-start space-x-3">
         <Checkbox
           id="wdc-labs-terms"
-          checked={wdcLabsTerms}
-          onCheckedChange={(checked) => onWdcLabsTermsChange(checked === true)}
+        //   checked={wdcLabsTerms}
+        //   onCheckedChange={(checked) => onWdcLabsTermsChange(checked === true)}
           className="mt-0.5"
         />
         <Label
@@ -47,7 +47,7 @@ export const TermsAgreement = ({
             Terms of Use, Privacy Policy & Data Protection Agreement
           </button>
         </Label>
-      </div>
+      </div> */}
 
       {/* WDC Privacy Policy */}
       <div className="flex items-start space-x-3">
