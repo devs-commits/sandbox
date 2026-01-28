@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useState } from "react";
+import { AccreditationBadge } from "../Accreditation";
 
 const navItems = [
   { label: "Talent Markets", path: "/recruiter/talent-market", icon: LayoutGrid },
@@ -78,6 +79,7 @@ export default function Page(){
           <LogOut size={18} />
           <span className="text-sm font-medium">Log out</span>
         </Link>
+        <AccreditationBadge />
       </div>
     </>
   );
