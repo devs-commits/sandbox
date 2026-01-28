@@ -3,21 +3,40 @@ import Link from "next/link";
 import wdcLogo from "../../public/wdc-logo.jpg";
 import Image from "next/image";
 import actd from "../../public/actd-logo.png";
+import actdLogoClean from "../../public/actd-logo.png";
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
         <header className="flex h-16 items-center justify-between">
-            <div className="max-w-7xl ml-[50px] sm:ml-[50px]">
+            <div className="max-w-7xl ml-[50px] sm:ml-[50px] md:ml-20 sm:ml-5 mt-5">
               <Link href="/" className="inline-block">
                 <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[200px] sm:h-[55px] sm:w-[200px]" />
               </Link>
             </div>
-            <div className="max-w-7xl justify-left md:mr-20 sm:mr-5 mt-5">
+            {/* <div className="max-w-7xl justify-left md:mr-20 sm:mr-5 mt-5">
               <Link href="/" className="inline-block">
                 <Image src={actd} alt="ACTD Logo" className="h-[50px] w-[60px] sm:h-[65px] sm:w-[65px]" />
               </Link>
-            </div>
+            </div> */}
+            {/* ACTD Accreditation */}
+            <Link
+              href="https://www.actd.us/wildfusiondigitalcentre/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Accredited by American Council of Training and Development"
+              className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-20 sm:mr-5 mt-5"
+            >
+              <Image
+                src={actdLogoClean}
+                alt="ACTD Accreditation"
+                className="h-16 w-auto object-contain"
+              />
+
+              <span className="text-[10px] font-semibold text-foreground leading-snug max-w-[120px]">
+                Accredited by the American Council of Training and Development
+              </span>
+            </Link>
         </header>
         <main className="bg-background min-h-[650px] hero-gradient flex items-center justify-center p-4 sm:p-6 lg:p-8">
           {/* Hero Card */}
@@ -41,7 +60,7 @@ const Landing = () => {
                 A gamified, AI-powered job simulation lab that gives you real
                 work experience recruiters trust.
               </p>
-    {/* CTA Buttons */}
+              {/* CTA Buttons */}
               <div 
                 className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 opacity-0 animate-fade-in"
                 style={{ animationDelay: "0.5s" }}

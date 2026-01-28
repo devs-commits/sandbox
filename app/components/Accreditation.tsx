@@ -54,7 +54,7 @@ export function AccreditationBadge({ variant = "sidebar", className = "" }: Accr
       </Link>
 
       {/* Divider */}
-      <div className="w-full h-px bg-foreground" />
+      <div className="w-full h-px bg-border/50" />
 
       {/* ACTD Accreditation */}
       <Link
