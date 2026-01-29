@@ -58,9 +58,17 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
               {/* Description */}
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2">Task Brief</h3>
-                <div className="text-sm text-muted-foreground leading-relaxed [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-muted-foreground">
+                <div className="text-sm text-foreground leading-relaxed [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-muted-foreground">
                   <ReactMarkdown>{task.description}</ReactMarkdown>
                 </div>
+                <section className='gap-1 my-3'>
+                  <h1>References:</h1>
+                  <small className='gap-1 flex flex-col mt-1'> 
+                  {task.resources?.map((r)=> (
+                    <a href={r.link} target="_blank"  rel="noopener noreferrer" className='text-primary italic'>{r.link}</a>
+                  ))} 
+                  </small>
+                </section>
               </div>
 
               {/* Meta Info */}

@@ -383,7 +383,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
-            resources: mapResources(t.resources)
+            resources: mapResources(t.resources),
+            // deadline: t.ai_persona_config
           }));
           setTasks(mappedTasks);
           
