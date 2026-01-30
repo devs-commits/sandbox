@@ -2,8 +2,9 @@ import { Button } from "../components/ui/button";
 import Link from "next/link";
 import wdcLogo from "../../public/wdc-logo.jpg";
 import Image from "next/image";
-import actd from "../../public/actd-logo.png";
+import wdc from "../../public/image.png";
 import actdLogoClean from "../../public/actd-logo.png";
+import ndpc from "../../public/ndpc.png";
 
 const Landing = () => {
   return (
@@ -20,23 +21,48 @@ const Landing = () => {
               </Link>
             </div> */}
             {/* ACTD Accreditation */}
-            <Link
-              href="https://www.actd.us/wildfusiondigitalcentre/"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Accredited by American Council of Training and Development"
-              className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-20 sm:mr-5 mt-5"
-            >
-              <Image
-                src={actdLogoClean}
-                alt="ACTD Accreditation"
-                className="h-12 w-auto object-contain"
-              />
+            <div className="flex items-center justify-end">
+              <Link
+                href="https://ndpc.gov.ng/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-10 sm:mr-5 mt-5"
+              >
+                <Image
+                  src={ndpc}
+                  alt="Nigeria Data Protection Commission"
+                  className="h-12 w-auto object-contain"
+                />
+              </Link>
+              <Link
+                href="https://wdc.ng/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-10 sm:mr-5 mt-5"
+              >
+                <Image
+                  src={wdc}
+                  alt="WildFusion Digital Centre"
+                  className="h-12 w-auto object-contain"
+                />
+              </Link>
+              <Link
+                href="https://www.actd.us/wildfusiondigitalcentre/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-10 sm:mr-5 mt-5"
+              >
+                <Image
+                  src={actdLogoClean}
+                  alt="ACTD Accreditation"
+                  className="h-12 w-auto object-contain"
+                />
 
-              <span className="text-[8px] font-semibold text-foreground leading-snug max-w-[120px]">
-                Accredited by the American Council of Training and Development
-              </span>
-            </Link>
+                <span className="text-[8px] font-semibold text-foreground leading-snug max-w-[120px]">
+                  Accredited by the American Council of Training and Development
+                </span>
+              </Link>
+            </div>
         </header>
         <main className="bg-background min-h-[650px] hero-gradient flex items-center justify-center p-4 sm:p-6 lg:p-8">
           {/* Hero Card */}
