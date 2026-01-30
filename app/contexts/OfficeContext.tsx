@@ -379,12 +379,11 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             title: t.title,
             description: t.brief_content,
             type: t.task_track || trackName,
-            deadline: t.ai_persona_config.deadline,
+            deadline: t.ai_persona_config.deadline_display,
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
             resources: mapResources(t.resources),
-            // deadline: t.ai_persona_config
           }));
           setTasks(mappedTasks);
           
@@ -603,11 +602,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             agentName: 'Emem',
             message: `Task: "${newTask.title}"
             Deadline: ${newTask.deadline}
-
-            Get it done.
-
-            Below are some resources that could assist you during this task:
-            ${formattedResources}`,
+            Ensure to submit on or before the deadine elapses.
+            There are some reference materials that could assist you during this task, they are given below your task brief in desk.`,
               timestamp: new Date(),
           });
 
