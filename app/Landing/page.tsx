@@ -30,10 +30,10 @@ const Landing = () => {
               <Image
                 src={actdLogoClean}
                 alt="ACTD Accreditation"
-                className="h-16 w-auto object-contain"
+                className="h-12 w-auto object-contain"
               />
 
-              <span className="text-[10px] font-semibold text-foreground leading-snug max-w-[120px]">
+              <span className="text-[8px] font-semibold text-foreground leading-snug max-w-[120px]">
                 Accredited by the American Council of Training and Development
               </span>
             </Link>
