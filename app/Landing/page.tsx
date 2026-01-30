@@ -15,12 +15,6 @@ const Landing = () => {
                 <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[200px] sm:h-[55px] sm:w-[200px]" />
               </Link>
             </div>
-            {/* <div className="max-w-7xl justify-left md:mr-20 sm:mr-5 mt-5">
-              <Link href="/" className="inline-block">
-                <Image src={actd} alt="ACTD Logo" className="h-[50px] w-[60px] sm:h-[65px] sm:w-[65px]" />
-              </Link>
-            </div> */}
-            {/* ACTD Accreditation */}
             <div className="flex items-center justify-end">
               <Link
                 href="https://ndpc.gov.ng/"
