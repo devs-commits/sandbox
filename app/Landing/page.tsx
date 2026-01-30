@@ -10,9 +10,9 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
         <header className="flex h-16 items-center justify-between">
-            <div className="max-w-7xl ml-[50px] sm:ml-[50px] md:ml-20 sm:ml-5 mt-5">
+            <div className="max-w-7xl ml-[5px] sm:ml-[50px] md:ml-10 sm:ml-5 mt-5">
               <Link href="/" className="inline-block">
-                <Image src={wdcLogo} alt="WDC Labs" className="h-[50px] w-[200px] sm:h-[55px] sm:w-[200px]" />
+                <Image src={wdcLogo} alt="WDC Labs" className="h-auto w-auto sm:h-[55px] sm:w-[200px]" />
               </Link>
             </div>
             <div className="flex items-center justify-end">
@@ -25,7 +25,7 @@ const Landing = () => {
                 <Image
                   src={ndpc}
                   alt="Nigeria Data Protection Commission"
-                  className="h-12 w-auto object-contain"
+                  className="h-8 w-auto object-contain"
                 />
               </Link>
               <Link
@@ -37,22 +37,22 @@ const Landing = () => {
                 <Image
                   src={wdc}
                   alt="WildFusion Digital Centre"
-                  className="h-12 w-auto object-contain"
+                  className="h-8 w-auto object-contain"
                 />
               </Link>
               <Link
                 href="https://www.actd.us/wildfusiondigitalcentre/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-10 sm:mr-5 mt-5"
+                className="inline-flex items-center gap-2 hover:opacity-90 transition mr-2 sm:mr-5 mt-5"
               >
                 <Image
                   src={actdLogoClean}
                   alt="ACTD Accreditation"
-                  className="h-12 w-auto object-contain"
+                  className="h-8 w-auto sm:h-12 object-contain"
                 />
 
-                <span className="text-[8px] font-semibold text-foreground leading-snug max-w-[120px]">
+                <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[100px] sm:max-w-[120px]">
                   Accredited by the American Council of Training and Development
                 </span>
               </Link>
