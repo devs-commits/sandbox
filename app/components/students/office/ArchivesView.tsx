@@ -9,7 +9,11 @@ import { useOffice } from '../../../contexts/OfficeContext';
 
 // Helper to determine icon based on title/category
 const getFileIcon = (item: ArchiveItem) => {
-  const lowerTitle = item.title.toLowerCase();
+  const lowerTitle = item.title?.toLowerCase();
+
+  if (!lowerTitle){
+    return
+  }
 
   if (item.link) return <Globe size={32} strokeWidth={1.5} />;
   if (lowerTitle.includes('sheet') || lowerTitle.includes('csv') || lowerTitle.includes('excel')) return <FileSpreadsheet size={32} strokeWidth={1.5} />;
@@ -22,8 +26,8 @@ const getFileIcon = (item: ArchiveItem) => {
 // Helper for file type badge
 const getFileType = (item: ArchiveItem) => {
   if (item.link) return 'WEB';
-  if (item.title.toLowerCase().includes('pdf') || item.content?.includes('PDF')) return 'PDF';
-  if (item.title.toLowerCase().includes('csv')) return 'CSV';
+  if (item.title?.toLowerCase().includes('pdf') || item.content?.includes('PDF')) return 'PDF';
+  if (item.title?.toLowerCase().includes('csv')) return 'CSV';
   return 'DOC';
 };
 
@@ -43,8 +47,8 @@ export function ArchivesView() {
   }, [currentTask]);
 
   const filteredArchives = allResources.filter(item =>
-    item.title.toLowerCase().includes(search.toLowerCase()) ||
-    item.category.toLowerCase().includes(search.toLowerCase())
+    item.title?.toLowerCase().includes(search.toLowerCase()) ||
+    item.category?.toLowerCase().includes(search.toLowerCase())
   );
 
   const categories = [...new Set(filteredArchives.map(a => a.category))];
@@ -53,7 +57,7 @@ export function ArchivesView() {
   categories.sort((a, b) => {
     if (a === 'Task Guide') return -1;
     if (b === 'Task Guide') return 1;
-    return a.localeCompare(b);
+    return a?.localeCompare(b ?? "") ?? 0
   });
 
   return (
