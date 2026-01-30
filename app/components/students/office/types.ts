@@ -35,6 +35,7 @@ export interface Task {
   score?: number;
   feedback?: string;
   resources?: ArchiveItem[]; // AI generated resources specific to this task
+  difficulty?: string;
 }
 
 export interface Bounty {

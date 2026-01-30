@@ -33,15 +33,32 @@ interface TaskDefinition {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, track, experienceLevel, location } = body;
-    console.log("Generating tasks for user:", userId, "track:", track, "experienceLevel:", experienceLevel, "location:", location);
+    const { 
+      user_id,
+      user_name,
+      track,
+      difficulty,
+      task_number,
+      user_city,
+      include_ethical_trap,
+      model,
+      include_video_brief } = body;
+    console.log("Generating tasks for user:", user_id, "track:", track, "user_city:", user_city);
 
-    if (!userId || !track) {
+    if (!user_id) {
       return NextResponse.json(
-        { success: false, error: 'User ID and track are required' },
+        { success: false, error: 'User ID is missing' },
         { status: 400 }
       );
     }
+
+    if (!track) {
+      return NextResponse.json(
+        { success: false, error: 'user track is missing' },
+        { status: 400 }
+      );
+    }
+
 
     // 1. Get Task Count and Previous Performance
     const dbClient = supabaseAdmin || supabase;
@@ -50,7 +67,7 @@ export async function POST(request: Request) {
     const { count } = await dbClient
       .from('tasks')
       .select('*', { count: 'exact', head: true })
-      .eq('user', userId);
+      .eq('user', user_id);
 
     const taskNumber = (count || 0) + 1;
 
@@ -61,7 +78,7 @@ export async function POST(request: Request) {
     const { data: lastTask } = await dbClient
       .from('tasks')
       .select('id')
-      .eq('user', userId)
+      .eq('user', user_id)
       .eq('completed', true)
       .order('id', { ascending: false })
       .limit(1)
@@ -92,13 +109,15 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        user_id: userId,
+        user_id,
+        user_name: user_name,
         track,
-        experience_level: experienceLevel,
-        task_number: taskNumber,
-        previous_task_performance: previousPerformance,
-        user_city: location?.city,
-        user_country: location?.country
+        experience_level: difficulty,
+        task_number,
+        user_city,
+        include_ethical_trap,
+        model,
+        include_video_brief
       })
     });
 
@@ -122,10 +141,10 @@ export async function POST(request: Request) {
 
     // Prepare tasks with user_id and new schema fields
     const tasksToInsert = generatedTasks.map((task: any, index: number) => ({
-      user: userId,
+      user: user_id,
       title: task.title,
       brief_content: task.brief_content || task.description, // Handle potential naming diff
-      difficulty: task.difficulty || experienceLevel,
+      difficulty: task.difficulty,
       task_track: track,
       ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
       completed: false,
