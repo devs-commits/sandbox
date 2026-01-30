@@ -13,6 +13,7 @@ import { useAuth } from "../contexts/AuthContexts";
 import { toast } from "sonner";
 import countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
+import { TermsAgreement } from "../components/auth/TermsAgreement";
 
 countries.registerLocale(enLocale);
 
@@ -38,6 +39,8 @@ const SignUpContent = () => {
   const [error, setError] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
   const [referralLink, setReferralLink] = useState(searchParams.get('code') || "");
+  // const [wdcLabsTerms, setWdcLabsTerms] = useState(false);
+  const [wdcPrivacy, setWdcPrivacy] = useState(false);
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -72,8 +75,13 @@ const SignUpContent = () => {
       setError("Please select your level of experience");
       return;
     }
-    if (password.length < 8) {
+   if (password.length < 8) {
       setError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (!wdcPrivacy) {
+      setError("You must agree to all terms and policies to continue");
       return;
     }
     // Payment integration: Call Paystack/Stripe API here before signup
@@ -142,6 +150,12 @@ const SignUpContent = () => {
             </div>
 
             <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
+            <TermsAgreement
+              // wdcLabsTerms={wdcLabsTerms}
+              wdcPrivacy={wdcPrivacy}
+              // onWdcLabsTermsChange={setWdcLabsTerms}
+              onWdcPrivacyChange={setWdcPrivacy}
+            />
 
             <Button type="submit" className="w-full mt-4" size="lg" disabled={isLoading}>
               {isLoading ? (

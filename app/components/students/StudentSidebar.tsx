@@ -29,6 +29,7 @@ const navItems = [
 ];
 
 import { useAuth } from "../../contexts/AuthContexts";
+import { AccreditationBadge } from "../Accreditation";
 
 export const StudentSidebar = () => {
   const pathname = usePathname();
@@ -76,7 +77,7 @@ export const StudentSidebar = () => {
       {/* Logo */}
       <div className="p-4 mb-4">
         <Link href="/student/headquarters" className="flex items-center gap-2">
-          <Image src={wdcLogo} alt="WDC Labs" className="h-8 h-[50px] w-[120px] sm:h-[55px] sm:w-[200px]" />
+          <Image src={wdcLogo} alt="WDC Labs" className="h-8 h-[50px] w-[157px] sm:h-[65px] sm:w-[214px]" />
         </Link>
       </div>
 
@@ -129,11 +130,11 @@ export const StudentSidebar = () => {
       </nav>
 
       {/* Persona Section */}
-      <div className="p-4 mx-3 mb-3 bg-sidebar-accent/50 rounded-lg">
+      <div className="p-2 m-4 mx-3 mb-3 bg-sidebar-accent/50 rounded-lg">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Student</p>
       </div>
-
+      <AccreditationBadge />
       {/* Logout */}
       <div className="px-3 pb-4">
         <button

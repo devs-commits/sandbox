@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useState } from "react";
+import { AccreditationBadge } from "../Accreditation";
 
 const navItems = [
   { label: "Talent Markets", path: "/recruiter/talent-market", icon: LayoutGrid },
@@ -32,7 +33,7 @@ export default function Page(){
       {/* Logo */}
       <div className="p-4 mb-4">
         <Link href="/student/headquarters" className="flex items-center gap-2">
-          <Image src={wdcLogo} alt="WDC Labs" className="h-8 h-[50px] w-[120px] sm:h-[55px] sm:w-[200px]" />
+          <Image src={wdcLogo} alt="WDC Labs" className="h-8 h-[50px] w-[157px] sm:h-[65px] sm:w-[214px]" />
         </Link>
       </div>
 
@@ -78,6 +79,7 @@ export default function Page(){
           <LogOut size={18} />
           <span className="text-sm font-medium">Log out</span>
         </Link>
+        <AccreditationBadge />
       </div>
     </>
   );
