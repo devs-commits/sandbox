@@ -130,7 +130,7 @@ export const StudentSidebar = () => {
       </nav>
 
       {/* Persona Section */}
-      <div className="p-4 mx-3 mb-3 bg-sidebar-accent/50 rounded-lg">
+      <div className="p-2 m-4 mx-3 mb-3 bg-sidebar-accent/50 rounded-lg">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Student</p>
       </div>
