@@ -21,6 +21,7 @@ interface InterviewQuestion {
 
 export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps) {
     const [interviewType, setInterviewType] = useState<InterviewType>('behavioral');
+    const [interviewSubtype, setInterviewSubtype] = useState<string | null>(null);
     const [isStarted, setIsStarted] = useState(false);
     const [questionNumber, setQuestionNumber] = useState(1);
     const [currentQuestion, setCurrentQuestion] = useState<InterviewQuestion | null>(null);
@@ -39,6 +40,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     interview_type: interviewType,
+                    interview_subtype: interviewSubtype,
                     question_number: 1,
                     previous_answer: null
                 })
@@ -69,6 +71,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     interview_type: interviewType,
+                    interview_subtype: interviewSubtype,
                     question_number: questionNumber + 1,
                     previous_answer: answer
                 })
@@ -156,7 +159,10 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                         {(['behavioral', 'technical', 'situational'] as InterviewType[]).map((type) => (
                                             <button
                                                 key={type}
-                                                onClick={() => setInterviewType(type)}
+                                                onClick={() => {
+                                                    setInterviewType(type);
+                                                    setInterviewSubtype(null); // Reset subtype when type changes
+                                                }}
                                                 className={`p-4 rounded-xl border transition-all ${interviewType === type
                                                     ? 'border-primary bg-primary/10 text-primary'
                                                     : 'border-border hover:border-primary/50'
@@ -167,6 +173,27 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Behavioral Subtypes */}
+                                {interviewType === 'behavioral' && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <h4 className="font-medium text-foreground mb-3 text-sm">Focus Area (Optional)</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['Conflict Resolution', 'Leadership', 'Teamwork', 'Failure', 'Success', 'Adaptability'].map((subtype) => (
+                                                <button
+                                                    key={subtype}
+                                                    onClick={() => setInterviewSubtype(subtype === interviewSubtype ? null : subtype)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${interviewSubtype === subtype
+                                                        ? 'border-primary bg-primary text-primary-foreground'
+                                                        : 'border-border hover:border-primary/50 text-muted-foreground'
+                                                        }`}
+                                                >
+                                                    {subtype}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="bg-secondary/30 rounded-xl p-4">
                                     <div className="flex items-start gap-3">
