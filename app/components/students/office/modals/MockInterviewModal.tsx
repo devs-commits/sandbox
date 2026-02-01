@@ -34,7 +34,12 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
     const startInterview = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch(`${AI_BACKEND_URL}/mock-interview`, {
+            const apiUrl = `${AI_BACKEND_URL}/mock-interview`;
+            if (!AI_BACKEND_URL) {
+                throw new Error('AI_BACKEND_URL is not defined. Please check your environment variables.');
+            }
+
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -51,9 +56,12 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                     tip: data.tip
                 });
                 setIsStarted(true);
+            } else {
+                console.error('Failed to start interview: ', response.statusText);
             }
         } catch (error) {
-            console.error('Failed to start interview:', error);
+            console.error('Error starting interview:', error);
+            alert('Failed to start the interview. Please check your network connection or contact support.');
         } finally {
             setIsLoading(false);
         }

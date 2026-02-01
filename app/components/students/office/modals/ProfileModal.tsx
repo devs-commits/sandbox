@@ -5,6 +5,7 @@ import { Progress } from '../../../../components/ui/progress';
 import { useOffice } from '../../../../contexts/OfficeContext';
 import { useState } from 'react';
 import { MockInterviewModal } from './MockInterviewModal';
+import { SalaryNegotiationModal } from './SalaryNegotiationModal';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface ProfileModalProps {
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { userLevel, tasks, portfolio, performanceMetrics } = useOffice();
   const [showMockInterview, setShowMockInterview] = useState(false);
+  const [showSalaryNegotiation, setShowSalaryNegotiation] = useState(false);
 
   const completedTasks = tasks.filter(t => t.status === 'approved').length;
   const totalTasks = tasks.length;
@@ -29,6 +31,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="profile-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -36,6 +39,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           onClick={onClose}
         >
           <motion.div
+            key="profile-modal-content"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -111,7 +115,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 {portfolio.length > 0 ? (
                   <ul className="space-y-2">
                     {portfolio.map((item, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
+                      <li key={`${item.skillTag}-${i}`} className="flex items-start gap-2 text-sm">
                         <span className="text-primary">•</span>
                         <span className="text-foreground">{item.bulletPoint}</span>
                         <span className="text-muted-foreground text-xs">
@@ -159,6 +163,30 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   Start Mock Interview
                 </Button>
               </div>
+
+              {/* Salary Negotiation with Tolu */}
+              <div className="bg-purple-500/10 border border-green-500/20 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-purple-500 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold">
+                    T
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground">Coach Tolu</p>
+                    <p className="text-xs text-muted-foreground">HR</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Practice Salary Negotiation with Coach Tolu to prepare for real job opportunities.
+                </p>
+                <Button
+                  onClick={() => setShowSalaryNegotiation(true)}
+                  variant="outline"
+                  className="w-full border-purple-500/50 text-purple-500 hover:bg-green-500/10"
+                >
+                  <MessageSquare className="mr-2" size={16} />
+                  Start Salary Negotiation Practice
+                </Button>
+              </div>
             </div>
 
             <div className="sticky bottom-0 bg-card border-t border-border p-4">
@@ -168,10 +196,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         </motion.div>
       )}
 
-      <MockInterviewModal
-        isOpen={showMockInterview}
-        onClose={() => setShowMockInterview(false)}
-      />
+      {showMockInterview && (
+        <MockInterviewModal
+          key="mock-interview-modal"
+          isOpen={showMockInterview}
+          onClose={() => setShowMockInterview(false)}
+        />
+      )}
+
+      {showSalaryNegotiation && (
+        <SalaryNegotiationModal
+          key="salary-negotiation-modal"
+          isOpen={showSalaryNegotiation}
+          onClose={() => setShowSalaryNegotiation(false)}
+        />
+      )}
     </AnimatePresence>
   );
 }
