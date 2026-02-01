@@ -142,7 +142,14 @@ export default function GlobalWallet() {
                 Powered by Parallex Bank licensed by CBN
               </p>
               <div className="flex items-center gap-1">
-                <Image src="/first.png" alt="Logo" className="h-9 w-9 object-contain" width={4} height={4} />
+                <Image src="/cbn-logo.png" alt="Logo" className="h-9 w-9 object-contain" width={4} height={4} />
+                <Image
+                  src="/ndpb.png"
+                  alt="CBN Logo"
+                  width={40}
+                  height={40}
+                  className="object-contain w-10 h-10"
+                />
                 <ShieldCheckIcon className="w-9 h-9 text-primary object-contain" />
               </div>
             </div>
