@@ -77,10 +77,10 @@ export interface OfficeState {
 
 export interface ArchiveItem {
   id: string;
-  title: string;
-  category: string;
-  description: string;
-  link?: string;
+  title?: string;
+  category?: string;
+  description?: string;
+  link: string;
   content?: string; // Markdown content
 }
 

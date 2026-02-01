@@ -2,31 +2,24 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
-// Default AI persona configuration
-const DEFAULT_AI_PERSONA_CONFIG = {
-  role: "Mentor",
-  tone: "encouraging",
-  expertise: "general",
-  instruction: "Complete the task as described.",
-  duration: "1 hour"
-};
 
 interface TaskDefinition {
   title: string;
   brief_content: string;
   difficulty: string;
+  educational_resources: string,
   ai_persona_config?: {
     role: string;
     tone: string;
     expertise: string;
     instruction: string;
-    duration: string;
+    deadline_display: string;
   };
   location?: {
     city?: string;
     country?: string;
     country_code?: string;
-  };
+  }; 
 }
 
 
@@ -37,6 +30,8 @@ export async function POST(request: Request) {
       user_id,
       user_name,
       track,
+      deadline_display,
+      experience_level,
       difficulty,
       task_number,
       user_city,
@@ -59,6 +54,15 @@ export async function POST(request: Request) {
       );
     }
 
+
+// Default AI persona configuration
+const DEFAULT_AI_PERSONA_CONFIG = {
+   "role": "Supervisor",
+            "tone": "professional",
+            "expertise": track,
+            "instruction": "Review submission thoroughly",
+            "deadline_display": deadline_display
+};
 
     // 1. Get Task Count and Previous Performance
     const dbClient = supabaseAdmin || supabase;
@@ -112,7 +116,9 @@ export async function POST(request: Request) {
         user_id,
         user_name: user_name,
         track,
-        experience_level: difficulty,
+        deadline_display,
+        experience_level,
+        difficulty,
         task_number,
         user_city,
         include_ethical_trap,
@@ -149,7 +155,8 @@ export async function POST(request: Request) {
       ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
       completed: false,
       task_number: taskNumber + index,
-      resources: task.educational_resources || [] // Save generated resources
+      resources: task.educational_resources || [], // Save generated resources
+      video_brief: task.video_brief
     }));
     // Use admin client to bypass RLS, or fall back to regular client
     // dbClient is already defined above

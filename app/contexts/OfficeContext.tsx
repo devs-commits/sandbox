@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty } from "../components/students/office/types"
+import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty, ArchiveItem } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
 import { supabase } from '../../lib/supabase';
 
@@ -79,6 +79,19 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const userName = user?.fullName || 'New Intern';
   const trackName = user?.track || 'General';
   const userId = user?.id || null;
+
+  const mapResources = (resources?: string): ArchiveItem[] => {
+    if (!resources || typeof resources !== 'string') return [];
+
+    return resources
+      .split(',')
+      .map((r, i) => ({
+        id: `new-res-${i}`,
+        link: r.trim()
+      }))
+      .filter(r => r.link.length > 0);
+};
+
 
   // Fetch bounties when user is available
   useEffect(() => {
@@ -366,17 +379,11 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             title: t.title,
             description: t.brief_content,
             type: t.task_track || trackName,
-            deadline: t.ai_persona_config.deadline,
+            deadline: t.ai_persona_config.deadline_display,
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
-            resources: (t.resources || []).map((r: any, i: number) => ({
-              id: `res-${t.id}-${i}`,
-              title: r.title,
-              category: 'Task Guide',
-              description: r.description,
-              content: r.content
-            }))
+            resources: mapResources(t.resources),
           }));
           setTasks(mappedTasks);
           
@@ -554,6 +561,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           user_id: userId,
           user_name: user?.fullName,
           track: trackName,
+          deadline_display: "", 
+          experience_level: "",
           difficulty: "intermediate",
           task_number: 1,
           user_city: "Lagos",
@@ -576,23 +585,28 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             status: 'pending',
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
-            resources: (generatedTask.resources || []).map((r: any, i: number) => ({
-              id: `new-res-${i}`,
-              title: r.title,
-              category: 'Task Guide',
-              description: r.description,
-              content: r.content
-            }))
+            resources: mapResources(generatedTask.resources)
           };
 
           setTasks(prev => [...prev, newTask]);
 
+          const formattedResources =
+            newTask.resources && newTask.resources.length > 0
+              ? newTask.resources
+                  .map((res: any, index: number) => `${index + 1}. ${res.link}`)
+                  .join('\n')
+              : 'No resources provided.';
+
           addChatMessage({
             id: (Date.now() + 1).toString(),
             agentName: 'Emem',
-            message: `Task: "${newTask.title}"\nDeadline: ${newTask.deadline}\n\nGet it done.`,
-            timestamp: new Date(),
+            message: `Task: "${newTask.title}"
+            Deadline: ${newTask.deadline}
+            Ensure to submit on or before the deadine elapses.
+            There are some reference materials that could assist you during this task, they are given below your task brief in desk.`,
+              timestamp: new Date(),
           });
+
         }
       } else {
         // Fallback to mock task if API fails

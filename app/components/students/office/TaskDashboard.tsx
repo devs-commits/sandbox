@@ -67,6 +67,8 @@ export function TaskDashboard() {
     setPreviewTask(previewTask?.id === task.id ? null : task);
   };
 
+  console.log("tasks", tasks)
+
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10">
       {/* Header - removed Generate Task button */}
