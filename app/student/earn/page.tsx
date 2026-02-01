@@ -284,9 +284,16 @@ export default function EarnMoney() {
                   <ShieldCheckIcon className="w-5 h-5 text-primary" />
                   <h3 className="font-bold text-foreground">Identity Verification</h3>
                 </div>
-                <div className="p-1 rounded-md">
+                <div className="p-1 rounded-md justify-between flex ">
                   <Image
                     src="/cbn-logo.png"
+                    alt="CBN Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain w-10 h-10"
+                  />
+                  <Image
+                    src="/ndpb.png"
                     alt="CBN Logo"
                     width={40}
                     height={40}
