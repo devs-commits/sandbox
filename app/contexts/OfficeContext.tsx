@@ -311,7 +311,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         type: taskData.task_track,
         deadline: bounty.duration || 'Flexible',
         status: 'pending',
-        attachments: [],
+        attachments: taskData.attachments,
         clientConstraints: bounty.instructions?.join('\n'), // Pass instructions as constraints
         resources: []
       };
@@ -381,7 +381,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             type: t.task_track || trackName,
             deadline: t.ai_persona_config.deadline_display,
             status: t.completed ? 'approved' : 'pending',
-            attachments: [],
+            attachments: t.attachments,
             clientConstraints: undefined,
             resources: mapResources(t.resources),
           }));
@@ -581,7 +581,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             title: generatedTask.title,
             description: generatedTask.brief_content,
             type: trackName,
-            deadline: generatedTask.deadline, // TODO: Calculate from ai_persona_config
+            deadline: generatedTask.deadline,
             status: 'pending',
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
@@ -601,25 +601,70 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             id: (Date.now() + 1).toString(),
             agentName: 'Emem',
             message: `Task: "${newTask.title}"
-            Deadline: ${newTask.deadline}
             Ensure to submit on or before the deadine elapses.
-            There are some reference materials that could assist you during this task, they are given below your task brief in desk.`,
+            There are some reference materials that could assist you during this task, they are given below your task brief in desk.
+            And lastly, you have your attachments in desk for you to have more context regarding your task
+            Goodluck!! ${userName}`,
               timestamp: new Date(),
           });
 
         }
       } else {
         // Fallback to mock task if API fails
+        function getMockTask(track: string, userName = "Intern") {
+          if (track === "data_analytics") {
+              return {
+                  title: "Analyze Retail Sales Data",
+                  brief_content: `Dear ${userName}, clean and analyze the attached retail sales dataset. Identify top-selling products and trends. Provide insights in a concise report.`,
+                  difficulty: "intermediate",
+                  client_constraints: "Use Excel or Python. No copy-paste.",
+                  deadline: "2026-02-01",
+                  attachments: ["sales_data.csv"]
+              };
+          } else if (track === "cybersecurity") {
+              return {
+                  title: "Secure Company Server Access",
+                  brief_content: `Dear ${userName}, audit the company's server access logs and identify potential unauthorized access attempts. Implement MFA for high-risk accounts.`,
+                  difficulty: "intermediate",
+                  client_constraints: "Use Linux CLI. Document every command executed.",
+                  deadline: "2026-02-01",
+                  attachments: ["server_logs.zip"]
+              };
+          } else if (track === "digital_marketing") {
+              return {
+                  title: "Plan a Black Friday Campaign",
+                  brief_content: `Dear ${userName}, design a 5-part email drip campaign for Black Friday. Include catchy subject lines, personalization, and timing strategy.`,
+                  difficulty: "intermediate",
+                  client_constraints: "Follow best practices. Avoid spam triggers.",
+                  deadline: "2026-02-01",
+                  attachments: []
+              };
+          } else {
+              // generic fallback
+              return {
+                  title: "General Mock Task",
+                  brief_content: `Dear ${userName}, complete a sample task suitable for your track.`,
+                  difficulty: "intermediate",
+                  client_constraints: "",
+                  deadline: "2026-02-01",
+                  attachments: []
+              };
+          }
+      }
+
+        const mockData = getMockTask(trackName, userName);
         const mockTask: Task = {
           id: Date.now().toString(),
-          title: 'Data Cleansing: Lagos Tech Hub Sales',
-          description: 'Find and fix 3 anomalies in the sales data. Calculate real ROAS.',
-          type: 'Data Analytics',
-          deadline: 'Due in 24 hrs',
+          title: mockData.title,
+          description: mockData.brief_content,
+          type: trackName,
+          deadline: mockData.deadline,
           status: 'pending',
-          attachments: ['sales_data.csv'],
-          clientConstraints: 'Must use Python. No external libraries except pandas.',
+          attachments: mockData.attachments,
+          clientConstraints: mockData.client_constraints,
+          difficulty: mockData.difficulty,
         };
+
         setTasks(prev => [...prev, mockTask]);
         addChatMessage({
           id: (Date.now() + 1).toString(),
