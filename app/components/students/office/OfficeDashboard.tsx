@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Briefcase, BookOpen, User, MessageSquare, Target } from 'lucide-react';
+import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AgentChatInterface } from '../../students/office/AgentChatInterface';
@@ -12,6 +13,12 @@ import { ProfileModal } from './modals/ProfileModal';
 import { CollapsibleChat } from './CollapsibleChat';
 import { AgentAvatar } from './AgentAvatar';
 import { cn } from '@/lib/utils';
+
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '600', '700'],
+  display: 'swap',
+});
 
 const TOUR_STEPS = [
   {
@@ -140,7 +147,10 @@ export function OfficeDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex flex-col">
+    <div className={cn(
+      "min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex flex-col",
+      openSans.className
+    )}>
       {/* Header logic remains same */}
       <header className="h-16 border-b border-border/50 bg-card/80 backdrop-blur-sm px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -199,7 +209,7 @@ export function OfficeDashboard() {
         </nav>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-hidden">
+        <main className={cn("flex-1 overflow-hidden", openSans.className)}>
           {renderMainContent()}
         </main>
       </div>
@@ -388,7 +398,9 @@ export function OfficeDashboard() {
           </>
         )}
       </AnimatePresence>
-      <CollapsibleChat triggerRef={desktopChatRef} />
+      <div className={openSans.className}>
+        <CollapsibleChat triggerRef={desktopChatRef} />
+      </div>
 
       <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </div>
