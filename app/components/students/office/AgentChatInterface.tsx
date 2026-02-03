@@ -2,11 +2,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2, MessageSquare } from 'lucide-react';
+import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS, AgentName } from './types';
 import { AgentAvatar } from './AgentAvatar';
 import { cn } from '@/lib/utils';
+
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '600', '700'],
+  display: 'swap',
+});
 
 export function AgentChatInterface() {
   const { chatMessages, sendMessage, phase,typingAgent } = useOffice();
@@ -49,7 +56,7 @@ export function AgentChatInterface() {
   const isDisabled = phase === 'lobby' || phase === 'tour';
 
   return (
-    <div className="flex flex-col h-full bg-card/50 backdrop-blur-sm">
+    <div className={cn("flex flex-col h-full bg-card/50 backdrop-blur-sm", openSans.className)}>
       {/* Header */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center gap-3">

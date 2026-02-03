@@ -2,12 +2,19 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Coffee, Target } from 'lucide-react';
+import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { Task } from './types';
 import { SubmissionModal } from './modals/SubmissionModal';
 import { TaskDetailModal } from './modals/TaskDetailModal';
 import ReactMarkdown from 'react-markdown';
+
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '600', '700'],
+  display: 'swap',
+});
 
 // Format track names: "data-analytics" -> "Data Analytics"
 const formatTrackName = (track: string): string => {
@@ -70,7 +77,7 @@ export function TaskDashboard() {
   console.log("tasks", tasks)
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10">
+    <div className={`h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 ${openSans.className}`}>
       {/* Header - removed Generate Task button */}
       <div className="p-6 border-b border-border/50">
         <div>

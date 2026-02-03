@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ChevronDown, Send} from 'lucide-react';
+import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { AGENTS, AgentName } from './types';
@@ -9,6 +10,12 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { AgentAvatar } from './AgentAvatar';
 import { Loader2 } from 'lucide-react';
+
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '600', '700'],
+  display: 'swap',
+});
 
 interface CollapsibleChatProps {
   triggerRef?: React.Ref<HTMLButtonElement>;
@@ -59,7 +66,7 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
   const unreadCount = chatMessages.length;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 hidden lg:block">
+    <div className={cn("fixed bottom-4 right-4 z-50 hidden lg:block", openSans.className)}>
       <AnimatePresence>
         {isExpanded ? (
           <motion.div
