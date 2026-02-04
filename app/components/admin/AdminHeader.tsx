@@ -24,9 +24,9 @@ export const AdminHeader = ({ title, subtitle}: AdminHeaderProps) => {
   return (
     <header className="px-4 lg:px-6 py-4 flex items-center justify-between border-b border-border">
       {/* Left side - Title */}
-      <div className="lg:ml-0 ml-12">
-        <h1 className="text-xl lg:text-2xl font-bold text-foreground">{title}</h1>
-        <p className="text-sm font-medium text-muted-foreground">{subtitle}</p>
+       <div className="lg:ml-0 ml-8 lg:ml-10">
+        <h1 className="text-sm lg:text-2xl font-bold text-foreground">{title}</h1>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
       {/* Right side - User info */}
