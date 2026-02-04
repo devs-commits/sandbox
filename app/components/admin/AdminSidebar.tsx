@@ -2,7 +2,6 @@
 import { usePathname} from "next/navigation";
 import Link from "next/link";
 import wdcLogo from "../../../public/wdc-logo.jpg";
-import { AccreditationBadge } from "../Accreditation";
 import Image from "next/image";
 import {
   LayoutGrid,
@@ -67,7 +66,6 @@ export default function Page(){
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Admin</p>
       </div>
-      <AccreditationBadge />
       {/* Logout */}
       <div className="px-3 pb-4">
         <Link
