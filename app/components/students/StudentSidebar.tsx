@@ -29,7 +29,6 @@ const navItems = [
 ];
 
 import { useAuth } from "../../contexts/AuthContexts";
-import { AccreditationBadge } from "../Accreditation";
 
 export const StudentSidebar = () => {
   const pathname = usePathname();
@@ -134,7 +133,6 @@ export const StudentSidebar = () => {
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Student</p>
       </div>
-      <AccreditationBadge />
       {/* Logout */}
       <div className="px-3 pb-4">
         <button

@@ -1,6 +1,5 @@
 "use client";
 import { useAuth } from "../../contexts/AuthContexts";
-import { AccreditationBadge } from "../Accreditation";
 import Link from "next/link";
 import Image from "next/image";
 import wdc from "../../../public/image.png";
