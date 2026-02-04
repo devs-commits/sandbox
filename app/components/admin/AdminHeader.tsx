@@ -1,6 +1,9 @@
 "use client";
 import { useAuth } from "../../contexts/AuthContexts";
-
+import Link from "next/link";
+import Image from "next/image";
+import wdc from "../../../public/image.png";
+import actdLogoClean from "../../../public/actd-logo.png";
 interface AdminHeaderProps {
   title: string;
   subtitle ?: string;
@@ -36,6 +39,35 @@ export const AdminHeader = ({ title, subtitle}: AdminHeaderProps) => {
             {user?.fullName || "John Snow"}
           </span>
         </div>
+        <div className="flex items-center justify-between">
+          <Link
+            href="https://wdc.ng/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-5 sm:mr-5"
+          >
+          <Image
+            src={wdc}
+            alt="WildFusion Digital Centre"
+            className="h-8 w-auto object-contain"
+          />
+          </Link>
+          <Link
+            href="https://www.actd.us/wildfusiondigitalcentre/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 hover:opacity-90 transition mr-2 sm:mr-5"
+          >
+          <Image
+            src={actdLogoClean}
+            alt="ACTD Accreditation"
+            className="h-8 w-auto sm:h-12 object-contain"
+          />
+          <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[100px] sm:max-w-[100px]">
+          Accredited by the American Council of Training and Development
+          </span>
+      </Link>
+    </div>
       </div>
     </header>
   );
