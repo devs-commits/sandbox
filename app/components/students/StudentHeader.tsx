@@ -33,8 +33,8 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
   return (
     <header className="px-4 lg:px-6 py-4 flex items-center justify-between border-b border-border">
       {/* Left side - Title */}
-      <div className="lg:ml-0 ml-12">
-        <h1 className="text-xl lg:text-2xl font-bold text-foreground">{title}</h1>
+      <div className="lg:ml-0 ml-8 lg:ml-10">
+        <h1 className="text-sm lg:text-2xl font-bold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
@@ -78,7 +78,7 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
             alt="ACTD Accreditation"
             className="h-8 w-auto sm:h-12 object-contain"
           />
-          <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[100px] sm:max-w-[100px]">
+          <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[60px] sm:max-w-[100px]">
           Accredited by the American Council of Training and Development
           </span>
       </Link>

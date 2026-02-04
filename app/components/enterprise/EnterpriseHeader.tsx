@@ -48,7 +48,7 @@ export const EnterpriseHeader = ({ title, subtitle }: EnterpriseHeaderProps) => 
             alt="ACTD Accreditation"
             className="h-8 w-auto sm:h-12 object-contain"
           />
-          <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[100px] sm:max-w-[100px]">
+          <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[60px] sm:max-w-[100px]">
           Accredited by the American Council of Training and Development
           </span>
       </Link>
