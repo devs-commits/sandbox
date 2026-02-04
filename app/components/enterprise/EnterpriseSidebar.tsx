@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useState } from "react";
-import { AccreditationBadge } from "../Accreditation";
 
 const navItems = [
   { label: "White Label", path: "/enterprise/white-label", icon: LayoutGrid },
@@ -66,7 +65,6 @@ export default function Page(){
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Enterprise</p>
       </div>
-      <AccreditationBadge />
       {/* Logout */}
       <div className="px-3 pb-4">
         <Link
