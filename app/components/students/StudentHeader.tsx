@@ -84,7 +84,6 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
       </Link>
     </div>
       </div>
-      {/* <AccreditationBadge /> */}
     </header>
   );
 };
