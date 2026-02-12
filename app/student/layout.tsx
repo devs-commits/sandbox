@@ -10,7 +10,7 @@ export default function StudentLayout({
     <ProtectedRoute allowedRoles={["student"]}>
       <div className="min-h-screen bg-background flex w-full">
         <StudentSidebar />
-        <main className="flex-1 overflow-auto max-w-7xl mx-auto p-4 lg:p-6 bg-background">
+        <main className="flex-1 overflow-auto max-w-7xl mx-auto bg-background">
           {children}
         </main>
       </div>

@@ -46,7 +46,7 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
           </p>
           <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">INTERN</span>
         </div>
-        <div className="flex items-center gap-2 bg-primary/20 text-primary-foreground px-3 py-1.5 rounded-full">
+        <div className="flex items-center gap-2 text-primary-foreground px-3 py-1.5 rounded-full">
           <div className="w-7 h-7 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
             {user?.fullName ? getInitials(user.fullName) : "U"}
           </div>
@@ -59,7 +59,7 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
             href="https://wdc.ng/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-5 sm:mr-5"
+            className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-2 sm:mr-2"
           >
           <Image
             src={wdc}
