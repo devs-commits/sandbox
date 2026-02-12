@@ -76,7 +76,7 @@ export const StudentSidebar = () => {
       {/* Logo */}
       <div className="max-w-3xl ml-[5px] mt-5">
         <Link href="/" className="inline-block">
-          <Image src={wdcLogo} alt="WDC Labs" className="h-auto w-auto sm:h-[40px] sm:w-[150px]" />
+          <Image src={wdcLogo} alt="WDC Labs" className="h-auto w-auto sm:h-[40px] sm:w-[135px]" />
         </Link>
       </div>
 

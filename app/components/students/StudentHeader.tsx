@@ -33,7 +33,7 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
   return (
     <header className="px-4 lg:px-6 py-4 flex items-center justify-between border-b border-border">
       {/* Left side - Title */}
-      <div className="lg:ml-0 ml-8 lg:ml-10">
+      <div className="lg:ml-0 ml-8">
         <h1 className="text-sm lg:text-2xl font-bold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
@@ -41,10 +41,10 @@ export const StudentHeader = ({ title, subtitle }: StudentHeaderProps) => {
       {/* Right side - User info */}
       <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-medium text-foreground">
+          <p className="sm:text-[10px] text-[8px] font-medium text-foreground">
             {formatTrack(user?.track)}
           </p>
-          <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">INTERN</span>
+          <span className="sm:text-[7px] bg-primary/20 text-primary px-2 py-0.5 rounded">INTERN</span>
         </div>
         <div className="flex items-center gap-2 text-primary-foreground px-3 py-1.5 rounded-full">
           <div className="w-7 h-7 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
