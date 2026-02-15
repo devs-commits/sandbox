@@ -291,6 +291,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         title: bounty.title,
         brief_content: bounty.description,
         task_track: bounty.type || 'General',
+        difficulty: 'Bounty',
         completed: false,
         resources: [], // We could populate this from bounty instructions
       };
@@ -313,7 +314,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         status: 'pending',
         attachments: [],
         clientConstraints: bounty.instructions?.join('\n'), // Pass instructions as constraints
-        resources: []
+        resources: [],
+        difficulty: 'Bounty'
       };
 
       setTasks(prev => [newTask, ...prev]);
@@ -379,11 +381,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             title: t.title,
             description: t.brief_content,
             type: t.task_track || trackName,
-            deadline: t.ai_persona_config.deadline_display,
+            deadline: t.ai_persona_config?.deadline_display || 'Flexible',
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
             resources: mapResources(t.resources),
+            difficulty: t.difficulty,
           }));
           setTasks(mappedTasks);
           
@@ -609,17 +612,45 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
         }
       } else {
-        // Fallback to mock task if API fails
-        const mockTask: Task = {
-          id: Date.now().toString(),
+        // Fallback task should be persisted so it survives refresh
+        const fallbackTaskData = {
+          user: userId,
           title: 'Data Cleansing: Lagos Tech Hub Sales',
-          description: 'Find and fix 3 anomalies in the sales data. Calculate real ROAS.',
-          type: 'Data Analytics',
+          brief_content: 'Find and fix 3 anomalies in the sales data. Calculate real ROAS.',
+          task_track: trackName || 'General',
+          difficulty: 'intermediate',
+          completed: false,
+          resources: [],
+        };
+
+        let fallbackId = Date.now().toString();
+        try {
+          if (userId) {
+            const { data: inserted, error: insertError } = await supabase
+              .from('tasks')
+              .insert(fallbackTaskData)
+              .select('id')
+              .single();
+
+            if (!insertError && inserted?.id) {
+              fallbackId = inserted.id.toString();
+            }
+          }
+        } catch (persistErr) {
+          console.error('Failed to persist fallback task:', persistErr);
+        }
+
+        const mockTask: Task = {
+          id: fallbackId,
+          title: fallbackTaskData.title,
+          description: fallbackTaskData.brief_content,
+          type: fallbackTaskData.task_track,
           deadline: 'Due in 24 hrs',
           status: 'pending',
           attachments: ['sales_data.csv'],
           clientConstraints: 'Must use Python. No external libraries except pandas.',
         };
+
         setTasks(prev => [...prev, mockTask]);
         addChatMessage({
           id: (Date.now() + 1).toString(),
@@ -630,12 +661,40 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Task generation failed:', error);
-      // Fallback to mock
-      const mockTask: Task = {
-        id: Date.now().toString(),
+
+      // Persist fallback task so refresh does not clear it
+      const fallbackTaskData = {
+        user: userId,
         title: 'Offline Task Assignment',
-        description: 'Connection issue. Please refresh.',
-        type: 'General',
+        brief_content: 'Connection issue. Please refresh.',
+        task_track: trackName || 'General',
+        difficulty: 'intermediate',
+        completed: false,
+        resources: [],
+      };
+
+      let fallbackId = Date.now().toString();
+      try {
+        if (userId) {
+          const { data: inserted, error: insertError } = await supabase
+            .from('tasks')
+            .insert(fallbackTaskData)
+            .select('id')
+            .single();
+
+          if (!insertError && inserted?.id) {
+            fallbackId = inserted.id.toString();
+          }
+        }
+      } catch (persistErr) {
+        console.error('Failed to persist fallback task:', persistErr);
+      }
+
+      const mockTask: Task = {
+        id: fallbackId,
+        title: fallbackTaskData.title,
+        description: fallbackTaskData.brief_content,
+        type: fallbackTaskData.task_track,
         deadline: 'TBD',
         status: 'pending',
         attachments: [],
@@ -1024,3 +1083,4 @@ export function useOffice() {
   }
   return context;
 }
+

@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -15,31 +15,24 @@ interface BountyDetailPanelProps {
   onClose: () => void;
   onAccept: (bounty: Bounty) => void;
   isAccepting: boolean;
+  isClaimed: boolean;
 }
 
-function BountyDetailPanel({ bounty, onClose, onAccept, isAccepting }: BountyDetailPanelProps) {
+function BountyDetailPanel({ bounty, onClose, onAccept, isAccepting, isClaimed }: BountyDetailPanelProps) {
   const slotsLeft = bounty.slots_total - bounty.slots_filled;
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Panel - 50% of total viewport width from right */}
       <div className="absolute right-0 top-0 h-full w-full md:w-1/2 bg-card border-l border-border overflow-y-auto">
         <div className="p-6">
-          {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-xl font-bold text-foreground mb-2">{bounty.title}</h1>
               <Badge className="bg-[hsla(47,62%,50%,0.2)] text-[hsla(47,62%,50%,1)] hover:bg-yellow-500/30">{bounty.type}</Badge>
             </div>
-            <button
-              onClick={onClose}
-              className="text-coral hover:text-coral/80 transition-colors"
-            >
+            <button onClick={onClose} className="text-coral hover:text-coral/80 transition-colors">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -55,9 +48,7 @@ function BountyDetailPanel({ bounty, onClose, onAccept, isAccepting }: BountyDet
               {bounty.instructions && bounty.instructions.length > 0 ? (
                 <ol className="list-decimal list-inside space-y-2 text-muted-foreground text-sm">
                   {bounty.instructions.map((instruction, index) => (
-                    <li key={index}>
-                      {instruction}
-                    </li>
+                    <li key={index}>{instruction}</li>
                   ))}
                 </ol>
               ) : (
@@ -82,7 +73,7 @@ function BountyDetailPanel({ bounty, onClose, onAccept, isAccepting }: BountyDet
 
             <div className="bg-[hsla(47,62%,50%,0.2)] border border-yellow-500/30 rounded-lg p-4">
               <p className="text-[hsla(47,62%,50%,1)] text-sm">
-                Note: You have to click on start task to claim your slot and once you click Start Task, the countdown begins based on the duration. You must upload your submission within this period. Failure to do so will result in disqualification from the bounty, and your slot will be released back to other users (if the bounty is still available). This bounty currently has {slotsLeft} slots left, and slots reduce in real time.
+                Note: Click Claim Task to reserve your slot. Once claimed, the countdown begins based on the duration. You must upload your submission within this period. Failure to do so may disqualify you from the bounty and release your slot back to other users (if the bounty is still available). This bounty currently has {slotsLeft} slots left, and slots update in real time.
               </p>
             </div>
 
@@ -92,16 +83,18 @@ function BountyDetailPanel({ bounty, onClose, onAccept, isAccepting }: BountyDet
               </p>
               <Button
                 onClick={() => onAccept(bounty)}
-                disabled={isAccepting || slotsLeft <= 0}
+                disabled={isAccepting || slotsLeft <= 0 || isClaimed}
                 className="w-full bg-primary hover:bg-primary/90 text-black py-6 text-lg font-semibold"
               >
                 {isAccepting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    STARTING TASK...
+                    CLAIMING TASK...
                   </>
+                ) : isClaimed ? (
+                  "ALREADY CLAIMED"
                 ) : (
-                  "START TASK"
+                  "CLAIM TASK"
                 )}
               </Button>
             </div>
@@ -112,13 +105,7 @@ function BountyDetailPanel({ bounty, onClose, onAccept, isAccepting }: BountyDet
   );
 }
 
-function BountyCard({
-  bounty,
-  onClick,
-}: {
-  bounty: Bounty;
-  onClick: () => void;
-}) {
+function BountyCard({ bounty, isClaimed, onClick }: { bounty: Bounty; isClaimed: boolean; onClick: () => void }) {
   const slotsLeft = bounty.slots_total - bounty.slots_filled;
 
   return (
@@ -139,11 +126,13 @@ function BountyCard({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground uppercase">REWARD</p>
-          <p className="text-lg font-bold text-[hsla(151,74%,46%,1)]">₦{bounty.reward.toLocaleString()}</p>
+          <p className="text-lg font-bold text-[hsla(151,74%,46%,1)]">
+            {new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(bounty.reward)}
+          </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground uppercase">CLAIM</p>
-          <p className="text-foreground font-medium">{slotsLeft} left</p>
+          <p className="text-xs text-muted-foreground uppercase">{isClaimed ? "STATUS" : "CLAIM"}</p>
+          <p className="text-foreground font-medium">{isClaimed ? "Claimed" : `${slotsLeft} left`}</p>
         </div>
       </div>
     </div>
@@ -153,32 +142,78 @@ function BountyCard({
 export default function BountyHunter() {
   const [selectedBounty, setSelectedBounty] = useState<Bounty | null>(null);
   const [bounties, setBounties] = useState<Bounty[]>([]);
+  const [claimedBountyIds, setClaimedBountyIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const { user } = useAuth();
   const router = useRouter();
 
+  const resolveStudentId = useCallback(async () => {
+    if (!user) return null;
+    if (typeof user.user_id === "number") return user.user_id;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error resolving student id:", error);
+      return null;
+    }
+
+    return data?.id ?? null;
+  }, [user]);
+
   useEffect(() => {
     const fetchBounties = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('bounties')
-          .select('*')
-          .eq('status', 'active')
-          .order('created_at', { ascending: false });
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-        if (error) {
-          console.error("Error fetching bounties:", error);
+      try {
+        const studentId = await resolveStudentId();
+
+        const { data: bountyData, error: bountyError } = await supabase
+          .from("bounties")
+          .select("*")
+          .eq("status", "active")
+          .order("created_at", { ascending: false });
+
+        if (bountyError) {
+          console.error("Error fetching bounties:", bountyError);
           toast.error("Failed to load bounties");
-        } else if (data) {
-          // Parse jsonb fields
-          const mappedBounties: Bounty[] = data.map((b: any) => ({
-            ...b,
-            instructions: typeof b.instructions === 'string' ? JSON.parse(b.instructions) : b.instructions,
-            deliverables: typeof b.deliverables === 'string' ? JSON.parse(b.deliverables) : b.deliverables,
-          }));
-          setBounties(mappedBounties);
+          return;
         }
+
+        let submissionData: { bounty_id: number }[] = [];
+        if (studentId) {
+          const { data, error: submissionError } = await supabase
+            .from("bounty_submissions")
+            .select("bounty_id")
+            .eq("student_id", studentId);
+
+          if (submissionError) {
+            console.error("Error fetching claimed bounties:", submissionError);
+          } else {
+            submissionData = data || [];
+          }
+        }
+
+        const mappedBounties: Bounty[] = (bountyData || []).map((b) => ({
+          ...b,
+          instructions: Array.isArray(b.instructions)
+            ? b.instructions
+            : (typeof b.instructions === "string" ? JSON.parse(b.instructions) : []),
+          deliverables: Array.isArray(b.deliverables)
+            ? b.deliverables
+            : (typeof b.deliverables === "string" ? JSON.parse(b.deliverables) : []),
+        }));
+
+        setBounties(mappedBounties);
+        setClaimedBountyIds(new Set(submissionData.map((row) => row.bounty_id)));
       } catch (error) {
         console.error("Error fetching bounties:", error);
       } finally {
@@ -188,74 +223,92 @@ export default function BountyHunter() {
 
     fetchBounties();
 
-    // Subscribe to realtime changes
     const channel = supabase
-      .channel('public:bounties')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bounties' }, () => {
-        fetchBounties();
-      })
+      .channel("public:bounties")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bounties" }, fetchBounties)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
-    }
-  }, []);
+    };
+  }, [user, resolveStudentId]);
 
-  const handleStartTask = async (bounty: Bounty) => {
+  const handleClaimTask = async (bounty: Bounty) => {
     if (!user) {
-      toast.error("You must be logged in to accept bounties");
+      toast.error("You must be logged in to claim bounties");
       return;
     }
 
-    // Confirm acceptance
-    if (!confirm(`Are you sure you want to accept "${bounty.title}"? It will be added to your desk.`)) return;
+    if (claimedBountyIds.has(bounty.id)) {
+      toast.error("You already claimed this bounty.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to claim "${bounty.title}"? It will be added to your desk.`)) return;
 
     setAcceptingId(bounty.id);
 
     try {
-      // 1. Create bounty submission record (pending)
-      const { data: submission, error: subError } = await supabase
-        .from('bounty_submissions')
+      const studentId = await resolveStudentId();
+      if (!studentId) {
+        toast.error("Unable to resolve your account profile. Please refresh and try again.");
+        return;
+      }
+
+      const slotsLeft = bounty.slots_total - bounty.slots_filled;
+      if (slotsLeft <= 0) {
+        toast.error("No claim slots left for this bounty.");
+        return;
+      }
+
+      const { data: existingClaim, error: existingClaimError } = await supabase
+        .from("bounty_submissions")
+        .select("id")
+        .eq("bounty_id", bounty.id)
+        .eq("student_id", studentId)
+        .maybeSingle();
+
+      if (existingClaimError) throw existingClaimError;
+      if (existingClaim) {
+        setClaimedBountyIds((prev) => new Set([...prev, bounty.id]));
+        toast.error("You already claimed this bounty.");
+        return;
+      }
+
+      const { error: subError } = await supabase
+        .from("bounty_submissions")
         .insert({
           bounty_id: bounty.id,
-          student_id: user.user_id,
-          status: 'pending' // pending approval
+          student_id: studentId,
+          status: "pending",
         })
-        .select()
+        .select("id")
         .single();
-      console.log(user)
+
       if (subError) throw subError;
 
-      // 2. Create a task in 'tasks' table so it appears in "Your Desk"
       const newTaskData = {
         user: user.id,
         title: bounty.title,
         brief_content: bounty.description,
-        task_track: bounty.type || 'General',
-        difficulty: 'Bounty',
+        task_track: bounty.type || "General",
+        difficulty: "Bounty",
         completed: false,
         resources: [],
-        // We can store deadline info if needed, or other metadata
       };
 
-      const { error: taskError } = await supabase
-        .from('tasks')
-        .insert(newTaskData);
-
+      const { error: taskError } = await supabase.from("tasks").insert(newTaskData);
       if (taskError) throw taskError;
 
-      // 3. Increment slots_filled in bounties table
-      await supabase.rpc('increment_bounty_slots', { bounty_id: bounty.id });
+      await supabase.rpc("increment_bounty_slots", { bounty_id: bounty.id });
+      setClaimedBountyIds((prev) => new Set([...prev, bounty.id]));
 
-      toast.success("Bounty accepted! Check your Office Desk.");
+      toast.success("Bounty claimed! Check your Office Desk.");
       setSelectedBounty(null);
-
-      // Redirect to office desk
-      router.push('/student/office');
-
+      router.push("/student/office");
     } catch (error) {
-      console.error("Error accepting bounty:", error);
-      toast.error("Failed to accept bounty. Please try again.");
+      console.error("Error claiming bounty:", error);
+      toast.error("Failed to claim bounty. Please try again.");
     } finally {
       setAcceptingId(null);
     }
@@ -263,10 +316,7 @@ export default function BountyHunter() {
 
   return (
     <>
-      <StudentHeader
-        title="Bounty Hunter Network"
-        subtitle="Complete micro-tasks. Earn Cash instantly."
-      />
+      <StudentHeader title="Bounty Hunter Network" subtitle="Complete micro-tasks. Earn Cash instantly." />
       <main className="flex-1 p-4 lg:p-6 mb-20">
         <div className="flex justify-end mb-6">
           <Badge variant="outline" className="text-sm px-4 py-2 bg-card border-primary/30">
@@ -289,19 +339,20 @@ export default function BountyHunter() {
               <BountyCard
                 key={bounty.id}
                 bounty={bounty}
+                isClaimed={claimedBountyIds.has(bounty.id)}
                 onClick={() => setSelectedBounty(bounty)}
               />
             ))}
           </div>
         )}
 
-        {/* Detail Panel */}
         {selectedBounty && (
           <BountyDetailPanel
             bounty={selectedBounty}
             onClose={() => setSelectedBounty(null)}
-            onAccept={handleStartTask}
+            onAccept={handleClaimTask}
             isAccepting={acceptingId === selectedBounty.id}
+            isClaimed={claimedBountyIds.has(selectedBounty.id)}
           />
         )}
       </main>
