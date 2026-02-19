@@ -4,8 +4,16 @@ import { Button } from '../../../../components/ui/button';
 import { Progress } from '../../../../components/ui/progress';
 import { useOffice } from '../../../../contexts/OfficeContext';
 import { useState } from 'react';
-import { MockInterviewModal } from './MockInterviewModal';
-import { SalaryNegotiationModal } from './SalaryNegotiationModal';
+import { AgentAvatar } from '../AgentAvatar';
+
+// Format track names: "data-analytics" -> "Data Analytics"
+const formatTrackName = (track: string): string => {
+  if (!track) return 'General';
+  return track
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -13,9 +21,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
-  const { userLevel, tasks, portfolio, performanceMetrics } = useOffice();
-  const [showMockInterview, setShowMockInterview] = useState(false);
-  const [showSalaryNegotiation, setShowSalaryNegotiation] = useState(false);
+  const { userLevel, trackName, tasks, portfolio, performanceMetrics } = useOffice();
 
   const completedTasks = tasks.filter(t => t.status === 'approved').length;
   const totalTasks = tasks.length;
@@ -54,14 +60,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Current Level */}
+              {/* Current Level & Track */}
               <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
                 <div className="flex items-center gap-3">
                   <Award className="text-primary" size={24} />
                   <div>
-                    <p className="text-sm text-muted-foreground">Current Level</p>
+                    <p className="text-sm text-muted-foreground">Current Level & Track</p>
                     <p className="text-lg font-semibold text-foreground">
-                      {userLevel || 'Not Assessed'}
+                      {userLevel || 'Not Assessed'} • {formatTrackName(trackName)}
                     </p>
                   </div>
                 </div>
@@ -143,33 +149,33 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               {/* Career Coaching with Kemi */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: 'hsl(142 70% 45%)' }}>
-                    K
-                  </div>
+                  <AgentAvatar agentName="Kemi" size="sm" />
                   <div>
                     <p className="font-medium text-foreground">Coach Kemi</p>
                     <p className="text-xs text-muted-foreground">Career Counsellor</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Practice interviews with Coach Kemi to prepare for real job opportunities.
+                  Practice interviews with Coach Kemi to prepare for real job opportunities. 
+                  Each session includes 5 questions with personalized feedback for your {formatTrackName(trackName)}.
                 </p>
+                <div className="text-xs text-muted-foreground mb-3">
+                  💡 <strong>Cost-effective:</strong> Limited to 5 questions per session to manage AI costs while providing quality practice.
+                </div>
                 <Button
-                  onClick={() => setShowMockInterview(true)}
                   variant="outline"
                   className="w-full border-green-500/50 text-green-500 hover:bg-green-500/10"
+                  disabled
                 >
                   <MessageSquare className="mr-2" size={16} />
-                  Start Mock Interview
+                  Start Mock Interview (Coming Soon)
                 </Button>
               </div>
 
               {/* Salary Negotiation with Tolu */}
-              <div className="bg-purple-500/10 border border-green-500/20 rounded-xl p-4">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="bg-purple-500 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold">
-                    T
-                  </div>
+                  <AgentAvatar agentName="Tolu" size="sm" />
                   <div>
                     <p className="font-medium text-foreground">Coach Tolu</p>
                     <p className="text-xs text-muted-foreground">HR</p>
@@ -179,12 +185,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   Practice Salary Negotiation with Coach Tolu to prepare for real job opportunities.
                 </p>
                 <Button
-                  onClick={() => setShowSalaryNegotiation(true)}
                   variant="outline"
-                  className="w-full border-purple-500/50 text-purple-500 hover:bg-green-500/10"
+                  className="w-full border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                  disabled
                 >
                   <MessageSquare className="mr-2" size={16} />
-                  Start Salary Negotiation Practice
+                  Start Salary Negotiation Practice (Coming Soon)
                 </Button>
               </div>
             </div>
@@ -194,22 +200,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             </div>
           </motion.div>
         </motion.div>
-      )}
-
-      {showMockInterview && (
-        <MockInterviewModal
-          key="mock-interview-modal"
-          isOpen={showMockInterview}
-          onClose={() => setShowMockInterview(false)}
-        />
-      )}
-
-      {showSalaryNegotiation && (
-        <SalaryNegotiationModal
-          key="salary-negotiation-modal"
-          isOpen={showSalaryNegotiation}
-          onClose={() => setShowSalaryNegotiation(false)}
-        />
       )}
     </AnimatePresence>
   );

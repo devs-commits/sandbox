@@ -125,7 +125,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         try {
             setIsTyping(true);
             const response = await sendInterviewMessage(
-                userMessage,
+                `User answered: "${userMessage}". Please evaluate their ${interviewType} interview response and ask the next question. Continue the mock interview flow.`,
                 interviewType,
                 [...getInterviewHistory(), { role: 'user', content: userMessage }]
             );
