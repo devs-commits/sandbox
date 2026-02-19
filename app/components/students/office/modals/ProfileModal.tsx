@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { AgentAvatar } from '../AgentAvatar';
 import { MockInterviewModal } from './MockInterviewModal';
 
-// Format track names: "data-analytics" -> "Data Analytics"
 const formatTrackName = (track: string): string => {
   if (!track) return 'General';
   return track
@@ -29,7 +28,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const totalTasks = tasks.length;
   const progressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Use dynamic metrics or fallbacks
   const accuracy = performanceMetrics?.technicalAccuracy ?? 0;
   const speed = performanceMetrics?.deliverySpeed ?? 0;
   const comms = performanceMetrics?.communication ?? 0;
@@ -192,7 +190,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   disabled
                 >
                   <MessageSquare className="mr-2" size={16} />
-                  Start Salary Negotiation Practice (Coming Soon)
+                  Start Salary Negotiation Practice
                 </Button>
               </div>
             </div>
