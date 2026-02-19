@@ -5,6 +5,7 @@ import { Progress } from '../../../../components/ui/progress';
 import { useOffice } from '../../../../contexts/OfficeContext';
 import { useState } from 'react';
 import { AgentAvatar } from '../AgentAvatar';
+import { MockInterviewModal } from './MockInterviewModal';
 
 // Format track names: "data-analytics" -> "Data Analytics"
 const formatTrackName = (track: string): string => {
@@ -22,6 +23,7 @@ interface ProfileModalProps {
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { userLevel, trackName, tasks, portfolio, performanceMetrics } = useOffice();
+  const [showMockInterview, setShowMockInterview] = useState(false);
 
   const completedTasks = tasks.filter(t => t.status === 'approved').length;
   const totalTasks = tasks.length;
@@ -163,12 +165,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   💡 <strong>Cost-effective:</strong> Limited to 5 questions per session to manage AI costs while providing quality practice.
                 </div>
                 <Button
+                  onClick={() => setShowMockInterview(true)}
                   variant="outline"
                   className="w-full border-green-500/50 text-green-500 hover:bg-green-500/10"
-                  disabled
                 >
                   <MessageSquare className="mr-2" size={16} />
-                  Start Mock Interview (Coming Soon)
+                  Start Mock Interview
                 </Button>
               </div>
 
@@ -200,6 +202,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {showMockInterview && (
+        <MockInterviewModal
+          key="mock-interview-modal"
+          isOpen={showMockInterview}
+          onClose={() => setShowMockInterview(false)}
+        />
       )}
     </AnimatePresence>
   );
