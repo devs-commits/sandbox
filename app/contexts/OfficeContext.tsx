@@ -30,6 +30,7 @@ interface OfficeContextType extends OfficeState {
   submitBio: (bio: string, file?: File) => Promise<void>;
   submitWork: (taskId: string, file: File, notes: string) => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
+  sendInterviewMessage: (message: string, interviewType: string, interviewHistory?: Array<{role: string, content: string}>) => Promise<{agent: AgentName, message: string}>;
   showToluWelcome: boolean;
   setShowToluWelcome: (show: boolean) => void;
   isExpanded: boolean;
@@ -1028,6 +1029,51 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
   }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount]);
 
+  // Send mock interview message - only Kemi responds
+  const sendInterviewMessage = useCallback(async (message: string, interviewType: string, interviewHistory: Array<{role: string, content: string}> = []) => {
+    const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+
+    try {
+      const response = await fetch(`${AI_BACKEND_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          message,
+          context: {
+            is_mock_interview: true,
+            interview_type: interviewType,
+            user_level: userLevel,
+            track: trackName,
+            is_submission: false,
+            is_first_login: false
+          },
+          chat_history: interviewHistory
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Force Kemi to always respond to interview messages
+        return {
+          agent: 'Kemi' as AgentName,
+          message: data.message
+        };
+      } else {
+        return {
+          agent: 'Kemi' as AgentName,
+          message: "I'm having trouble connecting to the interview system. Please try again."
+        };
+      }
+    } catch (error) {
+      console.error('Interview message failed:', error);
+      return {
+        agent: 'Kemi' as AgentName,
+        message: "Connection issue. Please check if the AI backend is running."
+      };
+    }
+  }, [userId, userLevel, trackName]);
+
   return (
     <OfficeContext.Provider
       value={{
@@ -1059,6 +1105,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         submitBio,
         submitWork,
         sendMessage,
+        sendInterviewMessage,
         showToluWelcome,
         performanceMetrics,
         setShowToluWelcome,
