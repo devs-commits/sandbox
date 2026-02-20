@@ -116,8 +116,6 @@ export function OfficeDashboard() {
   };
 
   const [targetPosition, setTargetPosition] = useState<ReturnType<typeof getTourTargetPosition>>(null);
-
-  // Update target position when tour step changes or window resizes
   useEffect(() => {
     if (isTourActive) {
       const updatePosition = () => {
@@ -134,14 +132,12 @@ export function OfficeDashboard() {
       case 'archives':
         return <ArchivesView />;
       case 'meeting':
-        // Mobile only - on desktop we use CollapsibleChat
         return (
           <div className="h-full lg:hidden">
             <AgentChatInterface />
           </div>
         );
       default:
-        // Desk view handles regular task dashboard
         return <TaskDashboard />;
     }
   };
@@ -319,8 +315,8 @@ export function OfficeDashboard() {
               style={{
                 ...(window.innerWidth < 1024
                   ? (() => {
-                    const tooltipWidth = 280;        // Your tooltip width (w-80 ≈ 20rem ≈ 280px)
-                    const screenPadding = 16;        // Safe margin from screen sides
+                    const tooltipWidth = 280;        
+                    const screenPadding = 16;        
                     const screenWidth = window.innerWidth;
                     const centerX = targetPosition.centerX;
 
@@ -372,7 +368,6 @@ export function OfficeDashboard() {
 
               {window.innerWidth < 1024 && (
                 (() => {
-                  // Compute the arrow position relative to the clamped tooltip left
                   const tooltipWidth = 280;
                   const screenPadding = 16;
                   const screenWidth = window.innerWidth;

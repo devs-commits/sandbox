@@ -9,6 +9,26 @@ import { AgentAvatar } from '../AgentAvatar';
 import { useOffice } from '../../../../contexts/OfficeContext';
 import { cn } from '@/lib/utils';
 
+// Format track names: "data-analytics" -> "Data Analytics"
+const formatTrackName = (track: string): string => {
+  if (!track) return 'General';
+  return track
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+// Format user level: "level-1" -> "Level 1"
+const formatUserLevel = (level: string): string => {
+  if (!level) return 'Not Assessed';
+  return level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
+};
+
+// Format interview type: "behavioral" -> "Behavioral"
+const formatInterviewType = (type: string): string => {
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+};
+
 interface MockInterviewModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -26,16 +46,22 @@ interface InterviewMessage {
 
 export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps) {
     const { userLevel, trackName, sendInterviewMessage } = useOffice();
-    const [interviewType, setInterviewType] = useState<InterviewType>('behavioral');
     const [isStarted, setIsStarted] = useState(false);
     const [messages, setMessages] = useState<InterviewMessage[]>([]);
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
+    const [questionCount, setQuestionCount] = useState(0);
+    const [isInterviewComplete, setIsInterviewComplete] = useState(false);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const kemi = AGENTS.Kemi;
+    const MAX_QUESTIONS = 5;
+    
+    // Define question type rotation
+    const questionTypes: InterviewType[] = ['behavioral', 'technical', 'situational'];
+    const currentQuestionType = questionTypes[questionCount % 3] || 'behavioral';
 
     // Memoize interview history to avoid recalculating
     const getInterviewHistory = useCallback(() => {
@@ -82,14 +108,14 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         
         addMessage({
             sender: 'kemi',
-            content: `Perfect! I've prepared your personalized ${interviewType} interview for your ${trackName} track. Let's begin!`,
+            content: `Perfect! I've prepared your personalized interview for your ${formatTrackName(trackName)} track. Let's begin!`,
             type: 'setup'
         });
 
         try {
             const response = await sendInterviewMessage(
-                `Start a ${interviewType} mock interview for a ${userLevel} level ${trackName} student. Ask first question.`,
-                interviewType,
+                `Start a ${formatInterviewType(currentQuestionType)} mock interview for a ${formatUserLevel(userLevel || 'Not Assessed')} level ${formatTrackName(trackName || 'General')} student. Ask first question. Keep responses concise. Maximum 5 questions total. Evaluations should be 2-3 sentences max.`,
+                currentQuestionType,
                 getInterviewHistory()
             );
 
@@ -98,6 +124,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 content: response.message,
                 type: 'question'
             });
+            setQuestionCount(1); // First question asked
         } catch (error) {
             console.error('Failed to start interview:', error);
             addMessage({
@@ -125,8 +152,8 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         try {
             setIsTyping(true);
             const response = await sendInterviewMessage(
-                `User answered: "${userMessage}". Please evaluate their ${interviewType} interview response and ask the next question. Continue the mock interview flow.`,
-                interviewType,
+                `User answered: "${userMessage}". Evaluate in 2-3 sentences maximum. Provide one strength and one improvement point. Then ask next question (${questionCount + 1} of 5). Keep all responses concise.`,
+                currentQuestionType,
                 [...getInterviewHistory(), { role: 'user', content: userMessage }]
             );
 
@@ -135,6 +162,22 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 content: response.message,
                 type: 'evaluation'
             });
+            
+            // Check if response contains a question and increment counter
+            if (response.message.includes('?')) {
+                const newCount = questionCount + 1;
+                setQuestionCount(newCount);
+                
+                // End interview after 5 questions
+                if (newCount >= MAX_QUESTIONS) {
+                    setIsInterviewComplete(true);
+                    addMessage({
+                        sender: 'kemi',
+                        content: `Interview complete! You've answered all ${MAX_QUESTIONS} questions. Great practice!`,
+                        type: 'setup'
+                    });
+                }
+            }
         } catch (error) {
             console.error('Failed to send message:', error);
             addMessage({
@@ -161,6 +204,8 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         setInput('');
         setIsTyping(false);
         setIsSending(false);
+        setQuestionCount(0);
+        setIsInterviewComplete(false);
     };
 
     const handleClose = () => {
@@ -205,36 +250,12 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                     {/* Setup Phase */}
                     {!isStarted ? (
                         <div className="p-6 space-y-6">
-                            <div>
-                                <h4 className="font-medium text-foreground mb-4">Select Interview Type</h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {(['behavioral', 'technical', 'situational'] as InterviewType[]).map((type) => (
-                                        <button
-                                            key={type}
-                                            onClick={() => setInterviewType(type)}
-                                            className={`p-4 rounded-xl border transition-all capitalize ${
-                                                interviewType === type
-                                                    ? 'border-primary bg-primary/10 text-primary'
-                                                    : 'border-border hover:border-primary/50'
-                                            }`}
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
                             <div className="bg-secondary/30 rounded-xl p-4">
                                 <div className="flex items-start gap-3">
                                     <MessageSquare className="text-primary mt-1" size={20} />
                                     <div>
                                         <p className="text-foreground text-sm">
-                                            {interviewType === 'behavioral' &&
-                                                "Behavioral interviews focus on past experiences. Use the STAR method: Situation, Task, Action, Result."}
-                                            {interviewType === 'technical' &&
-                                                "Technical interviews test your problem-solving skills. Think out loud and explain your approach."}
-                                            {interviewType === 'situational' &&
-                                                "Situational interviews present hypothetical scenarios. Focus on demonstrating good judgment."}
+                                            Kemi will ask questions across behavioral, technical, and situational interview types to give you comprehensive practice.
                                         </p>
                                     </div>
                                 </div>
@@ -321,19 +342,28 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
 
                             {/* Input */}
                             <div className="p-4 border-t border-border bg-secondary/20">
+                                {/* Question Progress */}
+                                {isStarted && questionCount > 0 && (
+                                    <div className="mb-3 text-center">
+                                        <span className="text-xs text-muted-foreground">
+                                            Question {Math.min(questionCount, MAX_QUESTIONS)} of {MAX_QUESTIONS}
+                                        </span>
+                                    </div>
+                                )}
+                                
                                 <div className="flex gap-2">
                                     <Textarea
                                         ref={inputRef}
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         onKeyDown={handleKeyDown}
-                                        placeholder="Type your response..."
+                                        placeholder={isInterviewComplete ? "Interview completed" : "Type your response..."}
                                         className="flex-1 min-h-[60px] max-h-[120px] resize-none"
-                                        disabled={isSending}
+                                        disabled={isSending || isInterviewComplete}
                                     />
                                     <Button
                                         onClick={sendMessage}
-                                        disabled={!input.trim() || isSending}
+                                        disabled={!input.trim() || isSending || isInterviewComplete}
                                         className="h-[60px] px-6"
                                     >
                                         {isSending ? (

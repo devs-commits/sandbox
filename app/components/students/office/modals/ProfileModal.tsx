@@ -159,9 +159,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   Practice interviews with Coach Kemi to prepare for real job opportunities. 
                   Each session includes 5 questions with personalized feedback for your {formatTrackName(trackName)}.
                 </p>
-                <div className="text-xs text-muted-foreground mb-3">
-                  💡 <strong>Cost-effective:</strong> Limited to 5 questions per session to manage AI costs while providing quality practice.
-                </div>
                 <Button
                   onClick={() => setShowMockInterview(true)}
                   variant="outline"
