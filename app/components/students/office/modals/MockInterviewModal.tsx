@@ -105,16 +105,10 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
     const startInterview = async () => {
         setIsStarted(true);
         setIsTyping(true);
-        
-        addMessage({
-            sender: 'kemi',
-            content: `Perfect! I've prepared your personalized interview for your ${formatTrackName(trackName)} track. Let's begin!`,
-            type: 'setup'
-        });
 
         try {
             const response = await sendInterviewMessage(
-                `Start a ${formatInterviewType(currentQuestionType)} mock interview for a ${formatUserLevel(userLevel || 'Not Assessed')} level ${formatTrackName(trackName || 'General')} student. Ask first question. Keep responses concise. Maximum 5 questions total. Evaluations should be 2-3 sentences max.`,
+                `Welcome! This is a fantastic step in preparing for your career journey. Behavioral interviews are excellent for showcasing your approach to challenges and how you leverage your skills. They help potential employers understand your problem-solving style and how you learn. Start a ${formatInterviewType(currentQuestionType)} mock interview for a ${formatUserLevel(userLevel || 'Not Assessed')} level ${formatTrackName(trackName || 'General')} student. Ask first question. Keep responses concise. Maximum 5 questions total. Evaluations should be 2-3 sentences max. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
                 currentQuestionType,
                 getInterviewHistory()
             );
@@ -152,7 +146,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         try {
             setIsTyping(true);
             const response = await sendInterviewMessage(
-                `User answered: "${userMessage}". Evaluate in 2-3 sentences maximum. Provide one strength and one improvement point. Then ask next question (${questionCount + 1} of 5). Keep all responses concise.`,
+                `User answered: "${userMessage}". Evaluate in 2-3 sentences maximum. Provide one strength and one improvement point. ${questionCount >= MAX_QUESTIONS ? 'This is the final question - provide feedback only without asking another question.' : `Then ask next question (${questionCount + 1} of 5).`} Keep all responses concise. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
                 currentQuestionType,
                 [...getInterviewHistory(), { role: 'user', content: userMessage }]
             );
@@ -168,15 +162,18 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 const newCount = questionCount + 1;
                 setQuestionCount(newCount);
                 
-                // End interview after 5 questions
+                // End interview after 5 questions (but only after user answers the 5th)
                 if (newCount >= MAX_QUESTIONS) {
-                    setIsInterviewComplete(true);
-                    addMessage({
-                        sender: 'kemi',
-                        content: `Interview complete! You've answered all ${MAX_QUESTIONS} questions. Great practice!`,
-                        type: 'setup'
-                    });
+                    // Don't end immediately - wait for user to answer 5th question
                 }
+            } else if (questionCount >= MAX_QUESTIONS) {
+                // User has answered 5th question, now end interview
+                setIsInterviewComplete(true);
+                addMessage({
+                    sender: 'kemi',
+                    content: `Interview complete! You've answered all ${MAX_QUESTIONS} questions. Great practice! Your responses showed strong analytical thinking and good communication skills.`,
+                    type: 'setup'
+                });
             }
         } catch (error) {
             console.error('Failed to send message:', error);
