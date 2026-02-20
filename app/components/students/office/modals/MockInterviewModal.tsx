@@ -59,11 +59,9 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
     const kemi = AGENTS.Kemi;
     const MAX_QUESTIONS = 3;
     
-    // Define question type rotation
     const questionTypes: InterviewType[] = ['behavioral', 'technical', 'situational'];
     const currentQuestionType = questionTypes[questionCount % 3] || 'behavioral';
 
-    // Memoize interview history to avoid recalculating
     const getInterviewHistory = useCallback(() => {
         return messages.map(m => ({
             role: m.sender === 'user' ? 'user' : 'assistant',
@@ -71,7 +69,6 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         }));
     }, [messages]);
 
-    // Helper function to get message background color
     const getMessageBackgroundColor = (type?: string) => {
         switch (type) {
             case 'question':
@@ -118,7 +115,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 content: response.message,
                 type: 'question'
             });
-            setQuestionCount(1); // First question asked
+            setQuestionCount(1);
         } catch (error) {
             console.error('Failed to start interview:', error);
             addMessage({
@@ -157,17 +154,13 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                 type: 'evaluation'
             });
             
-            // Check if response contains a question and increment counter
             if (response.message.includes('?')) {
                 const newCount = questionCount + 1;
                 setQuestionCount(newCount);
                 
-                // End interview after 5 questions (but only after user answers the 5th)
                 if (newCount >= MAX_QUESTIONS) {
-                    // Don't end immediately - wait for user to answer 5th question
                 }
             } else if (questionCount >= MAX_QUESTIONS) {
-                // User has answered 5th question, now end interview
                 setIsInterviewComplete(true);
                 addMessage({
                     sender: 'kemi',
@@ -280,7 +273,6 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                             msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
                                         )}
                                     >
-                                        {/* Avatar */}
                                         {msg.sender === 'user' ? (
                                             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
                                                 U
@@ -289,7 +281,6 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                             <AgentAvatar agentName="Kemi" size="sm" />
                                         )}
 
-                                        {/* Message bubble */}
                                         <div
                                             className={cn(
                                                 "max-w-[80%] rounded-2xl px-4 py-2.5",
