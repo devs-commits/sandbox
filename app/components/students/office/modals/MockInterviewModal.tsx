@@ -57,7 +57,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const kemi = AGENTS.Kemi;
-    const MAX_QUESTIONS = 5;
+    const MAX_QUESTIONS = 3;
     
     // Define question type rotation
     const questionTypes: InterviewType[] = ['behavioral', 'technical', 'situational'];
@@ -108,7 +108,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
 
         try {
             const response = await sendInterviewMessage(
-                `Welcome! This is a fantastic step in preparing for your career journey. Behavioral interviews are excellent for showcasing your approach to challenges and how you leverage your skills. They help potential employers understand your problem-solving style and how you learn. Start a ${formatInterviewType(currentQuestionType)} mock interview for a ${formatUserLevel(userLevel || 'Not Assessed')} level ${formatTrackName(trackName || 'General')} student. Ask first question. Keep responses concise. Maximum 5 questions total. Evaluations should be 2-3 sentences max. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
+                `Start a ${formatInterviewType(currentQuestionType)} mock interview for a ${formatUserLevel(userLevel || 'Not Assessed')} level ${formatTrackName(trackName || 'General')} student. Ask first question. Keep responses concise. Maximum 3 questions total. Evaluations should be 2-3 sentences max. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
                 currentQuestionType,
                 getInterviewHistory()
             );
@@ -146,7 +146,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         try {
             setIsTyping(true);
             const response = await sendInterviewMessage(
-                `User answered: "${userMessage}". Evaluate in 2-3 sentences maximum. Provide one strength and one improvement point. ${questionCount >= MAX_QUESTIONS ? 'This is the final question - provide feedback only without asking another question.' : `Then ask next question (${questionCount + 1} of 5).`} Keep all responses concise. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
+                `User answered: "${userMessage}". Evaluate in 2-3 sentences maximum. Provide one strength and one improvement point. ${questionCount >= MAX_QUESTIONS ? 'This is the final question - provide feedback only without asking another question.' : `Then ask next question (${questionCount + 1} of 3).`} Keep all responses concise. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
                 currentQuestionType,
                 [...getInterviewHistory(), { role: 'user', content: userMessage }]
             );
