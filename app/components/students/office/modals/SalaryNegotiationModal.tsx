@@ -105,7 +105,7 @@ export function SalaryNegotiationModal({ isOpen, onClose }: SalaryNegotiationMod
 
         try {
             const response = await sendSalaryNegotiationMessage(
-                `Start salary negotiation for a ${formatUserLevel(userLevel || 'Level 1')} level ${formatTrackName(trackName || 'General')} professional. Make initial offer. Keep responses concise. Maximum 5 questions total. Ask about experience, skills, market research, and expectations. No markdown formatting. Respond as HR manager.`,
+                `ROLE: You are Tolu as an HR Manager conducting salary negotiation. NOT onboarding. Start salary negotiation for a ${formatUserLevel(userLevel || 'Level 1')} level ${formatTrackName(trackName || 'General')} professional. Make initial salary offer. Keep responses concise. Maximum 5 questions total. Ask about experience, skills, market research, and expectations. No markdown formatting. You are negotiating salary, not onboarding.`,
                 getNegotiationHistory()
             );
 
@@ -144,7 +144,7 @@ export function SalaryNegotiationModal({ isOpen, onClose }: SalaryNegotiationMod
             const isFinalQuestion = questionCount >= MAX_QUESTIONS;
             
             const response = await sendSalaryNegotiationMessage(
-                `User responded: "${userMessage}". ${isFinalQuestion ? 'This is the final response. Provide conclusion on whether negotiation was successful or failed based on their arguments. Be decisive.' : 'Respond to their counter-offer or question. Ask follow-up if needed.'} Keep responses concise. No markdown formatting. Respond as HR manager.`,
+                `User responded: "${userMessage}". ${isFinalQuestion ? 'This is the final response. Provide conclusion on whether negotiation was successful or failed based on their arguments. Be decisive.' : 'Respond to their counter-offer or question. Ask follow-up if needed.'} ROLE: You are Tolu as HR Manager negotiating salary. Keep responses concise. No markdown formatting. You are in salary negotiation mode, not onboarding.`,
                 [...getNegotiationHistory(), { role: 'user', content: userMessage }]
             );
 
