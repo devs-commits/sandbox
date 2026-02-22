@@ -31,6 +31,7 @@ interface OfficeContextType extends OfficeState {
   submitWork: (taskId: string, file: File, notes: string) => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
   sendInterviewMessage: (message: string, interviewType: string, interviewHistory?: Array<{role: string, content: string}>) => Promise<{agent: AgentName, message: string}>;
+  sendSalaryNegotiationMessage: (message: string, negotiationHistory?: Array<{role: string, content: string}>) => Promise<{agent: AgentName, message: string}>;
   showToluWelcome: boolean;
   setShowToluWelcome: (show: boolean) => void;
   isExpanded: boolean;
@@ -124,8 +125,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
     fetchBounties();
   }, [userId]);
-
-  // Fetch onboarding state from Supabase when user is available
   useEffect(() => {
     const fetchOnboardingState = async () => {
       if (!userId) {
@@ -136,13 +135,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('has_completed_onboarding, has_completed_tour, user_level, is_first_task')
+          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task')
           .eq('auth_id', userId)
           .single();
 
         if (error) {
           console.error('Error fetching onboarding state:', error);
-          // If user not found in public table, redirect to login
           if (error.code === 'PGRST116') {
             console.log('User not found in public table for auth_id:', userId);
             window.location.href = '/login';
@@ -151,10 +149,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         } else if (data) {
           setHasCompletedOnboarding(data.has_completed_onboarding || false);
           setHasCompletedTour(data.has_completed_tour || false);
-          setUserLevel(data.user_level || null);
-          setIsFirstTask(data.is_first_task !== false); // Default true if null/undefined
+          setUserLevel(data.experience_level || data.user_level || null);
+          setIsFirstTask(data.is_first_task !== false);
 
-          // Set phase based on fetched state
           if (data.has_completed_onboarding && data.has_completed_tour) {
             setPhaseState('working');
           } else if (data.has_completed_onboarding) {
@@ -163,7 +160,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             setPhaseState('lobby');
           }
         } else {
-          // No data found - redirect to login
           console.log('No user data found for auth_id:', userId);
           window.location.href = '/login';
           return;
@@ -294,7 +290,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         task_track: bounty.type || 'General',
         difficulty: 'Bounty',
         completed: false,
-        resources: [], // We could populate this from bounty instructions
+        resources: [], 
       };
 
       const { data: taskData, error: taskError } = await supabase
@@ -430,7 +426,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const generateTask = useCallback(async () => {
     setIsGeneratingTask(true);
     setIsExpanded(true); // Auto-expand chat
-    setMessageCount(0); // Reset message count for new task
+    setMessageCount(0); 
 
     if (isFirstTask) {
       const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -457,7 +453,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             user_name: userName,
             track: trackName,
             user_level: userLevel,
-            bio_summary: null // Could be passed from submitBio
+            bio_summary: null 
           })
         });
 
@@ -465,7 +461,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           const data = await response.json();
           const messages = data.messages || [];
 
-          // Show each message with typing indicator first
           let lastDelay = 0;
           for (const msg of messages) {
             const typingDelay = msg.typing_delay_ms - lastDelay;
@@ -492,8 +487,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
               timestamp: new Date(),
             });
 
-            // Natural reading pause before next person starts typing
-            // Random gap between 1s and 2.5s
             await new Promise(r => setTimeout(r, 1000 + Math.random() * 1500));
             lastDelay = msg.typing_delay_ms;
           }
@@ -510,8 +503,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 16000 },
           { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 14000 },
           { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 12000 },
-          // { agent: 'Tolu', message: `${userName}, 
-          //  any questions before I sign off?`, delay: 12000 },
         ];
 
         for (const msg of fallbackMessages) {
@@ -872,7 +863,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
 
-        // Sola's review response
         addChatMessage({
           id: (Date.now() + 1).toString(),
           agentName: 'Sola',
@@ -883,7 +873,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         if (data.passed) {
           updateTaskStatus(taskId, 'approved');
 
-          // Persist performance metrics if available
           if (data.technical_accuracy !== undefined) {
             const newMetrics = {
               technicalAccuracy: data.technical_accuracy,
@@ -1074,6 +1063,50 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, userLevel, trackName]);
 
+  // Send salary negotiation message - only Tolu responds
+  const sendSalaryNegotiationMessage = useCallback(async (message: string, negotiationHistory: Array<{role: string, content: string}> = []) => {
+    const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+
+    try {
+      const response = await fetch(`${AI_BACKEND_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          message,
+          context: {
+            is_salary_negotiation: true,
+            user_level: userLevel,
+            track: trackName,
+            is_submission: false,
+            is_first_login: false
+          },
+          chat_history: negotiationHistory
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Force Tolu to always respond to negotiation messages
+        return {
+          agent: 'Tolu' as AgentName,
+          message: data.message
+        };
+      } else {
+        return {
+          agent: 'Tolu' as AgentName,
+          message: "I'm having trouble connecting to the negotiation system. Please try again."
+        };
+      }
+    } catch (error) {
+      console.error('Salary negotiation message failed:', error);
+      return {
+        agent: 'Tolu' as AgentName,
+        message: "Connection issue. Please check if the AI backend is running."
+      };
+    }
+  }, [userId, userLevel, trackName]);
+
   return (
     <OfficeContext.Provider
       value={{
@@ -1106,6 +1139,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         submitWork,
         sendMessage,
         sendInterviewMessage,
+        sendSalaryNegotiationMessage,
         showToluWelcome,
         performanceMetrics,
         setShowToluWelcome,

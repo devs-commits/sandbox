@@ -6,6 +6,7 @@ import { useOffice } from '../../../../contexts/OfficeContext';
 import { useState } from 'react';
 import { AgentAvatar } from '../AgentAvatar';
 import { MockInterviewModal } from './MockInterviewModal';
+import { SalaryNegotiationModal } from './SalaryNegotiationModal';
 
 const formatTrackName = (track: string): string => {
   if (!track) return 'General';
@@ -13,6 +14,23 @@ const formatTrackName = (track: string): string => {
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
+};
+
+// Format user level: "beginner" -> "Beginner", "intermediate" -> "Intermediate", etc.
+const formatUserLevel = (level: string): string => {
+  if (!level) return 'Not Assessed';
+  
+  // Handle signup experience levels
+  const levelMap: Record<string, string> = {
+    'beginner': 'Beginner',
+    'intermediate': 'Intermediate', 
+    'advanced': 'Advanced',
+    'level-0': 'Level 0',
+    'level-1': 'Level 1',
+    'level-2': 'Level 2'
+  };
+  
+  return levelMap[level] || level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
 };
 
 interface ProfileModalProps {
@@ -23,6 +41,7 @@ interface ProfileModalProps {
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { userLevel, trackName, tasks, portfolio, performanceMetrics } = useOffice();
   const [showMockInterview, setShowMockInterview] = useState(false);
+  const [showSalaryNegotiation, setShowSalaryNegotiation] = useState(false);
 
   const completedTasks = tasks.filter(t => t.status === 'approved').length;
   const totalTasks = tasks.length;
@@ -67,7 +86,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   <div>
                     <p className="text-sm text-muted-foreground">Current Level & Track</p>
                     <p className="text-lg font-semibold text-foreground">
-                      {userLevel || 'Not Assessed'} • {formatTrackName(trackName)}
+                      {formatUserLevel(userLevel || '')} • {formatTrackName(trackName)}
                     </p>
                   </div>
                 </div>
@@ -182,9 +201,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   Practice Salary Negotiation with Coach Tolu to prepare for real job opportunities.
                 </p>
                 <Button
+                  onClick={() => setShowSalaryNegotiation(true)}
                   variant="outline"
                   className="w-full border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
-                  disabled
                 >
                   <MessageSquare className="mr-2" size={16} />
                   Start Salary Negotiation Practice
@@ -204,6 +223,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           key="mock-interview-modal"
           isOpen={showMockInterview}
           onClose={() => setShowMockInterview(false)}
+        />
+      )}
+
+      {showSalaryNegotiation && (
+        <SalaryNegotiationModal
+          key="salary-negotiation-modal"
+          isOpen={showSalaryNegotiation}
+          onClose={() => setShowSalaryNegotiation(false)}
         />
       )}
     </AnimatePresence>

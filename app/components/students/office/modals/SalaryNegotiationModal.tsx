@@ -1,13 +1,14 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Loader2, MessageSquare } from 'lucide-react';
+import { X, Send, Loader2, DollarSign, TrendingUp, Users, MapPin } from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import { Textarea } from '../../../../components/ui/textarea';
 import { AGENTS } from '../types';
 import { AgentAvatar } from '../AgentAvatar';
 import { useOffice } from '../../../../contexts/OfficeContext';
 import { cn } from '@/lib/utils';
+
 const formatTrackName = (track: string): string => {
   if (!track) return 'General';
   return track
@@ -18,7 +19,6 @@ const formatTrackName = (track: string): string => {
 
 const formatUserLevel = (level: string): string => {
   if (!level) return 'Not Assessed';
-  
   const levelMap: Record<string, string> = {
     'beginner': 'Beginner',
     'intermediate': 'Intermediate', 
@@ -31,44 +31,36 @@ const formatUserLevel = (level: string): string => {
   return levelMap[level] || level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
 };
 
-const formatInterviewType = (type: string): string => {
-  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-};
-
-interface MockInterviewModalProps {
+interface SalaryNegotiationModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-type InterviewType = 'behavioral' | 'technical' | 'situational';
-
-interface InterviewMessage {
+interface NegotiationMessage {
     id: string;
-    sender: 'user' | 'kemi';
+    sender: 'user' | 'tolu';
     content: string;
     timestamp: Date;
-    type?: 'question' | 'evaluation' | 'tip' | 'setup';
+    type?: 'offer' | 'counter' | 'question' | 'conclusion';
 }
 
-export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps) {
-    const { userLevel, trackName, sendInterviewMessage } = useOffice();
+export function SalaryNegotiationModal({ isOpen, onClose }: SalaryNegotiationModalProps) {
+    const { userLevel, trackName, sendSalaryNegotiationMessage } = useOffice();
     const [isStarted, setIsStarted] = useState(false);
-    const [messages, setMessages] = useState<InterviewMessage[]>([]);
+    const [messages, setMessages] = useState<NegotiationMessage[]>([]);
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [questionCount, setQuestionCount] = useState(0);
-    const [isInterviewComplete, setIsInterviewComplete] = useState(false);
+    const [isNegotiationComplete, setIsNegotiationComplete] = useState(false);
+    const [negotiationResult, setNegotiationResult] = useState<'success' | 'failed' | null>(null);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
-    const kemi = AGENTS.Kemi;
-    const MAX_QUESTIONS = 3;
-    
-    const questionTypes: InterviewType[] = ['behavioral', 'technical', 'situational'];
-    const currentQuestionType = questionTypes[questionCount % 3] || 'behavioral';
+    const tolu = AGENTS.Tolu;
+    const MAX_QUESTIONS = 5;
 
-    const getInterviewHistory = useCallback(() => {
+    const getNegotiationHistory = useCallback(() => {
         return messages.map(m => ({
             role: m.sender === 'user' ? 'user' : 'assistant',
             content: m.content
@@ -77,12 +69,14 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
 
     const getMessageBackgroundColor = (type?: string) => {
         switch (type) {
+            case 'offer':
+                return 'bg-green-500/10 border border-green-500/20 rounded-tl-sm';
+            case 'counter':
+                return 'bg-amber-500/10 border border-amber-500/20 rounded-tl-sm';
             case 'question':
                 return 'bg-card border border-border rounded-tl-sm';
-            case 'tip':
-                return 'bg-yellow-500/10 border border-yellow-500/20 rounded-tl-sm';
-            case 'evaluation':
-                return 'bg-green-500/10 border border-green-500/20 rounded-tl-sm';
+            case 'conclusion':
+                return 'bg-blue-500/10 border border-blue-500/20 rounded-tl-sm';
             default:
                 return 'bg-secondary/60 text-foreground rounded-tl-sm';
         }
@@ -96,8 +90,8 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         scrollToBottom();
     }, [messages]);
 
-    const addMessage = (message: Omit<InterviewMessage, 'id' | 'timestamp'>) => {
-        const newMessage: InterviewMessage = {
+    const addMessage = (message: Omit<NegotiationMessage, 'id' | 'timestamp'>) => {
+        const newMessage: NegotiationMessage = {
             ...message,
             id: Date.now().toString(),
             timestamp: new Date()
@@ -105,29 +99,28 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         setMessages(prev => [...prev, newMessage]);
     };
 
-    const startInterview = async () => {
+    const startNegotiation = async () => {
         setIsStarted(true);
         setIsTyping(true);
 
         try {
-            const response = await sendInterviewMessage(
-                `Start a ${formatInterviewType(currentQuestionType)} mock interview for a ${formatUserLevel(userLevel || 'Not Assessed')} level ${formatTrackName(trackName || 'General')} student. Ask first question. Keep responses concise. Maximum 3 questions total. Evaluations should be 2-3 sentences max. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
-                currentQuestionType,
-                getInterviewHistory()
+            const response = await sendSalaryNegotiationMessage(
+                `Start salary negotiation for a ${formatUserLevel(userLevel || 'Level 1')} level ${formatTrackName(trackName || 'General')} professional. Make initial offer. Keep responses concise. Maximum 5 questions total. Ask about experience, skills, market research, and expectations. No markdown formatting. Respond as HR manager.`,
+                getNegotiationHistory()
             );
 
             addMessage({
-                sender: 'kemi',
+                sender: 'tolu',
                 content: response.message,
-                type: 'question'
+                type: 'offer'
             });
             setQuestionCount(1);
         } catch (error) {
-            console.error('Failed to start interview:', error);
+            console.error('Failed to start negotiation:', error);
             addMessage({
-                sender: 'kemi',
-                content: "I'm having trouble connecting to the interview system. Please try again.",
-                type: 'setup'
+                sender: 'tolu',
+                content: "I'm having trouble connecting to the negotiation system. Please try again.",
+                type: 'question'
             });
         } finally {
             setIsTyping(false);
@@ -135,7 +128,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
     };
 
     const sendMessage = async () => {
-        if (!input.trim() || isSending) return;
+        if (!input.trim() || isSending || isNegotiationComplete) return;
 
         const userMessage = input.trim();
         setInput('');
@@ -148,38 +141,43 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
 
         try {
             setIsTyping(true);
-            const response = await sendInterviewMessage(
-                `User answered: "${userMessage}". Evaluate in 2-3 sentences maximum. Provide one strength and one improvement point. ${questionCount >= MAX_QUESTIONS ? 'This is the final question - provide feedback only without asking another question.' : `Then ask next question (${questionCount + 1} of 3).`} Keep all responses concise. Do not use markdown formatting, asterisks, or special characters. Respond in natural conversational tone.`,
-                currentQuestionType,
-                [...getInterviewHistory(), { role: 'user', content: userMessage }]
+            const isFinalQuestion = questionCount >= MAX_QUESTIONS;
+            
+            const response = await sendSalaryNegotiationMessage(
+                `User responded: "${userMessage}". ${isFinalQuestion ? 'This is the final response. Provide conclusion on whether negotiation was successful or failed based on their arguments. Be decisive.' : 'Respond to their counter-offer or question. Ask follow-up if needed.'} Keep responses concise. No markdown formatting. Respond as HR manager.`,
+                [...getNegotiationHistory(), { role: 'user', content: userMessage }]
             );
 
+            const messageType = isFinalQuestion ? 'conclusion' : 
+                              response.message.toLowerCase().includes('offer') ? 'counter' : 'question';
+
             addMessage({
-                sender: 'kemi',
+                sender: 'tolu',
                 content: response.message,
-                type: 'evaluation'
+                type: messageType
             });
             
-            if (response.message.includes('?')) {
-                const newCount = questionCount + 1;
-                setQuestionCount(newCount);
+            if (isFinalQuestion) {
+                setIsNegotiationComplete(true);
+                // Determine if negotiation was successful based on response
+                const successKeywords = ['congratulations', 'accepted', 'approved', 'successful', 'agree', 'increase'];
+                const failedKeywords = ['reject', 'unable', 'cannot', 'stick', 'final offer', 'decline'];
                 
-                if (newCount >= MAX_QUESTIONS) {
+                const responseLower = response.message.toLowerCase();
+                if (successKeywords.some(keyword => responseLower.includes(keyword))) {
+                    setNegotiationResult('success');
+                } else if (failedKeywords.some(keyword => responseLower.includes(keyword))) {
+                    setNegotiationResult('failed');
                 }
-            } else if (questionCount >= MAX_QUESTIONS) {
-                setIsInterviewComplete(true);
-                addMessage({
-                    sender: 'kemi',
-                    content: `Interview complete! You've answered all ${MAX_QUESTIONS} questions. Great practice! Your responses showed strong analytical thinking and good communication skills.`,
-                    type: 'setup'
-                });
+            } else {
+                setQuestionCount(prev => prev + 1);
             }
         } catch (error) {
             console.error('Failed to send message:', error);
             addMessage({
-                sender: 'kemi',
-                content: "Connection issue. Please check if the AI backend is running.",
-                type: 'evaluation'
+                sender: 'tolu',
+                content: "Connection issue. Please try again.",
+                type: 'question'
             });
         } finally {
             setIsTyping(false);
@@ -194,18 +192,19 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         }
     };
 
-    const resetInterview = () => {
+    const resetNegotiation = () => {
         setIsStarted(false);
         setMessages([]);
         setInput('');
         setIsTyping(false);
         setIsSending(false);
         setQuestionCount(0);
-        setIsInterviewComplete(false);
+        setIsNegotiationComplete(false);
+        setNegotiationResult(null);
     };
 
     const handleClose = () => {
-        resetInterview();
+        resetNegotiation();
         onClose();
     };
 
@@ -230,11 +229,11 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
                         <div className="flex items-center gap-3">
-                            <AgentAvatar agentName="Kemi" size="sm" />
+                            <AgentAvatar agentName="Tolu" size="sm" />
                             <div>
-                                <h3 className="font-semibold text-foreground">Mock Interview with Kemi</h3>
+                                <h3 className="font-semibold text-foreground">Salary Negotiation with Tolu</h3>
                                 <p className="text-xs text-muted-foreground">
-                                    {isStarted ? 'Interview in progress' : 'Practice for real interviews'}
+                                    {isStarted ? 'Negotiation in progress' : 'Practice your negotiation skills'}
                                 </p>
                             </div>
                         </div>
@@ -248,24 +247,38 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                         <div className="p-6 space-y-6">
                             <div className="bg-secondary/30 rounded-xl p-4">
                                 <div className="flex items-start gap-3">
-                                    <MessageSquare className="text-primary mt-1" size={20} />
+                                    <DollarSign className="text-primary mt-1" size={20} />
                                     <div>
-                                        <p className="text-foreground text-sm">
-                                            Kemi will ask questions across behavioral, technical, and situational interview types to give you comprehensive practice.
+                                        <p className="text-foreground text-sm mb-3">
+                                            Tolu will act as HR manager and negotiate salary based on your:
                                         </p>
+                                        <div className="space-y-2 text-xs text-muted-foreground">
+                                            <div className="flex items-center gap-2">
+                                                <TrendingUp size={12} />
+                                                <span>Career Track: {formatTrackName(trackName || 'General')}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Users size={12} />
+                                                <span>Experience Level: {formatUserLevel(userLevel || 'Level 1')}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <MapPin size={12} />
+                                                <span>Location: Lagos, Nigeria</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <Button
-                                onClick={startInterview}
+                                onClick={startNegotiation}
                                 className="w-full"
                             >
-                                Start Interview
+                                Start Negotiation
                             </Button>
                         </div>
                     ) : (
-                        /* Interview Room */
+                        /* Negotiation Room */
                         <div className="flex-1 flex flex-col overflow-hidden">
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {messages.map((msg) => (
@@ -283,7 +296,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                                 U
                                             </div>
                                         ) : (
-                                            <AgentAvatar agentName="Kemi" size="sm" />
+                                            <AgentAvatar agentName="Tolu" size="sm" />
                                         )}
 
                                         <div
@@ -297,7 +310,7 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                             {msg.type && msg.sender !== 'user' && (
                                                 <p
                                                     className="text-xs font-semibold mb-1"
-                                                    style={{ color: kemi.color }}
+                                                    style={{ color: tolu.color }}
                                                 >
                                                     {msg.type}
                                                 </p>
@@ -318,10 +331,10 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                         animate={{ opacity: 1, y: 0 }}
                                         className="flex gap-3"
                                     >
-                                        <AgentAvatar agentName="Kemi" size="sm" />
+                                        <AgentAvatar agentName="Tolu" size="sm" />
                                         <div className="bg-secondary/60 rounded-2xl px-4 py-2.5">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs text-muted-foreground">Kemi is typing</span>
+                                                <span className="text-xs text-muted-foreground">Tolu is typing</span>
                                                 <div className="flex gap-1">
                                                     <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                                                     <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -335,11 +348,32 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                 <div ref={messagesEndRef} />
                             </div>
 
+                            {isNegotiationComplete && negotiationResult && (
+                                <div className={cn(
+                                    "p-4 border-t border-border",
+                                    negotiationResult === 'success' ? 'bg-green-500/10' : 'bg-red-500/10'
+                                )}>
+                                    <div className="text-center">
+                                        <p className={cn(
+                                            "font-semibold text-sm",
+                                            negotiationResult === 'success' ? 'text-green-600' : 'text-red-600'
+                                        )}>
+                                            {negotiationResult === 'success' ? '🎉 Negotiation Successful!' : '❌ Negotiation Failed'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {negotiationResult === 'success' 
+                                                ? 'You successfully negotiated a better offer!' 
+                                                : 'You\'ll need to accept the original offer.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="p-4 border-t border-border bg-secondary/20">
                                 {isStarted && questionCount > 0 && (
                                     <div className="mb-3 text-center">
                                         <span className="text-xs text-muted-foreground">
-                                            Question {Math.min(questionCount, MAX_QUESTIONS)} of {MAX_QUESTIONS}
+                                            Round {Math.min(questionCount, MAX_QUESTIONS)} of {MAX_QUESTIONS}
                                         </span>
                                     </div>
                                 )}
@@ -350,13 +384,13 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         onKeyDown={handleKeyDown}
-                                        placeholder={isInterviewComplete ? "Interview completed" : "Type your response..."}
+                                        placeholder={isNegotiationComplete ? "Negotiation completed" : "Make your case..."}
                                         className="flex-1 min-h-[60px] max-h-[120px] resize-none"
-                                        disabled={isSending || isInterviewComplete}
+                                        disabled={isSending || isNegotiationComplete}
                                     />
                                     <Button
                                         onClick={sendMessage}
-                                        disabled={!input.trim() || isSending || isInterviewComplete}
+                                        disabled={!input.trim() || isSending || isNegotiationComplete}
                                         className="h-[60px] px-6"
                                     >
                                         {isSending ? (
