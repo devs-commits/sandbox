@@ -31,14 +31,14 @@ export const AdminHeader = ({ title, subtitle}: AdminHeaderProps) => {
 
       {/* Right side - User info */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 bg-primary/20 text-primary-foreground px-3 py-1.5 rounded-full">
+        {/* <div className="flex items-center gap-2 bg-primary/20 text-primary-foreground px-3 py-1.5 rounded-full">
           <div className="w-7 h-7 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
             {user?.fullName ? getInitials(user.fullName) : "JS"}
           </div>
           <span className="text-sm font-medium hidden sm:inline text-foreground">
             {user?.fullName || "John Snow"}
           </span>
-        </div>
+        </div> */}
         <div className="flex items-center justify-between">
           <Link
             href="https://wdc.ng/"
