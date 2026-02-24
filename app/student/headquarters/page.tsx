@@ -298,7 +298,7 @@ export default function page() {
               </div>
               <h3 className="text-lg font-semibold mb-2">Initialize Your Workspace</h3>
               <p className="text-muted-foreground text-center max-w-md mb-6">
-                Your desk is waiting. Visit the Virtual Office to meet the team and get your first assignment.
+                Your desk is waiting. Visit the Office to meet the team and get your first assignment.
               </p>
               <Button
                 onClick={() => router.push('/student/office')}
