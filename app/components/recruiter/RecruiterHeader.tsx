@@ -45,7 +45,7 @@ export const RecruiterHeader = ({ title, subtitle }: RecruiterHeaderProps) => {
             href="https://wdc.ng/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-5 sm:mr-5"
+            className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-2 sm:mr-2"
           >
           <Image
             src={wdc}
