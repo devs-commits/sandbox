@@ -305,7 +305,7 @@ export default function page() {
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <ArrowRight className="mr-2 h-4 w-4" />
-                Enter Virtual Office
+                Enter Office
               </Button>
             </div>
           )}
