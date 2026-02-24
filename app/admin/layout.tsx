@@ -10,7 +10,7 @@ export default function page({
     <ProtectedRoute allowedRoles={["admin"]}>
       <div className="min-h-screen bg-background flex w-full">
         <AdminSidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto max-w-7xl mx-auto bg-background">
           {children}
         </main>
       </div>
