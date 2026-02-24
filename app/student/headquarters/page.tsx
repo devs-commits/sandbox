@@ -122,7 +122,7 @@ export default function page() {
             <Clock className="text-green-400/60" size={18} />
             <div>
               <span className="text-sm text-green-400/60">Streak: </span>
-              <span className="text-sm font-semibold text-green-400/60">{streak} Days</span>
+              <span className="text-sm font-semibold text-green-400/60">Day {streak}</span>
             </div>
           </div>
           <div className="bg-red-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3 animate-pulse">
@@ -154,7 +154,7 @@ export default function page() {
             </div>
             <div className="flex items-center gap-2 bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap">
               <Flame size={14} />
-              {streak} DAY STREAK
+              DAY {streak} STREAK
             </div>
           </div>
 
