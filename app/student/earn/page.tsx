@@ -59,7 +59,9 @@ type ModalType =
   | "identityFailed"
   | "withdraw"
   | "withdrawSuccess"
-  | "withdrawFailed";
+  | "withdrawFailed"
+  | "basicInfo"
+  | "identityWarning";
 
 export default function EarnMoney() {
   const { user } = useAuth();
@@ -70,6 +72,13 @@ export default function EarnMoney() {
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
+  
+  // Basic information state
+  const [fullName, setFullName] = useState("");
+  const [address, setAddress] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [nationality, setNationality] = useState("");
 
   const searchParams = useSearchParams();
   const [earnData, setEarnData] = useState(initialEarnData);
@@ -137,6 +146,28 @@ export default function EarnMoney() {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(earnData.referralLink);
+  };
+
+  const handleBasicInfoSubmit = () => {
+    if (!fullName || !address || !dateOfBirth || !occupation || !nationality) {
+      setActiveModal("identityWarning");
+      return;
+    }
+    // Show warning modal before proceeding
+    setActiveModal("identityWarning");
+  };
+
+  const handleProceedToIdentityVerification = () => {
+    setActiveModal("none");
+    // Hide basic info section and show BVN/NIN section
+    const basicSection = document.getElementById('verification-section');
+    const bvnSection = document.getElementById('identity-verification-form');
+    
+    if (basicSection && bvnSection) {
+      basicSection.classList.add('hidden');
+      bvnSection.classList.remove('hidden');
+      bvnSection.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleVerifyIdentity = async () => {
@@ -277,12 +308,111 @@ export default function EarnMoney() {
 
           {/* Bottom Row - Verification and Referral Link */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Identity Verification Card */}
+            {/* Trust Building & Basic Info Section */}
             <div id="verification-section" className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <ShieldCheckIcon className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-foreground">Identity Verification</h3>
+              </div>
+              
+              {/* Privacy Trust Message */}
+              <div className="bg-blue-50/10 border border-blue-200/30 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <ShieldCheckIcon className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-100 mb-2">Your Privacy & Security</h4>
+                    <p className="text-xs text-blue-200 leading-relaxed">
+                      WDC Labs collects your data primarily to provide and improve your banking experience. 
+                      We do not sell your personal data to third parties. Your information is encrypted 
+                      and protected according to industry standards.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Basic Information Form */}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                    FULL NAME
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Enter your full legal name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="bg-background border-border h-10"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                    RESIDENTIAL ADDRESS
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Enter your current address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="bg-background border-border h-10"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                      DATE OF BIRTH
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      className="bg-background border-border h-10"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                      OCCUPATION
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="Your occupation"
+                      value={occupation}
+                      onChange={(e) => setOccupation(e.target.value)}
+                      className="bg-background border-border h-10"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                    NATIONALITY
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., Nigerian"
+                    value={nationality}
+                    onChange={(e) => setNationality(e.target.value)}
+                    className="bg-background border-border h-10"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleBasicInfoSubmit}
+                className="w-full h-11 bg-primary hover:bg-primary/90 text-white"
+              >
+                Proceed to Identity Verification
+              </Button>
+            </div>
+
+            {/* Hidden BVN/NIN Section - Shows after basic info confirmation */}
+            <div id="identity-verification-form" className="hidden bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
               <div className="flex items-center justify-between mb-6 relative z-10">
                 <div className="flex items-center gap-3">
                   <ShieldCheckIcon className="w-5 h-5 text-primary" />
-                  <h3 className="font-bold text-foreground">Identity Verification</h3>
+                  <h3 className="font-bold text-foreground">Complete Verification</h3>
                 </div>
                 <div className="p-1 rounded-md justify-between flex ">
                   <Image
@@ -294,20 +424,21 @@ export default function EarnMoney() {
                   />
                   <Image
                     src="/ndpb.png"
-                    alt="CBN Logo"
+                    alt="NDPB Logo"
                     width={40}
                     height={40}
                     className="object-contain w-10 h-10"
                   />
                 </div>
               </div>
+              
               <p className="text-sm text-muted-foreground mb-6">
-                To enable withdrawals, we are required by CBN to verify your identity.
+                To enable withdrawals, we are required by CBN to verify your identity with your BVN and NIN.
               </p>
 
-              <div className="space-y-8">
+              <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-4">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
                     BANK VERIFICATION NUMBER (BVN)
                   </label>
                   <Input
@@ -315,11 +446,11 @@ export default function EarnMoney() {
                     placeholder="222 *********"
                     value={bvn}
                     onChange={(e) => setBvn(e.target.value)}
-                    className="bg-background border-border h-11"
+                    className="bg-background border-border h-10"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-4">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
                     NATIONAL IDENTIFICATION NUMBER (NIN)
                   </label>
                   <Input
@@ -327,7 +458,7 @@ export default function EarnMoney() {
                     placeholder="11 Digits"
                     value={nin}
                     onChange={(e) => setNin(e.target.value)}
-                    className="bg-background border-border h-11"
+                    className="bg-background border-border h-10"
                   />
                 </div>
               </div>
@@ -336,7 +467,7 @@ export default function EarnMoney() {
                 onClick={handleVerifyIdentity}
                 className="w-full h-11 mt-6 bg-primary hover:bg-primary/90 text-white"
               >
-                Verify Identity
+                Complete Verification
               </Button>
             </div>
 
@@ -389,6 +520,61 @@ export default function EarnMoney() {
       </main>
 
       {/* Modals */}
+      {/* Identity Warning Modal */}
+      {activeModal === "identityWarning" && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-xl p-6 max-w-md w-full border border-border">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                <ShieldCheckIcon className="w-5 h-5 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Confirm Your Information</h3>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              <p className="text-sm text-muted-foreground">
+                Please ensure all information provided is accurate and correct. 
+                Incorrect information may lead to verification delays or failure.
+              </p>
+              
+              <div className="bg-yellow-50/10 border border-yellow-200/30 rounded-lg p-3">
+                <p className="text-xs text-yellow-200">
+                  <strong>Important:</strong> Make sure your full name, address, date of birth, 
+                  occupation, and nationality match your official documents.
+                </p>
+              </div>
+              
+              <div className="text-xs text-muted-foreground">
+                <p><strong>Information you provided:</strong></p>
+                <ul className="mt-2 space-y-1">
+                  <li>• Full Name: {fullName || "Not provided"}</li>
+                  <li>• Address: {address || "Not provided"}</li>
+                  <li>• Date of Birth: {dateOfBirth || "Not provided"}</li>
+                  <li>• Occupation: {occupation || "Not provided"}</li>
+                  <li>• Nationality: {nationality || "Not provided"}</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={closeModal}
+                className="flex-1"
+              >
+                Review Information
+              </Button>
+              <Button
+                onClick={handleProceedToIdentityVerification}
+                className="flex-1 bg-primary hover:bg-primary/90 text-white"
+              >
+                Confirm & Proceed
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <IdentityVerifiedModal
         open={activeModal === "identityVerified"}
         onClose={closeModal}
