@@ -11,7 +11,6 @@ import {
   ShieldCheckIcon,
 } from "lucide-react";
 
-// Import modal components
 import { IdentityVerifiedModal } from "../../components/students/earn/IdentityVerifiedModal";
 import { IdentityFailedModal } from "../../components/students/earn/IdentityFailedModal";
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
@@ -19,12 +18,10 @@ import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuc
 import { WithdrawFailedModal } from "../../components/students/earn/WithdrawalFailedModal";
 import { SocialIcon } from "../../components/students/earn/SocialIcon";
 
-// Import supabase
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
 import { useEffect } from "react";
 
-// Mock data as fallback
 const initialEarnData = {
   totalEarnings: 0,
   activeReferrals: 0,
@@ -73,7 +70,6 @@ export default function EarnMoney() {
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   
-  // Basic information state
   const [fullName, setFullName] = useState("");
   const [address, setAddress] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -93,7 +89,6 @@ export default function EarnMoney() {
     if (focus === 'verification') {
       const section = document.getElementById('verification-section');
       if (section) {
-        // Small timeout to ensure render
         setTimeout(() => {
           section.scrollIntoView({ behavior: 'smooth' });
         }, 500);
@@ -153,13 +148,11 @@ export default function EarnMoney() {
       setActiveModal("identityWarning");
       return;
     }
-    // Show warning modal before proceeding
     setActiveModal("identityWarning");
   };
 
   const handleProceedToIdentityVerification = () => {
     setActiveModal("none");
-    // Hide basic info section and show BVN/NIN section
     const basicSection = document.getElementById('verification-section');
     const bvnSection = document.getElementById('identity-verification-form');
     
@@ -221,7 +214,6 @@ export default function EarnMoney() {
       }
 
       try {
-        // Save bank details for future use
         await supabase
           .from('users')
           .update({
@@ -253,7 +245,6 @@ export default function EarnMoney() {
       />
       <main className="flex-1 p-4 lg:p-6">
         <div className="max-w-5xl space-y-6">
-          {/* Hero Section */}
           <div className="bg-[linear-gradient(135deg,hsla(176,50%,12%,1)_0%,hsla(204,48%,12%,1)_45%,hsla(176,50%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
             <div className="relative z-10">
               <h2 className="text-2xl font-bold text-foreground mb-2">
@@ -270,7 +261,6 @@ export default function EarnMoney() {
 
           {/* Top Row - Earnings and Referrals */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Total Earnings Card */}
             <div className="bg-[linear-gradient(135deg,hsla(261,56%,20%,1)_0%,hsla(256,49%,18%,1)_100%)] rounded-xl p-6 border border-border">
               <p className="text-[hsla(145,100%,39%,1)] text-sm font-medium uppercase tracking-wider mb-2">
                 TOTAL EARNINGS
@@ -308,14 +298,12 @@ export default function EarnMoney() {
 
           {/* Bottom Row - Verification and Referral Link */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Trust Building & Basic Info Section */}
             <div id="verification-section" className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
               <div className="flex items-center gap-3 mb-6">
                 <ShieldCheckIcon className="w-5 h-5 text-primary" />
                 <h3 className="font-bold text-foreground">Identity Verification</h3>
               </div>
               
-              {/* Privacy Trust Message */}
               <div className="bg-blue-50/10 border border-blue-200/30 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-3">
                   <ShieldCheckIcon className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
@@ -519,7 +507,6 @@ export default function EarnMoney() {
         </div>
       </main>
 
-      {/* Modals */}
       {/* Identity Warning Modal */}
       {activeModal === "identityWarning" && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
