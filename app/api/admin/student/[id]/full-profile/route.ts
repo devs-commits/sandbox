@@ -3,9 +3,10 @@ import { createSupabaseClientFromRequest } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabaseServer = createSupabaseClientFromRequest(request);
     
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
@@ -48,7 +49,7 @@ export async function GET(
         country,
         phone
       `)
-      .eq('auth_id', params.id)
+      .eq('auth_id', id)
       .single();
 
     if (studentError) {
