@@ -75,6 +75,14 @@ export default function EarnMoney() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [occupation, setOccupation] = useState("");
   const [nationality, setNationality] = useState("");
+  
+  const [formErrors, setFormErrors] = useState({
+    fullName: "",
+    address: "",
+    dateOfBirth: "",
+    occupation: "",
+    nationality: ""
+  });
 
   const searchParams = useSearchParams();
   const [earnData, setEarnData] = useState(initialEarnData);
@@ -143,9 +151,67 @@ export default function EarnMoney() {
     navigator.clipboard.writeText(earnData.referralLink);
   };
 
+  const validateBasicInfo = () => {
+    const errors = {
+      fullName: "",
+      address: "",
+      dateOfBirth: "",
+      occupation: "",
+      nationality: ""
+    };
+
+    // Full Name validation
+    if (!fullName.trim()) {
+      errors.fullName = "Full name is required";
+    } else if (fullName.length < 3) {
+      errors.fullName = "Full name must be at least 3 characters";
+    } else if (!/^[a-zA-Z\s]+$/.test(fullName)) {
+      errors.fullName = "Full name should only contain letters and spaces";
+    }
+
+    // Address validation
+    if (!address.trim()) {
+      errors.address = "Address is required";
+    } else if (address.length < 10) {
+      errors.address = "Please enter a complete address";
+    }
+
+    // Date of Birth validation
+    if (!dateOfBirth) {
+      errors.dateOfBirth = "Date of birth is required";
+    } else {
+      const dob = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - dob.getFullYear();
+      if (age < 18) {
+        errors.dateOfBirth = "You must be at least 18 years old";
+      } else if (age > 100) {
+        errors.dateOfBirth = "Please enter a valid date of birth";
+      }
+    }
+
+    // Occupation validation
+    if (!occupation.trim()) {
+      errors.occupation = "Occupation is required";
+    } else if (occupation.length < 2) {
+      errors.occupation = "Please enter a valid occupation";
+    }
+
+    // Nationality validation
+    if (!nationality.trim()) {
+      errors.nationality = "Nationality is required";
+    } else if (nationality.length < 2) {
+      errors.nationality = "Please enter a valid nationality";
+    }
+
+    setFormErrors(errors);
+    
+    // Check if there are any errors
+    return !Object.values(errors).some(error => error !== "");
+  };
+
   const handleBasicInfoSubmit = () => {
-    if (!fullName || !address || !dateOfBirth || !occupation || !nationality) {
-      setActiveModal("identityWarning");
+    if (!validateBasicInfo()) {
       return;
     }
     setActiveModal("identityWarning");
@@ -299,9 +365,34 @@ export default function EarnMoney() {
           {/* Bottom Row - Verification and Referral Link */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div id="verification-section" className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
-              <div className="flex items-center gap-3 mb-6">
-                <ShieldCheckIcon className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-foreground">Identity Verification</h3>
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex items-center gap-3">
+                  <ShieldCheckIcon className="w-5 h-5 text-primary" />
+                  <h3 className="font-bold text-foreground">Complete Verification</h3>
+                </div>
+                <div className="p-1 rounded-md justify-between flex ">
+                  <Image
+                   src ="/supply-smart-logo.png"
+                   alt = "Supply smart logo"
+                   width = {200}
+                   height = {200}
+                   className="object-contain w-18 h-30"
+                   />
+                  <Image
+                    src="/cbn-logo.png"
+                    alt="CBN Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain w-14 h-14"
+                  />
+                  <Image
+                    src="/ndpb.png"
+                    alt="NDPB Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain w-14 h-14"
+                  />
+                </div>
               </div>
               
               <div className="bg-blue-50/10 border border-blue-200/30 rounded-lg p-4 mb-6">
@@ -328,9 +419,20 @@ export default function EarnMoney() {
                     type="text"
                     placeholder="Enter your full legal name"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="bg-background border-border h-10"
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      // Clear error when user starts typing
+                      if (formErrors.fullName) {
+                        setFormErrors(prev => ({ ...prev, fullName: "" }));
+                      }
+                    }}
+                    className={`bg-background border-border h-10 ${
+                      formErrors.fullName ? "border-red-500 focus:border-red-500" : ""
+                    }`}
                   />
+                  {formErrors.fullName && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.fullName}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -341,9 +443,19 @@ export default function EarnMoney() {
                     type="text"
                     placeholder="Enter your current address"
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="bg-background border-border h-10"
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      if (formErrors.address) {
+                        setFormErrors(prev => ({ ...prev, address: "" }));
+                      }
+                    }}
+                    className={`bg-background border-border h-10 ${
+                      formErrors.address ? "border-red-500 focus:border-red-500" : ""
+                    }`}
                   />
+                  {formErrors.address && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.address}</p>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -354,9 +466,19 @@ export default function EarnMoney() {
                     <Input
                       type="date"
                       value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      className="bg-background border-border h-10"
+                      onChange={(e) => {
+                        setDateOfBirth(e.target.value);
+                        if (formErrors.dateOfBirth) {
+                          setFormErrors(prev => ({ ...prev, dateOfBirth: "" }));
+                        }
+                      }}
+                      className={`bg-background border-border h-10 ${
+                        formErrors.dateOfBirth ? "border-red-500 focus:border-red-500" : ""
+                      }`}
                     />
+                    {formErrors.dateOfBirth && (
+                      <p className="text-xs text-red-500 mt-1">{formErrors.dateOfBirth}</p>
+                    )}
                   </div>
                   
                   <div>
@@ -367,9 +489,19 @@ export default function EarnMoney() {
                       type="text"
                       placeholder="Your occupation"
                       value={occupation}
-                      onChange={(e) => setOccupation(e.target.value)}
-                      className="bg-background border-border h-10"
+                      onChange={(e) => {
+                        setOccupation(e.target.value);
+                        if (formErrors.occupation) {
+                          setFormErrors(prev => ({ ...prev, occupation: "" }));
+                        }
+                      }}
+                      className={`bg-background border-border h-10 ${
+                        formErrors.occupation ? "border-red-500 focus:border-red-500" : ""
+                      }`}
                     />
+                    {formErrors.occupation && (
+                      <p className="text-xs text-red-500 mt-1">{formErrors.occupation}</p>
+                    )}
                   </div>
                 </div>
                 
@@ -381,9 +513,19 @@ export default function EarnMoney() {
                     type="text"
                     placeholder="e.g., Nigerian"
                     value={nationality}
-                    onChange={(e) => setNationality(e.target.value)}
-                    className="bg-background border-border h-10"
+                    onChange={(e) => {
+                      setNationality(e.target.value);
+                      if (formErrors.nationality) {
+                        setFormErrors(prev => ({ ...prev, nationality: "" }));
+                      }
+                    }}
+                    className={`bg-background border-border h-10 ${
+                      formErrors.nationality ? "border-red-500 focus:border-red-500" : ""
+                    }`}
                   />
+                  {formErrors.nationality && (
+                    <p className="text-xs text-red-500 mt-1">{formErrors.nationality}</p>
+                  )}
                 </div>
               </div>
 
@@ -404,18 +546,25 @@ export default function EarnMoney() {
                 </div>
                 <div className="p-1 rounded-md justify-between flex ">
                   <Image
+                   src ="/supply-smart-logo.png"
+                   alt = "Supply smart logo"
+                   width = {200}
+                   height = {200}
+                   className="object-contain w-18 h-30"
+                   />
+                  <Image
                     src="/cbn-logo.png"
                     alt="CBN Logo"
                     width={40}
                     height={40}
-                    className="object-contain w-10 h-10"
+                    className="object-contain w-14 h-14"
                   />
                   <Image
                     src="/ndpb.png"
                     alt="NDPB Logo"
                     width={40}
                     height={40}
-                    className="object-contain w-10 h-10"
+                    className="object-contain w-14 h-14"
                   />
                 </div>
               </div>
