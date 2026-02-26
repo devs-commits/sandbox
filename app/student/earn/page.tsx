@@ -362,13 +362,6 @@ export default function EarnMoney() {
                 </div>
                 <div className="p-1 rounded-md justify-between flex ">
                   <Image
-                   src ="/supply-smart-logo.png"
-                   alt = "Supply smart logo"
-                   width = {200}
-                   height = {200}
-                   className="object-contain w-18 h-30"
-                   />
-                  <Image
                     src="/cbn-logo.png"
                     alt="CBN Logo"
                     width={40}
@@ -533,13 +526,6 @@ export default function EarnMoney() {
                   <h3 className="font-bold text-foreground">Complete Verification</h3>
                 </div>
                 <div className="p-1 rounded-md justify-between flex ">
-                  <Image
-                   src ="/supply-smart-logo.png"
-                   alt = "Supply smart logo"
-                   width = {200}
-                   height = {200}
-                   className="object-contain w-18 h-30"
-                   />
                   <Image
                     src="/cbn-logo.png"
                     alt="CBN Logo"
