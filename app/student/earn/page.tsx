@@ -92,7 +92,6 @@ export default function EarnMoney() {
       fetchEarnData();
     }
 
-    // Check for focus param
     const focus = searchParams.get('focus');
     if (focus === 'verification') {
       const section = document.getElementById('verification-section');
@@ -108,21 +107,18 @@ export default function EarnMoney() {
 
   const fetchEarnData = async () => {
     try {
-      // 1. Get Wallet Balance and Referral Code
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, wallet_balance, referral_code, full_name, id_verified, bvn, nin, bank_name, account_number, account_name')
         .eq('auth_id', user?.id)
         .single();
 
-      // 2. Get Active Referrals Count
       const { count, error: refError } = await supabase
         .from('referrals')
         .select('*', { count: 'exact', head: true })
-        .eq('referrer_id', userData?.id || 0); // fallback if userData missing
+        .eq('referrer_id', userData?.id || 0);
 
       if (userData) {
-        // Construct full URL if code exists
         const code = userData.referral_code || "Generate Code";
         const fullLink = userData.referral_code
           ? `${window.location.origin}/signup?code=${userData.referral_code}`
@@ -160,7 +156,6 @@ export default function EarnMoney() {
       nationality: ""
     };
 
-    // Full Name validation
     if (!fullName.trim()) {
       errors.fullName = "Full name is required";
     } else if (fullName.length < 3) {
@@ -169,14 +164,12 @@ export default function EarnMoney() {
       errors.fullName = "Full name should only contain letters and spaces";
     }
 
-    // Address validation
     if (!address.trim()) {
       errors.address = "Address is required";
     } else if (address.length < 10) {
       errors.address = "Please enter a complete address";
     }
 
-    // Date of Birth validation
     if (!dateOfBirth) {
       errors.dateOfBirth = "Date of birth is required";
     } else {
@@ -190,14 +183,12 @@ export default function EarnMoney() {
       }
     }
 
-    // Occupation validation
     if (!occupation.trim()) {
       errors.occupation = "Occupation is required";
     } else if (occupation.length < 2) {
       errors.occupation = "Please enter a valid occupation";
     }
 
-    // Nationality validation
     if (!nationality.trim()) {
       errors.nationality = "Nationality is required";
     } else if (nationality.length < 2) {
@@ -206,7 +197,6 @@ export default function EarnMoney() {
 
     setFormErrors(errors);
     
-    // Check if there are any errors
     return !Object.values(errors).some(error => error !== "");
   };
 
@@ -421,7 +411,6 @@ export default function EarnMoney() {
                     value={fullName}
                     onChange={(e) => {
                       setFullName(e.target.value);
-                      // Clear error when user starts typing
                       if (formErrors.fullName) {
                         setFormErrors(prev => ({ ...prev, fullName: "" }));
                       }
@@ -537,7 +526,6 @@ export default function EarnMoney() {
               </Button>
             </div>
 
-            {/* Hidden BVN/NIN Section - Shows after basic info confirmation */}
             <div id="identity-verification-form" className="hidden bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
               <div className="flex items-center justify-between mb-6 relative z-10">
                 <div className="flex items-center gap-3">
