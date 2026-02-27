@@ -8,7 +8,45 @@ import {
     TableHeader,
     TableRow,
 } from "../../ui/table";
+import { AdminRecruiterProfileModal } from "./AdminRecruiterProfileModal";
+import { useState } from "react";
+
 export default function RecruiterTab({paginatedData}: {paginatedData: any[]}){
+  const [selectedRecruiter, setSelectedRecruiter] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingRecruiterId, setLoadingRecruiterId] = useState<string | null>(null);
+
+  const handleViewProfile = async (recruiter: any) => {
+    setLoadingRecruiterId(recruiter.id);
+    
+    try {
+      const response = await fetch(`/api/admin/recruiter/${recruiter.id}/full-profile`);
+      const result = await response.json();
+      
+      if (result.success) {
+        const completeRecruiter = {
+          ...recruiter,
+          fullData: result.data
+        };
+        setSelectedRecruiter(completeRecruiter);
+        setIsModalOpen(true);
+      } else {
+        setSelectedRecruiter(recruiter);
+        setIsModalOpen(true);
+      }
+    } catch (error) {
+      setSelectedRecruiter(recruiter);
+      setIsModalOpen(true);
+    } finally {
+      setLoadingRecruiterId(null);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedRecruiter(null);
+  };
+
     return(
         <div>
             <TabsContent value="recruiters" className="mt-0">
@@ -43,9 +81,22 @@ export default function RecruiterTab({paginatedData}: {paginatedData: any[]}){
                       <TableCell className="text-muted-foreground">{recruiter.expiresOn}</TableCell>
                       <TableCell className="text-muted-foreground">{recruiter.daysLeft}</TableCell>
                       <TableCell>
-                        <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                          <Eye className="h-4 w-4" />
-                          View
+                        <button 
+                          onClick={() => handleViewProfile(recruiter)}
+                          disabled={loadingRecruiterId === recruiter.id}
+                          className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {loadingRecruiterId === recruiter.id ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4" />
+                              View
+                            </>
+                          )}
                         </button>
                       </TableCell>
                     </TableRow>
@@ -54,6 +105,11 @@ export default function RecruiterTab({paginatedData}: {paginatedData: any[]}){
               </Table>
             </div>
           </TabsContent>
+          <AdminRecruiterProfileModal
+            recruiter={selectedRecruiter}
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+          />
         </div>
     )
 }

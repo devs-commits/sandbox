@@ -2,14 +2,51 @@ import { Eye } from "lucide-react";
 import { TabsContent} from "../../ui/tabs";
 import {
   Table,
-  TableBody,
+    TableBody,
     TableCell,
     TableHead,
     TableHeader,
     TableRow,
 } from "../../ui/table";
+import { AdminEnterpriseProfileModal } from "./AdminEnterpriseProfileModal";
+import { useState } from "react";
 
 export default function EnterpriseTab({paginatedData}:{paginatedData : any[]}){
+  const [selectedEnterprise, setSelectedEnterprise] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingEnterpriseId, setLoadingEnterpriseId] = useState<string | null>(null);
+
+  const handleViewProfile = async (enterprise: any) => {
+    setLoadingEnterpriseId(enterprise.id);
+    
+    try {
+      const response = await fetch(`/api/admin/enterprise/${enterprise.id}/full-profile`);
+      const result = await response.json();
+      
+      if (result.success) {
+        const completeEnterprise = {
+          ...enterprise,
+          fullData: result.data
+        };
+        setSelectedEnterprise(completeEnterprise);
+        setIsModalOpen(true);
+      } else {
+        setSelectedEnterprise(enterprise);
+        setIsModalOpen(true);
+      }
+    } catch (error) {
+      setSelectedEnterprise(enterprise);
+      setIsModalOpen(true);
+    } finally {
+      setLoadingEnterpriseId(null);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedEnterprise(null);
+  };
+
     return(
         <div>
             <TabsContent value="enterprise" className="mt-0">
@@ -38,9 +75,22 @@ export default function EnterpriseTab({paginatedData}:{paginatedData : any[]}){
                       <TableCell className="text-muted-foreground">{enterprise.expiresOn}</TableCell>
                       <TableCell className="text-muted-foreground">{enterprise.daysLeft}</TableCell>
                       <TableCell>
-                        <button className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                          <Eye className="h-4 w-4" />
-                          View
+                        <button 
+                          onClick={() => handleViewProfile(enterprise)}
+                          disabled={loadingEnterpriseId === enterprise.id}
+                          className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {loadingEnterpriseId === enterprise.id ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4" />
+                              View
+                            </>
+                          )}
                         </button>
                       </TableCell>
                     </TableRow>
@@ -49,6 +99,11 @@ export default function EnterpriseTab({paginatedData}:{paginatedData : any[]}){
               </Table>
             </div>
           </TabsContent>
+          <AdminEnterpriseProfileModal
+            enterprise={selectedEnterprise}
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+          />
         </div>
     )
 }

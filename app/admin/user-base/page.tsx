@@ -45,6 +45,8 @@ export default function UserBase() {
         const studentsJson = await studentsRes.json();
         if (studentsJson.success) {
             const mappedStudents = studentsJson.data.map((s: any) => ({
+                id: s.auth_id, // Use auth_id for the API call
+                internalId: s.id, // Keep internal ID for reference
                 name: s.full_name || "Unknown",
                 email: s.email,
                 course: s.track || "N/A",
@@ -66,6 +68,8 @@ export default function UserBase() {
                 }
 
                 return {
+                    id: r.auth_id, // Use auth_id for the API call
+                    internalId: r.id, // Keep internal ID for reference
                     name: r.full_name || r.company_name || "Unknown",
                     email: r.email,
                     status: r.subscription_status || "Active",

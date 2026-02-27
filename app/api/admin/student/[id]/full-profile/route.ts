@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { createSupabaseClientFromRequest } from '@/lib/supabase';
 
 export async function GET(
@@ -7,8 +8,15 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const supabaseServer = createSupabaseClientFromRequest(request);
     
+    // Use admin client for admin operations
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    
+    // Authenticate the request
+    const supabaseServer = createSupabaseClientFromRequest(request);
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
     
     if (authError || !user) {
@@ -18,7 +26,8 @@ export async function GET(
       );
     }
 
-    const { data: adminUser, error: adminError } = await supabaseServer
+    // Verify admin role
+    const { data: adminUser, error: adminError } = await supabaseAdmin
       .from('users')
       .select('role')
       .eq('auth_id', user.id)
@@ -31,13 +40,12 @@ export async function GET(
       );
     }
 
-    const { data: student, error: studentError } = await supabaseServer
+    const { data: student, error: studentError } = await supabaseAdmin
       .from('users')
       .select(`
-        *,
+        id,
         skills,
         average_score,
-        last_active_at,
         created_at,
         track,
         bvn,
@@ -47,7 +55,8 @@ export async function GET(
         full_name,
         email,
         country,
-        phone
+        current_streak,
+        last_activity_date
       `)
       .eq('auth_id', id)
       .single();
@@ -59,20 +68,45 @@ export async function GET(
       );
     }
 
-    const { data: taskCount, error: taskError } = await supabaseServer
+    const { count: taskCount, error: taskError } = await supabaseAdmin
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', student.id);
 
+    // Calculate weeks since joining
+    const weeksSinceJoining = student.created_at 
+      ? Math.floor((new Date().getTime() - new Date(student.created_at).getTime()) / (1000 * 60 * 60 * 24 * 7))
+      : 0;
+
+    // Format join date
+    const formattedJoinDate = student.created_at 
+      ? new Date(student.created_at).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+      : null;
+
+    // Format last activity date
+    const formattedLastActivityDate = student.last_activity_date 
+      ? new Date(student.last_activity_date).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+      : null;
+
     const fullProfileData = {
       realName: student.full_name,
-      phone: student.phone,
       location: student.country,
-      joinDate: student.created_at ? new Date(student.created_at).toLocaleDateString() : null,
-      lastActive: student.last_active_at ? new Date(student.last_active_at).toLocaleString() : null,
-      score: student.average_score || 0,
+      joinDate: formattedJoinDate,
+      lastActive: student.last_activity_date ? new Date(student.last_activity_date).toLocaleString() : null,
+      score: Math.round(student.average_score || 0),
       tasks: taskCount || 0,
-      weeks: student.created_at ? Math.floor((new Date().getTime() - new Date(student.created_at).getTime()) / (1000 * 60 * 60 * 24 * 7)) : 0,
+      weeks: weeksSinceJoining,
+      streak: student.current_streak || 0,
+      longestStreak: student.current_streak || 0, // We don't track longest streak separately
+      lastTaskDate: formattedLastActivityDate,
       skills: student.skills || [],
       bvn: student.bvn,
       nin: student.nin,

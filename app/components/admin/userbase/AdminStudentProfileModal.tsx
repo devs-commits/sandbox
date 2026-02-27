@@ -1,4 +1,4 @@
-import { X, Unlock, Linkedin, Mail, Download, Phone, MapPin, Calendar } from "lucide-react";
+import { X, Mail, Phone, MapPin, Calendar, Award, Briefcase, Users, CreditCard, CheckCircle, TrendingUp } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,12 +22,14 @@ interface Student {
     score: number;
     tasks: number;
     weeks: number;
+    streak: number;
+    longestStreak: number;
+    lastTaskDate: string;
     skills: string[];
-    bvn?: string;
-    nin?: string;
-    bankName?: string;
-    accountNumber?: string;
-    course: string;
+    bvn: string;
+    nin: string;
+    bankName: string;
+    accountNumber: string;
   };
 }
 
@@ -46,42 +48,9 @@ export function AdminStudentProfileModal({
 
   const data = student.fullData;
 
-  const handleDownloadProfile = () => {
-    const profileData = {
-      name: student.name,
-      email: student.email,
-      course: student.course,
-      expiration: student.expiration,
-      ...(data && {
-        phone: data.phone,
-        location: data.location,
-        joinDate: data.joinDate,
-        score: data.score,
-        tasks: data.tasks,
-        weeks: data.weeks,
-        skills: data.skills,
-        bvn: data.bvn,
-        nin: data.nin,
-        bankName: data.bankName,
-        accountNumber: data.accountNumber
-      })
-    };
-
-    const jsonString = JSON.stringify(profileData, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${student.name.replace(/\s+/g, '_')}_profile.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border max-w-2xl p-0 gap-0 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card border-border max-w-4xl p-0 gap-0 max-h-[90vh] overflow-y-auto">
         <DialogHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-semibold text-foreground">
@@ -91,139 +60,207 @@ export function AdminStudentProfileModal({
         </DialogHeader>
 
         <div className="px-6 pb-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-primary font-bold text-lg">
-                  {student.name.split(' ').map(n => n[0]).join('')}
-                </span>
+          {/* Performance Overview */}
+          <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-xl p-6 border border-blue-500/30 shadow-xl">
+            <h3 className="text-xl font-bold text-white mb-6">Performance Overview</h3>
+            <div className="grid grid-cols-5 gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
+                <div className="w-12 h-12 bg-green-400/30 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Award className="w-6 h-6 text-green-300" />
+                </div>
+                <p className="text-2xl font-bold text-white">{data?.score || 0}%</p>
+                <p className="text-sm text-blue-100">Score</p>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">{student.name}</h3>
-                <p className="text-sm text-muted-foreground">{student.email}</p>
-                <p className="text-xs text-muted-foreground mt-1">{student.course}</p>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
+                <div className="w-12 h-12 bg-blue-400/30 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Briefcase className="w-6 h-6 text-blue-300" />
+                </div>
+                <p className="text-2xl font-bold text-white">{data?.tasks || 0}</p>
+                <p className="text-sm text-blue-100">Tasks</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
+                <div className="w-12 h-12 bg-purple-400/30 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Calendar className="w-6 h-6 text-purple-300" />
+                </div>
+                <p className="text-2xl font-bold text-white">{data?.weeks || 0}</p>
+                <p className="text-sm text-blue-100">Weeks</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
+                <div className="w-12 h-12 bg-orange-400/30 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="w-6 h-6 text-orange-300" />
+                </div>
+                <p className="text-2xl font-bold text-white">{data?.streak || 0}</p>
+                <p className="text-sm text-blue-100">Streak</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
+                <div className="w-12 h-12 bg-green-400/30 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <CheckCircle className="w-6 h-6 text-green-300" />
+                </div>
+                <p className="text-lg font-bold text-white">Active</p>
+                <p className="text-sm text-blue-100">Status</p>
               </div>
             </div>
-            <span className="px-3 py-1 text-xs font-bold text-green-500 bg-green-500/20 border border-none rounded">
-              ACTIVE
-            </span>
           </div>
 
-          {data && (
-            <div className="grid grid-cols-4 gap-3">
-              <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
-                <p className="text-xs text-muted-foreground uppercase">Score</p>
-                <p className="text-xl font-bold text-green-500">{data.score}%</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
-                <p className="text-xs text-muted-foreground uppercase">Tasks</p>
-                <p className="text-xl font-bold text-foreground">{data.tasks}</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
-                <p className="text-xs text-muted-foreground uppercase">Weeks</p>
-                <p className="text-xl font-bold text-foreground">{data.weeks}</p>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 text-center border border-border">
-                <p className="text-xs text-muted-foreground uppercase">Status</p>
-                <p className="text-xl font-bold text-blue-500">Active</p>
-              </div>
-            </div>
-          )}
-
-          {data && (data.phone || data.location) && (
-            <div>
-              <h4 className="font-semibold text-foreground mb-3">Contact Information</h4>
-              <div className="bg-muted/30 rounded-lg p-4 border border-border space-y-3">
-                <div className="flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-muted-foreground" />
+          {/* Personal Information */}
+          <div>
+            <h3 className="text-xl font-bold text-foreground mb-4">Personal Information</h3>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700 shadow-lg">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Mail className="w-6 h-6 text-blue-400" />
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">Email</p>
-                    <p className="text-sm text-muted-foreground">{student.email}</p>
+                    <p className="text-sm font-medium text-slate-400">Email</p>
+                    <p className="text-base text-white font-medium">{student.email}</p>
                   </div>
                 </div>
-                {data.phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
+                {data?.phone && (
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                      <Phone className="w-6 h-6 text-green-400" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Phone</p>
-                      <p className="text-sm text-muted-foreground">{data.phone}</p>
+                      <p className="text-sm font-medium text-slate-400">Phone</p>
+                      <p className="text-base text-white font-medium">{data.phone}</p>
                     </div>
                   </div>
                 )}
-                {data.location && (
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                {data?.location && (
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                      <MapPin className="w-6 h-6 text-purple-400" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Location</p>
-                      <p className="text-sm text-muted-foreground">{data.location}</p>
+                      <p className="text-sm font-medium text-slate-400">Location</p>
+                      <p className="text-base text-white font-medium">{data.location}</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-          )}
+          </div>
 
-          {data && (data.joinDate || data.skills) && (
-            <div>
-              <h4 className="font-semibold text-foreground mb-3">Academic Information</h4>
-              <div className="bg-muted/30 rounded-lg p-4 border border-border space-y-3">
-                {data.joinDate && (
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Join Date</p>
-                      <p className="text-sm text-muted-foreground">{data.joinDate}</p>
-                    </div>
+          {/* Academic Details */}
+          <div>
+            <h3 className="text-xl font-bold text-foreground mb-4">Academic Details</h3>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700 shadow-lg">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-orange-400" />
                   </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-foreground mb-2">Course/Track</p>
-                  <p className="text-sm text-muted-foreground">{student.course}</p>
-                </div>
-                {data.skills && data.skills.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-foreground mb-2">Skills</p>
-                    <div className="flex flex-wrap gap-2">
-                      {data.skills.map((skill, index) => (
-                        <span key={index} className="px-2 py-1 text-xs bg-primary/20 text-primary rounded">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-sm font-medium text-slate-400">Join Date</p>
+                    <p className="text-base text-white font-medium">{data?.joinDate || 'N/A'}</p>
                   </div>
-                )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                    <Briefcase className="w-6 h-6 text-cyan-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-400">Course</p>
+                    <p className="text-base text-white font-medium">{student.course}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-400">Current Streak</p>
+                    <p className="text-base text-white font-medium">{data?.streak || 0} days</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <Award className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-400">Longest Streak</p>
+                    <p className="text-base text-white font-medium">{data?.longestStreak || 0} days</p>
+                  </div>
+                </div>
               </div>
+              {data?.lastTaskDate && (
+                <div className="mt-6 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-400">Last Task Date</p>
+                    <p className="text-base text-white font-medium">{data.lastTaskDate}</p>
+                  </div>
+                </div>
+              )}
+              {data?.skills && data.skills.length > 0 && (
+                <div className="mt-6">
+                  <p className="text-sm font-medium text-slate-400 mb-3">Skills</p>
+                  <div className="flex flex-wrap gap-2">
+                    {data.skills.map((skill, index) => (
+                      <span key={index} className="px-4 py-2 text-sm bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 rounded-full border border-blue-500/30">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
+          {/* Banking Information */}
           {data && (data.bvn || data.nin || data.bankName || data.accountNumber) && (
             <div>
-              <h4 className="font-semibold text-foreground mb-3">Banking Information</h4>
-              <div className="bg-muted/30 rounded-lg p-4 border border-border space-y-3">
-                {data.bvn && (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">BVN</p>
-                    <p className="text-sm text-muted-foreground">{data.bvn}</p>
-                  </div>
-                )}
-                {data.nin && (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">NIN</p>
-                    <p className="text-sm text-muted-foreground">{data.nin}</p>
-                  </div>
-                )}
-                {data.bankName && (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Bank Name</p>
-                    <p className="text-sm text-muted-foreground">{data.bankName}</p>
-                  </div>
-                )}
-                {data.accountNumber && (
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Account Number</p>
-                    <p className="text-sm text-muted-foreground">{data.accountNumber}</p>
-                  </div>
-                )}
+              <h3 className="text-xl font-bold text-foreground mb-4">Banking Information</h3>
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700 shadow-lg">
+                <div className="grid grid-cols-2 gap-6">
+                  {data.bvn && (
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-400">BVN</p>
+                        <p className="text-base text-white font-medium">{data.bvn}</p>
+                      </div>
+                    </div>
+                  )}
+                  {data.nin && (
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-400">NIN</p>
+                        <p className="text-base text-white font-medium">{data.nin}</p>
+                      </div>
+                    </div>
+                  )}
+                  {data.bankName && (
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                        <Briefcase className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-400">Bank Name</p>
+                        <p className="text-base text-white font-medium">{data.bankName}</p>
+                      </div>
+                    </div>
+                  )}
+                  {data.accountNumber && (
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-400">Account Number</p>
+                        <p className="text-base text-white font-medium">{data.accountNumber}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -235,13 +272,6 @@ export function AdminStudentProfileModal({
               </p>
             </div>
           )}
-
-          <div className="flex gap-3 pt-4">
-            <Button onClick={handleDownloadProfile} className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white">
-              <Download className="w-4 h-4 mr-2" />
-              Download Profile
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
