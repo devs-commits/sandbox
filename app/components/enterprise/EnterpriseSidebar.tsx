@@ -29,7 +29,7 @@ export default function Page(){
     <>
       {/* Logo */}
       <div className="p-4 mb-4">
-        <Link href="/student/headquarters" className="flex items-center gap-2">
+        <Link href="/enterprise/white-label" className="flex items-center gap-2">
           <Image src={wdcLogo} alt="WDC Labs" className="h-8 h-[50px] w-[157px] sm:h-[65px] sm:w-[214px]" />
         </Link>
       </div>
