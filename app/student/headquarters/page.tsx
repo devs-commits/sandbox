@@ -9,6 +9,7 @@ import { supabase } from "../../../lib/supabase";
 import { TaskGenerator } from "../../components/students/TaskGenerator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { WhatsAppSupport } from "@/app/components/students/whatAppSupport";
 
 interface Task {
   id: number;
@@ -311,6 +312,7 @@ export default function page() {
           )}
         </div>
       </div>
+      <WhatsAppSupport />
     </div>
   );
 };
