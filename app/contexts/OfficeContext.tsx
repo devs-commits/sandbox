@@ -63,6 +63,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [bounties, setBounties] = useState<Bounty[]>([]); // New state for bounties
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [hasRestoredChat, setHasRestoredChat] = useState(false);
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
   const [tourStep, setTourStep] = useState(0);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -81,18 +82,67 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const userName = user?.fullName || 'New Intern';
   const trackName = user?.track || 'General';
   const userId = user?.id || null;
-
+  
   const mapResources = (resources?: string): ArchiveItem[] => {
-    if (!resources || typeof resources !== 'string') return [];
+  if (!resources || typeof resources !== 'string') return [];
 
-    return resources
-      .split(',')
-      .map((r, i) => ({
-        id: `new-res-${i}`,
-        link: r.trim()
-      }))
-      .filter(r => r.link.length > 0);
+  return resources
+    .split(',')
+    .map((r, i) => ({
+      id: `res-${i}`,
+      title: `Learning Resource ${i + 1}`,
+      url: r.trim(),
+      type: r.includes("youtube") ? "video" : "web",
+      category: r.includes("youtube")
+        ? "Video Resources"
+        : "Reference Links",
+      description: "Supporting material for this task",
+    }));
 };
+const getDailyChatKey = () => {
+  if (!userId) return null;
+  const today = new Date().toISOString().split('T')[0];
+  return `office-chat-${userId}-${today}`;
+};
+
+// 🔁 Restore chat history on load (per user, per day)
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+
+  const key = getDailyChatKey();
+  if (!key) return;
+
+  const stored = localStorage.getItem(key);
+
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+
+      const restored = parsed.map((m: any) => ({
+        ...m,
+        timestamp: new Date(m.timestamp)
+      }));
+
+      setChatMessages(restored);
+    } catch (err) {
+      console.error("Failed to restore chat history:", err);
+    }
+  }
+
+  setHasRestoredChat(true);
+}, [userId]);
+
+
+// 💾 Persist chat whenever it changes
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+  if (!hasRestoredChat) return;
+
+  const key = getDailyChatKey();
+  if (!key) return;
+
+  localStorage.setItem(key, JSON.stringify(chatMessages));
+}, [chatMessages, hasRestoredChat]);
 
 
   // Fetch bounties when user is available
@@ -302,18 +352,17 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       if (taskError) throw taskError;
 
       // Update local task state
-      const newTask: Task = {
-        id: taskData.id.toString(),
-        title: taskData.title,
-        description: taskData.brief_content,
-        type: taskData.task_track,
-        deadline: bounty.duration || 'Flexible',
-        status: 'pending',
-        attachments: [],
-        clientConstraints: bounty.instructions?.join('\n'), // Pass instructions as constraints
-        resources: [],
-        difficulty: 'Bounty'
-      };
+        const newTask: Task = {
+          id: taskData.id.toString(),
+          title: taskData.title,
+          description: taskData.brief_content,
+          type: taskData.task_track || trackName,
+          deadline: 'Flexible',
+          status: 'pending',
+          attachments: [],
+          clientConstraints: undefined,
+          resources: taskData.resources || [],
+        };
 
       setTasks(prev => [newTask, ...prev]);
       setCurrentTask(newTask);
@@ -382,7 +431,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             status: t.completed ? 'approved' : 'pending',
             attachments: [],
             clientConstraints: undefined,
-            resources: mapResources(t.resources),
+            resources: t.resources || [],
             difficulty: t.difficulty,
           }));
           setTasks(mappedTasks);
@@ -1164,4 +1213,3 @@ export function useOffice() {
   }
   return context;
 }
-

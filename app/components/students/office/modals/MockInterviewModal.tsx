@@ -59,6 +59,46 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
     const [isTyping, setIsTyping] = useState(false);
     const [questionCount, setQuestionCount] = useState(0);
     const [isInterviewComplete, setIsInterviewComplete] = useState(false);
+
+    const getInterviewKey = (): string => {
+        const today = new Date().toISOString().split('T')[0];
+        return `mock-interview-${today}-${trackName}-${userLevel}`;
+    };
+
+    useEffect(() => {
+    if (!isOpen) return;
+
+    const key = getInterviewKey();
+    const stored = localStorage.getItem(key);
+
+    if (stored) {
+        try {
+            const parsed = JSON.parse(stored);
+            const restored = parsed.map((m: any) => ({
+                ...m,
+                timestamp: new Date(m.timestamp)
+            }));
+
+            setMessages(restored);
+            setIsStarted(true);
+
+            const kemiMessages = restored.filter(
+                (m: InterviewMessage) => m.sender === 'kemi'
+            );
+
+            setQuestionCount(kemiMessages.length);
+        } catch (err) {
+            console.error("Failed to restore interview:", err);
+        }
+    }
+}, [isOpen]);
+
+useEffect(() => {
+    if (!isStarted) return;
+
+    const key = getInterviewKey();
+    localStorage.setItem(key, JSON.stringify(messages));
+}, [messages, isStarted]);
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -204,10 +244,9 @@ export function MockInterviewModal({ isOpen, onClose }: MockInterviewModalProps)
         setIsInterviewComplete(false);
     };
 
-    const handleClose = () => {
-        resetInterview();
-        onClose();
-    };
+const handleClose = () => {
+    onClose(); // do NOT reset here
+};
 
     if (!isOpen) return null;
 

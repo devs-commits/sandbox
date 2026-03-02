@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
-
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 interface TaskDefinition {
   title: string;
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       include_ethical_trap,
       model,
       include_video_brief } = body;
-    console.log("Generating tasks for user:", user_id, "track:", track, "user_city:", user_city);
+    // console.log("Generating tasks for user:", user_id, "track:", track, "user_city:", user_city);
 
     if (!user_id) {
       return NextResponse.json(
@@ -66,6 +66,7 @@ const DEFAULT_AI_PERSONA_CONFIG = {
 
     // 1. Get Task Count and Previous Performance
     const dbClient = supabaseAdmin || supabase;
+    const storageClient = supabaseAdmin ?? supabase;
 
     // Get task count for task_number
     const { count } = await dbClient
@@ -133,7 +134,8 @@ const DEFAULT_AI_PERSONA_CONFIG = {
     }
 
     const responseData = await backendResponse.json();
-    console.log("AI Response Data:", JSON.stringify(responseData, null, 2));
+    // console.log("FULL BACKEND RESPONSE:", responseData);
+    // console.log("AI Response Data:", JSON.stringify(responseData, null, 2));
 
     let generatedTasks: any[] = [];
 
@@ -145,19 +147,112 @@ const DEFAULT_AI_PERSONA_CONFIG = {
       generatedTasks = Array.isArray(responseData) ? responseData : [responseData];
     }
 
-    // Prepare tasks with user_id and new schema fields
-    const tasksToInsert = generatedTasks.map((task: any, index: number) => ({
-      user: user_id,
+const tasksToInsert = [];
+
+for (let index = 0; index < generatedTasks.length; index++) {
+  const task = generatedTasks[index];
+
+  let resourceArray: any[] = [];
+
+  // ========================
+  // 1️⃣ GENERATE PDF
+  // ========================
+
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595, 842]);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const { height } = page.getSize();
+  let y = height - 60;
+
+  page.drawText("WDC Labs", { x: 50, y, size: 18, font: fontBold });
+
+  y -= 30;
+
+  page.drawText(task.title, { x: 50, y, size: 14, font: fontBold });
+
+  y -= 30;
+
+  page.drawText(task.brief_content, {
+    x: 50,
+    y,
+    size: 11,
+    font,
+    maxWidth: 495,
+    lineHeight: 15,
+  });
+
+  const pdfBytes = await pdfDoc.save();
+
+  const safeTitle = task.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const fileName = `${user_id}/${safeTitle}.pdf`;
+
+  const storageClient = supabaseAdmin ?? supabase;
+  const { error: uploadError } = await storageClient.storage
+    .from('archives')
+    .upload(fileName, pdfBytes, {
+      contentType: 'application/pdf',
+      upsert: true
+    });
+
+  if (!uploadError) {
+    const { data: publicUrl } = storageClient.storage
+      .from('archives')
+      .getPublicUrl(fileName);
+
+    resourceArray.push({
+      id: `pdf-${index}`,
       title: task.title,
-      brief_content: task.brief_content || task.description, // Handle potential naming diff
-      difficulty: task.difficulty,
-      task_track: track,
-      ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
-      completed: false,
-      task_number: taskNumber + index,
-      resources: task.educational_resources || [], // Save generated resources
-      video_brief: task.video_brief
-    }));
+      type: "pdf",
+      category: "Task Guide",
+      description: "Official assignment brief document",
+      url: publicUrl.publicUrl,
+    });
+  }
+
+  // ========================
+  // 2️⃣ EDUCATIONAL LINKS
+  // ========================
+
+  if (typeof task.educational_resources === 'string') {
+    const links = task.educational_resources.split(",");
+
+    links.forEach((rawLink: string, i: number) => {
+      const cleanLink = rawLink.trim();
+
+      resourceArray.push({
+        id: `res-${index}-${i}`,
+        title: `Learning Resource ${i + 1}`,
+        type: cleanLink.includes("youtube") ? "video" : "web",
+        category: cleanLink.includes("youtube")
+          ? "Video Resources"
+          : "Reference Links",
+        description: cleanLink.includes("youtube")
+          ? "Video tutorial supporting this task"
+          : "Helpful article for completing this task",
+        url: cleanLink,
+      });
+    });
+  }
+
+  // ========================
+  // 3️⃣ INSERT TASK
+  // ========================
+
+  tasksToInsert.push({
+    user: user_id,
+    title: task.title,
+    brief_content: task.brief_content,
+    difficulty: task.difficulty,
+    task_track: track,
+    ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
+    completed: false,
+    task_number: taskNumber + index,
+    resources: resourceArray,
+    video_brief: task.video_brief
+  });
+}
     // Use admin client to bypass RLS, or fall back to regular client
     // dbClient is already defined above
 
@@ -166,6 +261,9 @@ const DEFAULT_AI_PERSONA_CONFIG = {
       .from('tasks')
       .insert(tasksToInsert)
       .select();
+
+  //  console.log("INSERTED TASK DATA:", data);
+  
 
     if (error) {
       console.error('Error inserting tasks:', error);

@@ -9,42 +9,48 @@ import { useOffice } from '../../../contexts/OfficeContext';
 
 // Helper to determine icon based on title/category
 const getFileIcon = (item: ArchiveItem) => {
-  const lowerTitle = item.title?.toLowerCase();
-
-  if (!lowerTitle){
-    return
-  }
-
-  if (item.link) return <Globe size={32} strokeWidth={1.5} />;
-  if (lowerTitle.includes('sheet') || lowerTitle.includes('csv') || lowerTitle.includes('excel')) return <FileSpreadsheet size={32} strokeWidth={1.5} />;
-  if (lowerTitle.includes('image') || lowerTitle.includes('png') || lowerTitle.includes('jpg')) return <FileImage size={32} strokeWidth={1.5} />;
-  if (lowerTitle.includes('code') || lowerTitle.includes('snippet') || lowerTitle.includes('json')) return <FileCode size={32} strokeWidth={1.5} />;
+  if (item.type === "pdf") return <FileText size={32} strokeWidth={1.5} />;
+  if (item.type === "video") return <Globe size={32} strokeWidth={1.5} />;
+  if (item.type === "web") return <Globe size={32} strokeWidth={1.5} />;
+  if (item.type === "dataset") return <FileSpreadsheet size={32} strokeWidth={1.5} />;
 
   return <FileText size={32} strokeWidth={1.5} />;
 };
 
 // Helper for file type badge
 const getFileType = (item: ArchiveItem) => {
-  if (item.link) return 'WEB';
-  if (item.title?.toLowerCase().includes('pdf') || item.content?.includes('PDF')) return 'PDF';
-  if (item.title?.toLowerCase().includes('csv')) return 'CSV';
-  return 'DOC';
+  if (item.type === "pdf") return "PDF";
+  if (item.type === "video") return "VIDEO";
+  if (item.type === "web") return "WEB";
+  if (item.type === "dataset") return "DATA";
+
+  return "DOC";
 };
+
 
 export function ArchivesView() {
   const { currentTask } = useOffice();
+  console.log("FULL currentTask:", JSON.stringify(currentTask, null, 2));
+  console.log("RAW resources:", currentTask?.resources);
   const [search, setSearch] = useState('');
   const [selectedResource, setSelectedResource] = useState<ArchiveItem | null>(null);
 
   // Combine Task Resources + General Archives
   const allResources = useMemo(() => {
-    const taskRes = currentTask?.resources || [];
-    console.log('ArchivesView: Current Task:', currentTask?.title);
-    console.log('ArchivesView: Task Resources:', taskRes);
+const raw = currentTask?.resources || [];
 
-    // De-duplicate items by ID/Title if necessary, but here just merging
-    return [...taskRes];
-  }, [currentTask]);
+const mapped = raw.map((item: any, index: number) => ({
+  id: item.id || index,
+  title: item.title,
+  category: item.category,
+  description: item.description,
+  content: item.description,
+  link: item.url,
+  type: item.type,
+}));
+
+  return mapped;
+}, [currentTask]);
 
   const filteredArchives = allResources.filter(item =>
     item.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -184,10 +190,10 @@ export function ArchivesView() {
               <div className="p-6 overflow-y-auto font-mono text-sm leading-7 text-foreground/80 whitespace-pre-wrap selection:bg-primary/20">
                 {selectedResource.content || selectedResource.description}
 
-                {selectedResource.link && (
+                {selectedResource.url && (
                   <div className="mt-8 pt-6 border-t border-border flex justify-end">
                     <a
-                      href={selectedResource.link}
+                      href={selectedResource.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"

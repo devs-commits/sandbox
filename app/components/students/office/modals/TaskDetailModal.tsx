@@ -64,9 +64,17 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
                 <section className='gap-1 my-3'>
                   <h1>References:</h1>
                   <small className='gap-1 flex flex-col mt-1'> 
-                  {task.resources?.map((r)=> (
-                    <a href={r.link} target="_blank"  rel="noopener noreferrer" className='text-primary italic'>{r.link}</a>
-                  ))} 
+                 {task.resources?.map((r, index) => (
+                    <a
+                      key={r.id || index}
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary italic"
+                    >
+                      {r.title || r.url}
+                    </a>
+                  ))}
                   </small>
                 </section>
               </div>

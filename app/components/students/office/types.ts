@@ -76,12 +76,13 @@ export interface OfficeState {
 }
 
 export interface ArchiveItem {
-  id: string;
-  title?: string;
+  id: string | number;
+  title: string;
   category?: string;
+  content?: string;
   description?: string;
-  link: string;
-  content?: string; // Markdown content
+  url?: string;
+  type?: "pdf" | "video" | "web" | "dataset";
 }
 
 export interface PerformanceMetrics {
