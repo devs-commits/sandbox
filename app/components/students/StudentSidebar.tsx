@@ -23,7 +23,7 @@ const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
-  { label: "Bounty Hunter", icon: Target, path: "/student/bounty" },
+  // { label: "Bounty Hunter", icon: Target, path: "/student/bounty" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
   { label: "Squad", icon: Users, path: "/student/squad" },
 ];
