@@ -48,7 +48,7 @@ export function WhatsAppSupport() {
 
         <div className="bg-card p-4 space-y-3">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Got questions about tasks, portfolio or your account? Jump into our community — we're happy to help.
+            Got questions about tasks, portfolio or your account? Jump into our community. We're happy to help.
           </p>
 
           {/* CTA Button */}
