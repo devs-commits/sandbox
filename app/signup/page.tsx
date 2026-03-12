@@ -37,7 +37,6 @@ const SignUpContent = () => {
   const { signup, isLoading } = useAuth();
   const searchParams = useSearchParams();
 
-  // --- Form State ---
   const [role, setRole] = useState<"student" | "recruiter">("student");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -47,7 +46,6 @@ const SignUpContent = () => {
   const [experienceLevel, setExperienceLevel] = useState("");
   const [referralLink, setReferralLink] = useState(searchParams.get("code") || "");
 
-  // --- Payment & UI State ---
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
@@ -72,10 +70,8 @@ const SignUpContent = () => {
     { value: "advanced", label: "Advanced" },
   ];
 
-  // --- Production Timer Logic ---
   useEffect(() => {
     if (!paymentDetails?.localExpiry) return;
-
     const updateTimer = () => {
       const diff = paymentDetails.localExpiry - Date.now();
       if (diff <= 0) {
@@ -84,7 +80,6 @@ const SignUpContent = () => {
       }
       setSecondsLeft(Math.floor(diff / 1000));
     };
-
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
@@ -95,45 +90,29 @@ const SignUpContent = () => {
 
   const timerExpired = secondsLeft === 0;
 
-  // --- Actions ---
   const createPaymentAccount = async () => {
     if (!fullName || !email || !password || !country || (role === "student" && !track)) {
-      toast.error("Please complete all required fields first");
+      toast.error("Please fill in all details first");
       return;
     }
-
     setCreatingAccount(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
     try {
       const response = await fetch("/api/payment/create-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          fullName,
-          email,
-          track: role === "student" ? track : "recruiter",
-          role
-        }),
+        body: JSON.stringify({ fullName, email, track: role === "student" ? track : "recruiter", role }),
       });
-
       const data = await response.json();
-      clearTimeout(timeoutId);
-
-      if (!data?.success) throw new Error(data?.message || "Payment provider error");
-
+      if (!data?.success) throw new Error(data?.message || "Provider error");
       setPaymentDetails({
         accountNumber: data.accountNumber,
         accountName: data.accountName,
         transactionId: data.transactionId,
         localExpiry: Date.now() + 15 * 60 * 1000,
       });
-
-      toast.success("Payment account generated");
+      toast.success("Payment details generated!");
     } catch (err: any) {
-      toast.error(err.name === "AbortError" ? "Request timed out" : err.message);
+      toast.error(err.message || "Failed to generate payment details");
     } finally {
       setCreatingAccount(false);
     }
@@ -141,8 +120,8 @@ const SignUpContent = () => {
 
   const verifyPayment = async () => {
     if (!paymentDetails?.transactionId) return;
+    setCheckingPayment(true);
     try {
-      setCheckingPayment(true);
       const response = await fetch("/api/payment/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,9 +130,9 @@ const SignUpContent = () => {
       const data = await response.json();
       if (data.success) {
         setPaymentConfirmed(true);
-        toast.success("Payment verified successfully!");
+        toast.success("Payment verified!");
       } else {
-        toast.error(data.message || "Payment not found yet");
+        toast.error("Payment not yet confirmed");
       }
     } catch {
       toast.error("Verification failed");
@@ -163,20 +142,38 @@ const SignUpContent = () => {
   };
 
   const handleSubmit = async () => {
-    if (!paymentConfirmed) return;
     const result = await signup({
       fullName, email, password, role, country,
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
       referralLink: role === "student" ? referralLink : undefined,
     });
-
     if (result.success) {
-      toast.success("Registration complete!");
+      toast.success("Account created!");
       router.push(role === "recruiter" ? "/recruiter/talent-market" : "/student/headquarters");
     } else {
       setError(result.error || "Signup failed");
     }
+  };
+
+  // Pure logic, zero events
+  const handleMainAction = () => {
+    if (!wdcPrivacy) {
+      toast.error("Please agree to the terms and privacy policy");
+      return;
+    }
+
+    if (!paymentDetails?.accountNumber || timerExpired) {
+      createPaymentAccount();
+      return;
+    }
+
+    if (paymentConfirmed) {
+      handleSubmit();
+      return;
+    }
+
+    toast.error("Please verify your payment first");
   };
 
   const copyAccount = async () => {
@@ -192,7 +189,9 @@ const SignUpContent = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <AuthCard title="Join WDC Labs" onClose={() => router.push("/")}>
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          
+          <div className="space-y-4">
+            
             {error && <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-lg font-medium">{error}</div>}
 
             <RoleToggle value={role} onChange={(r) => { setRole(r); setPaymentDetails(null); }} />
@@ -212,8 +211,8 @@ const SignUpContent = () => {
             </div>
 
             <div className="flex justify-between items-center py-2 px-1 border-b border-border/40 font-semibold">
-              <span className="text-sm text-muted-foreground">Subscription Fee</span>
-              <span className="text-lg text-primary">{subscriptionPrice}</span>
+              <span className="text-sm text-muted-foreground font-medium">Subscription Fee</span>
+              <span className="text-lg font-bold text-primary">{subscriptionPrice}</span>
             </div>
 
             <TermsAgreement wdcPrivacy={wdcPrivacy} onWdcPrivacyChange={setWdcPrivacy} />
@@ -234,7 +233,7 @@ const SignUpContent = () => {
                     <span className="text-xs text-muted-foreground uppercase font-bold">Account</span>
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-base tracking-tighter">{paymentDetails.accountNumber}</span>
-                      <button onClick={copyAccount} className="p-1 hover:bg-muted rounded transition-colors"><Copy size={14} /></button>
+                      <button type="button" onClick={copyAccount} className="p-1 hover:bg-muted rounded transition-colors"><Copy size={14} /></button>
                     </div>
                   </div>
                   <div className="flex justify-between items-start pt-1">
@@ -243,7 +242,7 @@ const SignUpContent = () => {
                   </div>
                 </div>
 
-                <Button onClick={verifyPayment} disabled={checkingPayment || timerExpired || paymentConfirmed} className="w-full font-bold shadow-md h-10">
+                <Button type="button" onClick={verifyPayment} disabled={checkingPayment || timerExpired || paymentConfirmed} className="w-full font-bold shadow-md h-10">
                   {checkingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : paymentConfirmed ? "Verified" : "Verify Payment"}
                 </Button>
 
@@ -252,32 +251,24 @@ const SignUpContent = () => {
                     <AlertCircle size={14} /> Account Expired
                   </div>
                 )}
-                
-                {paymentConfirmed && (
-                  <div className="flex items-center justify-center gap-2 text-green-500 text-sm font-bold bg-green-500/10 py-2 rounded-lg">
-                    <CheckCircle size={16} /> Payment Verified
-                  </div>
-                )}
               </div>
             )}
 
             <Button
+              type="button"
               className="w-full h-12 text-base font-bold transition-all shadow-lg"
-              disabled={!wdcPrivacy || isLoading || creatingAccount || (paymentDetails && !paymentConfirmed && !timerExpired)}
-              onClick={() => {
-                if (!paymentDetails || timerExpired) createPaymentAccount();
-                else if (paymentConfirmed) handleSubmit();
-              }}
+              disabled={isLoading || creatingAccount || (paymentDetails !== null && !paymentConfirmed && timerExpired)}
+              onClick={handleMainAction}
             >
               {creatingAccount ? <Loader2 className="w-5 h-5 animate-spin" /> : 
-               !paymentDetails || timerExpired ? "Generate Payment Details" : 
-               paymentConfirmed ? "Register Now" : "Waiting for Payment..."}
+               paymentDetails === null || timerExpired ? "Generate Payment Details" : 
+               paymentConfirmed ? "Register Now" : "Awaiting Payment..."}
             </Button>
             
             <p className="text-center text-xs text-muted-foreground pb-2">
               Have an account? <Link href="/login" className="text-primary font-bold hover:underline underline-offset-4">Login</Link>
             </p>
-          </form>
+          </div>
         </AuthCard>
       </div>
     </div>
