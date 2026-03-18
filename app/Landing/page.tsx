@@ -1,102 +1,11 @@
-import { Button } from "../components/ui/button";
-import Link from "next/link";
-import wdcLogo from "../../public/wdc-logo.jpg";
-import Image from "next/image";
-import wdc from "../../public/image.png";
-import actdLogoClean from "../../public/actd-logo.png";
-import ndpc from "../../public/ndpc.png";
+import Navbar from "../components/Navbar";
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-        <header className="flex h-16 items-center justify-between">
-            <div className="max-w-7xl ml-[5px] sm:ml-[50px] md:ml-10 sm:ml-5 mt-5">
-              <Link href="/" className="inline-block">
-                <Image src={wdcLogo} alt="WDC Labs" className="h-auto w-auto sm:h-[55px] sm:w-[200px]" />
-              </Link>
-            </div>
-            <div className="flex items-center justify-end">
-              <Link
-                href="https://ndpc.gov.ng/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-10 sm:mr-5 mt-5"
-              >
-                <Image
-                  src={ndpc}
-                  alt="Nigeria Data Protection Commission"
-                  className="h-8 w-auto object-contain"
-                />
-              </Link>
-              <Link
-                href="https://wdc.ng/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 hover:opacity-90 transition md:mr-10 sm:mr-5 mt-5"
-              >
-                <Image
-                  src={wdc}
-                  alt="WildFusion Digital Centre"
-                  className="h-8 w-auto object-contain"
-                />
-              </Link>
-              <Link
-                href="https://www.actd.us/wildfusiondigitalcentre/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 hover:opacity-90 transition mr-2 sm:mr-5 mt-5"
-              >
-                <Image
-                  src={actdLogoClean}
-                  alt="ACTD Accreditation"
-                  className="h-8 w-auto sm:h-12 object-contain"
-                />
-
-                <span className="text-[3px] sm:text-[8px] font-semibold text-foreground leading-snug max-w-[100px] sm:max-w-[120px]">
-                  Accredited by the American Council of Training and Development
-                </span>
-              </Link>
-            </div>
-        </header>
-        <main className="bg-background min-h-[650px] hero-gradient flex items-center justify-center p-4 sm:p-6 lg:p-8">
-          {/* Hero Card */}
-          <div className="bg-[linear-gradient(90deg,hsla(215,45%,12%,1)_0%,hsla(197,70%,22%,1)_100%)] w-full max-w-6xl h-full rounded-2xl p-4 sm:p-12 lg:p-16 card-shadow border border-muted-foreground/50 border-1 animate-scale-in">
-            <div className="text-center items-center justify-center space-y-6 py-16 sm:py-20 lg:py-24">
-              {/* Headline */}
-              <h1 
-                className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight opacity-0 animate-fade-in"
-                style={{ animationDelay: "0.1s" }}
-              >
-                Don't Just Learn Tech.
-                <br />
-                <span className="text-foreground">Simulate The Job.</span>
-              </h1>
-
-              {/* Subtitle */}
-              <p 
-                className="text-muted-foreground text-base sm:text-lg lg:text-xl max-w-2xl mx-auto leading-relaxed opacity-0 animate-fade-in"
-                style={{ animationDelay: "0.3s" }}
-              >
-                A gamified, AI-powered job simulation lab that gives you real
-                work experience recruiters trust.
-              </p>
-              {/* CTA Buttons */}
-              <div 
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 opacity-0 animate-fade-in"
-                style={{ animationDelay: "0.5s" }}
-              >
-                <Button variant="hero" size="lg" className="w-full sm:w-auto min-w-[200px] text-foreground" asChild>
-                  <Link href="/signup">Start Your Internship</Link>
-                </Button>
-                <Button variant="heroOutline" size="lg" className="w-full sm:w-auto min-w-[200px] color-foreground" asChild>
-                  <Link href="/login">Member Login</Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </main>
-    </div>
-  );
+ <div className="min-h-screen bg-[hsla(207,36%,95%,1)]">
+  <Navbar />
+ </div>
+  )
 };
 
 export default Landing;
