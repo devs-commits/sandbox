@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from "react";
 import wdcLogo from "../../public/wdc-logo.jpg";
 import actdLogo from "../../public/actd-logos.png";
