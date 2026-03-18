@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import wdcLogo from "../assets/wdc-logo.jpg";
-import actdLogo from "../assets/ACTD.png"
+import wdcLogo from "../../public/wdc-logo.jpg";
+import actdLogo from "../../public/actd-logos.png";
 import Image from "next/image";
 const Navbar = () => {
   const [, setScrolled] = useState(false);
