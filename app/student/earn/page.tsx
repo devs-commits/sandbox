@@ -1,6 +1,6 @@
 "use client";
 import { StudentHeader } from "@/app/components/students/StudentHeader";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { useSearchParams } from "next/navigation";
@@ -20,7 +20,6 @@ import { SocialIcon } from "../../components/students/earn/SocialIcon";
 
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
-import { useEffect } from "react";
 
 const initialEarnData = {
   totalEarnings: 0,
@@ -91,8 +90,11 @@ export default function EarnMoney() {
     if (user) {
       fetchEarnData();
     }
+  }, [user]);
 
+  useEffect(() => {
     const focus = searchParams.get('focus');
+
     if (focus === 'verification') {
       const section = document.getElementById('verification-section');
       if (section) {
@@ -103,13 +105,15 @@ export default function EarnMoney() {
     } else if (focus === 'withdraw') {
       setActiveModal("withdraw");
     }
-  }, [user, searchParams]);
+  }, [searchParams]);
+
 
   const fetchEarnData = async () => {
     try {
+      // 🔥 EXACT FIX: Clean single-line string with double quotes. 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, wallet_balance, referral_code, full_name, id_verified, bvn, nin, bank_name, account_number, account_name')
+        .select("id, wallet_balance, referral_code, full_name, address, date_of_birth, occupation, nationality, id_verified, bvn, nin, bank_name, account_number, account_name")
         .eq('auth_id', user?.id)
         .single();
 
@@ -120,8 +124,11 @@ export default function EarnMoney() {
 
       if (userData) {
         const code = userData.referral_code || "Generate Code";
+
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+
         const fullLink = userData.referral_code
-          ? `${window.location.origin}/signup?code=${userData.referral_code}`
+          ? `${origin}/signup?code=${userData.referral_code}`
           : "Complete setup to get code";
 
         setEarnData({
@@ -132,11 +139,28 @@ export default function EarnMoney() {
           bvn: ""
         });
 
+        // identity status
         setIsVerified(userData.id_verified || false);
+
+        // BVN + NIN
         setBvn(userData.bvn || "");
         setNin(userData.nin || "");
+
+        // bank details
         setBankName(userData.bank_name || "");
         setAccountNumber(userData.account_number || "");
+
+        /*
+        PREFILL BASIC INFO FORM
+        */
+        setFullName(prev => prev || userData.full_name || "");
+        console.log("Setting full name:", userData.full_name); 
+        console.log("FULL NAME STATE:", fullName);
+        
+        setAddress(userData.address || "");
+        setDateOfBirth(userData.date_of_birth || "");
+        setOccupation(userData.occupation || "");
+        setNationality(userData.nationality || "");
       }
     } catch (error) {
       console.error("Error fetching earn data:", error);
@@ -222,6 +246,7 @@ export default function EarnMoney() {
   const handleVerifyIdentity = async () => {
     if (bvn && nin && bvn.length >= 10 && nin.length >= 11) {
       try {
+        // STEP 1: Save BVN + NIN + verification
         const { error } = await supabase
           .from('users')
           .update({
@@ -233,8 +258,31 @@ export default function EarnMoney() {
 
         if (error) throw error;
 
+        /*
+        STEP 2: Initialize Wallet (VERY IMPORTANT)
+        */
+        const walletRes = await fetch("/api/wallet/initialize", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userId: user?.id
+          })
+        });
+
+        if (!walletRes.ok) {
+          throw new Error("Wallet initialization failed");
+        }
+
+        /*
+        STEP 3: Refresh data so bank details show immediately
+        */
+        await fetchEarnData();
+
         setIsVerified(true);
         setActiveModal("identityVerified");
+
       } catch (err) {
         console.error("Verification error:", err);
         setActiveModal("identityFailed");
@@ -262,8 +310,6 @@ export default function EarnMoney() {
       withdrawAmount > 0
     ) {
       if (withdrawAmount > earnData.totalEarnings) {
-        // Could use a toast here or just fail the modal
-        // For now using withdrawFailed modal, but ideally should be specific
         console.error("Insufficient funds");
         setActiveModal("withdrawFailed");
         return;
@@ -400,8 +446,9 @@ export default function EarnMoney() {
                   </label>
                   <Input
                     type="text"
+                    disabled={isVerified}
                     placeholder="Enter your full legal name"
-                    value={fullName}
+                    value={fullName ?? ""}
                     onChange={(e) => {
                       setFullName(e.target.value);
                       if (formErrors.fullName) {
@@ -424,7 +471,7 @@ export default function EarnMoney() {
                   <Input
                     type="text"
                     placeholder="Enter your current address"
-                    value={address}
+                    value={address ?? ""}
                     onChange={(e) => {
                       setAddress(e.target.value);
                       if (formErrors.address) {
@@ -447,7 +494,7 @@ export default function EarnMoney() {
                     </label>
                     <Input
                       type="date"
-                      value={dateOfBirth}
+                      value={dateOfBirth ?? ""}
                       onChange={(e) => {
                         setDateOfBirth(e.target.value);
                         if (formErrors.dateOfBirth) {
@@ -470,7 +517,7 @@ export default function EarnMoney() {
                     <Input
                       type="text"
                       placeholder="Your occupation"
-                      value={occupation}
+                      value={occupation ?? ""}
                       onChange={(e) => {
                         setOccupation(e.target.value);
                         if (formErrors.occupation) {
@@ -494,7 +541,7 @@ export default function EarnMoney() {
                   <Input
                     type="text"
                     placeholder="e.g., Nigerian"
-                    value={nationality}
+                    value={nationality ?? ""}
                     onChange={(e) => {
                       setNationality(e.target.value);
                       if (formErrors.nationality) {
@@ -511,12 +558,70 @@ export default function EarnMoney() {
                 </div>
               </div>
 
-              <Button
-                onClick={handleBasicInfoSubmit}
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-white"
-              >
-                Proceed to Identity Verification
-              </Button>
+              {/* Identity Verification */}
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheckIcon className="w-4 h-4 text-primary" />
+                  <p className="text-sm font-semibold text-foreground">
+                    Identity Verification
+                  </p>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Required by CBN to enable wallet withdrawals.
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                      BANK VERIFICATION NUMBER (BVN)
+                    </label>
+
+                    <Input
+                      type="text"
+                      disabled={isVerified}
+                      placeholder="Enter your 11 digit BVN"
+                      value={bvn ?? ""}
+                      onChange={(e) => setBvn(e.target.value)}
+                      className="bg-background border-border h-10"
+                      maxLength={11}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+                      NATIONAL IDENTIFICATION NUMBER (NIN)
+                    </label>
+
+                    <Input
+                      type="text"
+                      placeholder="Enter your 11 digit NIN"
+                      value={nin ?? ""}
+                      onChange={(e) => setNin(e.target.value)}
+                      className="bg-background border-border h-10"
+                      maxLength={11}
+                    />
+                  </div>
+                </div>
+
+                {/* NDPR Security Notice */}
+                <div className="flex items-start gap-2 bg-blue-50/10 border border-blue-200/30 rounded-lg p-3">
+                  <ShieldCheckIcon className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-blue-200 leading-relaxed">
+                    Your BVN and NIN are encrypted and protected under the 
+                    <span className="font-semibold"> Nigeria Data Protection Regulation (NDPR)</span>. 
+                    This information is used strictly for identity verification and is never shared with third parties.
+                  </p>
+                </div>
+
+                {/* Verification Button */}
+                <Button
+                  onClick={handleVerifyIdentity}
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white mt-2"
+                >
+                  Complete Verification
+                </Button>
+              </div>
             </div>
 
             <div id="identity-verification-form" className="hidden bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
@@ -555,7 +660,7 @@ export default function EarnMoney() {
                   <Input
                     type="text"
                     placeholder="222 *********"
-                    value={bvn}
+                    value={bvn ?? ""}
                     onChange={(e) => setBvn(e.target.value)}
                     className="bg-background border-border h-10"
                   />
@@ -567,7 +672,7 @@ export default function EarnMoney() {
                   <Input
                     type="text"
                     placeholder="11 Digits"
-                    value={nin}
+                    value={nin ?? ""}
                     onChange={(e) => setNin(e.target.value)}
                     className="bg-background border-border h-10"
                   />

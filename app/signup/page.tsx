@@ -150,7 +150,7 @@ const SignUpContent = () => {
     });
     if (result.success) {
       toast.success("Account created!");
-      router.push(role === "recruiter" ? "/recruiter/talent-market" : "/student/headquarters");
+      router.push("/auth/verify-email");
     } else {
       setError(result.error || "Signup failed");
     }
@@ -188,7 +188,7 @@ const SignUpContent = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <AuthCard title="Join WDC Labs" onClose={() => router.push("/")}>
+        <AuthCard title="Join WDC Labs" onClose={() => router.push("/auth/verify-email")}>
           
           <div className="space-y-4">
             
