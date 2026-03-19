@@ -1,6 +1,7 @@
 import Navbar from "../components/Navbar";
 import HeroSection from "../components/landing/HeroSection";
 import CompanyLogoWall from "../components/landing/CompanyLogoWall";
+import CareerPathQuiz from "../components/landing/CareerPathQuiz";
 
 const Landing = () => {
   return (
@@ -8,6 +9,7 @@ const Landing = () => {
   <Navbar />
   <HeroSection />
   <CompanyLogoWall />
+  <CareerPathQuiz />
  </div>
   )
 };
