@@ -44,6 +44,7 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isInitialMount, setIsInitialMount] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -51,7 +52,10 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (!isInitialMount) {
+      scrollToBottom();
+    }
+    setIsInitialMount(false);
   }, [messages]);
 
   const renderLines = (text: string) =>
