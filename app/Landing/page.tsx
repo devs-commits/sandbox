@@ -13,6 +13,7 @@ import { AIOFaqSection } from "../components/landing/AIOFaqSection";
 import PricingSection from "../components/landing/PricingSection";
 import WaitlistSection from "../components/landing/WaitlistSection";
 import TrustBand from "../components/landing/TrustBand";
+import FaqSection from "../components/landing/FaqSection";
 
 const Landing = () => {
   return (
@@ -32,6 +33,7 @@ const Landing = () => {
   <PricingSection />
   <WaitlistSection />
   <TrustBand />
+  <FaqSection />
  </div>
   )
 };
