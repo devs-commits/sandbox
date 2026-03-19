@@ -10,6 +10,7 @@ import OutcomesSection from "../components/landing/OutcomesSection";
 import ChatSectionV3 from "../components/landing/ChatSectionV3";
 import VideoTestimonials from "../components/landing/VideoTestimonials";
 import { AIOFaqSection } from "../components/landing/AIOFaqSection";
+import PricingSection from "../components/landing/PricingSection";
 
 const Landing = () => {
   return (
@@ -26,6 +27,7 @@ const Landing = () => {
   <ChatSectionV3 />
   <VideoTestimonials />
   <AIOFaqSection />
+  <PricingSection />
  </div>
   )
 };
