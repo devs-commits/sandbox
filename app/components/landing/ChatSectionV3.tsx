@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import ChatInterface from './ChatInterface';
 
-// Using the actual circle background image from public folder
 const chatBgCircle = "/circle.png";
 
 interface ChatSectionV3Props {
@@ -13,7 +12,6 @@ interface ChatSectionV3Props {
 const ChatSectionV3 = ({ onJoinClick }: ChatSectionV3Props) => {
   return (
     <section className="max-w-7xl mx-auto py-8 md:py-12 bg-[hsla(205,98%,16%,0.42)] relative overflow-hidden">
-      {/* Background circle */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <img 
           src={chatBgCircle} 

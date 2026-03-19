@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Using the actual Tolu image from public folder
 const avatarTolu = "/tolu.jpg";
 
 interface Message {

@@ -31,7 +31,6 @@ export default function HeroSection() {
       <div className="absolute inset-0 bg-dots opacity-50 z-0" />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Greeting */}
         <div className="text-center mb-6">
           <p className="text-sm text-slate-600">
             <span className="font-bold text-[#12263f]">{greeting}!</span> Join Nigeria's fastest-growing tech career accelerator
@@ -40,7 +39,6 @@ export default function HeroSection() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="text-center lg:text-left">
-            {/* Enrollment Counter */}
             <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -103,7 +101,6 @@ export default function HeroSection() {
             </div>
           </div>
 
-          {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] lg:h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-slate-100 mt-8 lg:mt-0">
             <img
               src="/hero-african-team.png"
