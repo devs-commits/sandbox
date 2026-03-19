@@ -3,8 +3,8 @@
 import { motion } from 'framer-motion';
 import ChatInterface from './ChatInterface';
 
-// Using a placeholder for the background circle image
-const chatBgCircle = "https://images.unsplash.com/photo-1579546923968-9b3d5a3b5a4?auto=format&fit=crop&w=200&q=80";
+// Using the actual circle background image from public folder
+const chatBgCircle = "/circle.png";
 
 interface ChatSectionV3Props {
   onJoinClick?: () => void;

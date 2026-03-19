@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Using a placeholder for the avatar image since we don't have the actual asset
-const avatarTolu = "https://images.unsplash.com/photo-1472099645785-565abcab4f4d?auto=format&fit=crop&w=100&q=80";
+// Using the actual Tolu image from public folder
+const avatarTolu = "/tolu.jpg";
 
 interface Message {
   id: string;
