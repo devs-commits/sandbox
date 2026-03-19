@@ -14,7 +14,7 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-[hsla(207,36%,95%,1)] backdrop-blur-md border-b border-border/50 shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 bg-[hsla(207,36%,95%,1)] backdrop-blur-md border-b border-border/50 shadow-sm z-50">
       <div className="flex items-center justify-between px-5 py-3">
         <Link
           href="https://wdc.ng/"

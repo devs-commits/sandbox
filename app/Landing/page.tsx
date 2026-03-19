@@ -11,7 +11,7 @@ import ChatSectionV3 from "../components/landing/ChatSectionV3";
 
 const Landing = () => {
   return (
- <div className="min-h-screen bg-[hsla(207,36%,95%,1)]">
+ <div className="min-h-screen bg-[hsla(207,36%,95%,1)] pt-16">
   <Navbar />
   <HeroSection />
   <ProblemSection />
