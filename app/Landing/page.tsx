@@ -11,6 +11,7 @@ import ChatSectionV3 from "../components/landing/ChatSectionV3";
 import VideoTestimonials from "../components/landing/VideoTestimonials";
 import { AIOFaqSection } from "../components/landing/AIOFaqSection";
 import PricingSection from "../components/landing/PricingSection";
+import WaitlistSection from "../components/landing/WaitlistSection";
 
 const Landing = () => {
   return (
@@ -28,6 +29,7 @@ const Landing = () => {
   <VideoTestimonials />
   <AIOFaqSection />
   <PricingSection />
+  <WaitlistSection />
  </div>
   )
 };
