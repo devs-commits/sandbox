@@ -7,6 +7,7 @@ import ROICalculator from "../components/landing/ROICalculator";
 import CareerComparisonMatrix from "../components/landing/CareerComparisonMatrix";
 import CurriculumTransparency from "../components/landing/CurriculumTransparency";
 import OutcomesSection from "../components/landing/OutcomesSection";
+import ChatSectionV3 from "../components/landing/ChatSectionV3";
 
 const Landing = () => {
   return (
@@ -20,6 +21,7 @@ const Landing = () => {
   <CareerComparisonMatrix />
   <CurriculumTransparency />
   <OutcomesSection />
+  <ChatSectionV3 />
  </div>
   )
 };
