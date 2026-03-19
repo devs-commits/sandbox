@@ -106,8 +106,8 @@ export default function HeroSection() {
           {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] lg:h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-slate-100 mt-8 lg:mt-0">
             <img
-              src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80"
-              alt="Young Nigerian professionals collaborating on tech projects at WDC Labs"
+              src="/hero-african-team.png"
+              alt="African tech professionals collaborating and learning together"
               className="absolute inset-0 w-full h-full object-cover"
               loading="eager"
             />
