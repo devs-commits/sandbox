@@ -6,6 +6,7 @@ import CareerPathQuiz from "../components/landing/CareerPathQuiz";
 import ROICalculator from "../components/landing/ROICalculator";
 import CareerComparisonMatrix from "../components/landing/CareerComparisonMatrix";
 import CurriculumTransparency from "../components/landing/CurriculumTransparency";
+import OutcomesSection from "../components/landing/OutcomesSection";
 
 const Landing = () => {
   return (
@@ -18,6 +19,7 @@ const Landing = () => {
   <ROICalculator />
   <CareerComparisonMatrix />
   <CurriculumTransparency />
+  <OutcomesSection />
  </div>
   )
 };
