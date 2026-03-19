@@ -235,7 +235,12 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
               >
                 <div className="max-w-[85%]">
                   <motion.button
-                    onClick={onJoinClick}
+                    onClick={() => {
+                      const waitlistSection = document.getElementById('waitlist');
+                      if (waitlistSection) {
+                        waitlistSection.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     className="bg-gradient-to-r from-[#ff6b35] to-[#ff5722] text-white px-6 py-3 rounded-2xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-300 font-inter relative overflow-hidden group"
