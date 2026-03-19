@@ -120,7 +120,7 @@ export async function POST(request: Request) {
                 reward_amount: reward
               });
 
-            console.log(`Referral processed: ${referrer.id} referred ${studentData.id}. Reward: ${reward}`);
+            // console.log(`Referral processed: ${referrer.id} referred ${studentData.id}. Reward: ${reward}`);
           }
         }
       }

@@ -45,7 +45,7 @@ const mapped = raw.map((item: any, index: number) => ({
   category: item.category,
   description: item.description,
   content: item.description,
-  link: item.url,
+  url: item.url,
   type: item.type,
 }));
 

@@ -150,7 +150,7 @@ export default function AdminDashboard() {
         }
         
         const data = await response.json();
-        console.log("Dashboard Data:", data);
+        // console.log("Dashboard Data:", data);
         
         setTotalRevenue(data.totalRevenue);
         setNewInterns(data.newInterns);
