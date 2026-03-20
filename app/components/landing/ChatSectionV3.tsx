@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import ChatInterface from './ChatInterface';
+import { Zap } from 'lucide-react';
 
 const chatBgCircle = "/circle.png";
 
@@ -27,12 +28,13 @@ const ChatSectionV3 = ({ onJoinClick }: ChatSectionV3Props) => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-2xl md:text-4xl font-bold text-[#1a2744] mb-4 font-inter">
-            Can You Pass Tolu's HR Screening?
-          </h2>
-          <p className="text-base text-[#4a5568] max-w-2xl mx-auto font-inter">
-            Most applicants fail this in under 60 seconds.
-          </p>
+          <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+            <Zap className="w-4 h-4" /> FREE DAY-1 PREVIEW
+          </div>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#12263f] mb-4">Try the Free AI Career Audit</h2>
+          <p className="text-slate-600 text-lg">Chat with Tolu, our strict AI HR Manager. See if you can survive her questions.</p>
+        </div>
         </motion.div>
 
         <div className="flex justify-center items-center max-w-2xl mx-auto">
@@ -41,7 +43,7 @@ const ChatSectionV3 = ({ onJoinClick }: ChatSectionV3Props) => {
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="w-full max-w-md"
+            className="w-full max-w-l"
           >
             <ChatInterface variant="v3" onJoinClick={onJoinClick} />
           </motion.div>
