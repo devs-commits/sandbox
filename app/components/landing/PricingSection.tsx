@@ -56,7 +56,7 @@ export default function PricingSection() {
               <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-green-400 shrink-0 mt-0.5" /> <strong className="text-white">Tech Visa Support Letter</strong></li>
               <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" /> <strong className="text-blue-300">Global Hotline HR Verification</strong></li>
             </ul>
-            <a href="https://wdc.ng/labs/pay/45000" target="_blank" rel="noopener noreferrer" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.5)] text-sm sm:text-base text-center mt-auto">Secure Letters & Access</a>
+            <a href="https://labs.wdc.ng/signup" target="_blank" rel="noopener noreferrer" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.5)] text-sm sm:text-base text-center mt-auto">Secure Letters & Access</a>
           </div>
 
           <div className="bg-[#f8fafc] p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full md:col-span-2 lg:col-span-1 relative">
