@@ -4,7 +4,7 @@ import { CheckCircle, X, Users, Gift, Share2, Clock } from "lucide-react"
 
 export default function PricingSection() {
   const shareLink = () => {
-    const text = `Good day Ma/Sir/Mentor. I have found a career accelerator called WDC Labs that guarantees work experience for global remote jobs. It is not just a course; it is a virtual internship. I need to secure my spot for 2026. The Career Accelerator Bundle is ₦45000. Can you please sponsor my future? Here is the payment link: https://wdc.ng/labs/pay/45000?ref=student`
+    const text = `Good day Ma/Sir/Mentor. I have found a career accelerator called WDC Labs that guarantees work experience for global remote jobs. It is not just a course; it is a virtual internship. I need to secure my spot for 2026. The Career Accelerator Bundle is ₦45000. Can you please sponsor my future? Here is the payment link: https://labs.wdc.ng/signup`
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
         alert("Message copied to clipboard! \n\nNow open WhatsApp and paste it to your Mentor, Uncle, or Sponsor.")
