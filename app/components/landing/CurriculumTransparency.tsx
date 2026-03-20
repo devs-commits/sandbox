@@ -107,8 +107,8 @@ export default function CurriculumTransparency() {
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mt-12">
-          <a href="#waitlist" className="inline-flex items-center gap-2 px-8 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg">
-            Start Learning Today
+          <a href="#pricing" className="inline-flex items-center gap-2 px-8 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg">
+            Start Your Track Today
           </a>
         </motion.div>
       </div>
