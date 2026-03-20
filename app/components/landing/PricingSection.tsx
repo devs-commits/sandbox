@@ -40,7 +40,7 @@ export default function PricingSection() {
               <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" /> Standard Recommendation Letter</li>
               <li className="flex items-start gap-3 opacity-40"><X className="w-4 h-4 text-red-500 shrink-0 mt-0.5" /> No Global HR Hotline Access</li>
             </ul>
-            <a href="https://wdc.ng/labs/pay/15000" target="_blank" rel="noopener noreferrer" className="block w-full py-3.5 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-50 transition text-sm border border-slate-300 text-center shadow-sm mt-auto">Start Monthly Plan</a>
+            <a href="https://labs.wdc.ng/signup" target="_blank" rel="noopener noreferrer" className="block w-full py-3.5 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-50 transition text-sm border border-slate-300 text-center shadow-sm mt-auto">Start Monthly Plan</a>
           </div>
 
           <div className="bg-[#12263f] p-6 sm:p-8 rounded-3xl border-2 border-blue-500 shadow-2xl flex flex-col relative transform lg:-translate-y-4 h-full">
