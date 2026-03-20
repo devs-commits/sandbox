@@ -13,14 +13,6 @@ export default function HeroSection() {
     if (hour < 12) setGreeting("Good morning")
     else if (hour < 17) setGreeting("Good afternoon")
     else setGreeting("Good evening")
-
-    const interval = setInterval(() => {
-      setEnrollmentCount(prev => {
-        const increment = Math.random() > 0.7 ? 1 : 0
-        return Math.min(prev + increment, 95)
-      })
-    }, 8000)
-    return () => clearInterval(interval)
   }, [])
 
   const capacityPercentage = (enrollmentCount / totalCapacity) * 100
@@ -77,7 +69,7 @@ export default function HeroSection() {
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start items-stretch sm:items-center gap-4">
-              <a href="#waitlist" className="w-full sm:w-auto px-8 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-[0_0_20px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2 transform hover:-translate-y-1 text-center">
+              <a href="#pricing" className="w-full sm:w-auto px-8 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-[0_0_20px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2 transform hover:-translate-y-1 text-center">
                 Secure Your Desk Now <ArrowRight className="w-4.5 h-4.5" />
               </a>
               <a href="#squads" className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all flex items-center justify-center gap-2 text-center">
