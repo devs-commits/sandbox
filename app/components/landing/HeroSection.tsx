@@ -7,7 +7,7 @@ import Image from "next/image"
 
 export default function HeroSection() {
   const [greeting, setGreeting] = useState("Hello")
-  const [enrollmentCount, setEnrollmentCount] = useState(63)
+  const [enrollmentCount, setEnrollmentCount] = useState(70)
   const totalCapacity = 100
 
   useEffect(() => {
@@ -15,11 +15,6 @@ export default function HeroSection() {
     if (hour < 12) setGreeting("Good morning")
     else if (hour < 17) setGreeting("Good afternoon")
     else setGreeting("Good evening")
-
-    const interval = setInterval(() => {
-      setEnrollmentCount(prev => Math.min(prev + (Math.random() > 0.8 ? 1 : 0), 75))
-    }, 8000)
-    return () => clearInterval(interval)
   }, [])
 
   const pct = (enrollmentCount / totalCapacity) * 100
@@ -40,7 +35,7 @@ export default function HeroSection() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-                  <span className="text-xs sm:text-sm font-bold text-red-700 uppercase tracking-wide">Cohort Filling Fast</span>
+                  <span className="text-xs sm:text-sm font-bold text-red-700 uppercase tracking-wide">Cohorts, finish fast</span>
                 </div>
                 <span className="text-xs font-bold text-slate-600">{spots} spots left</span>
               </div>
