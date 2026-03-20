@@ -234,13 +234,13 @@ export function AIOFaqSection() {
         </div>
 
         <div className="text-center mt-12">
-          <p className="text-slate-600 mb-4">Still have questions?</p>
+          {/* <p className="text-slate-600 mb-4">Still have questions?</p>
           <a
             href="#chat-with-tolu"
             className="inline-block px-8 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition shadow-lg"
           >
             Chat with Tolu (AI HR Manager)
-          </a>
+          </a> */}
         </div>
       </div>
     </section>
