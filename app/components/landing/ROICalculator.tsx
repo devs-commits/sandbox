@@ -73,7 +73,7 @@ export default function ROICalculator() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <a href="#waitlist" className="flex-1 px-6 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg text-center">
+              <a href="#pricing" className="flex-1 px-6 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-lg text-center">
                 Secure My Spot for ₦{acceleratorInvestment.toLocaleString()}
               </a>
               <a href="#pricing" className="px-6 py-4 bg-white border-2 border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all text-center">View All Plans</a>
