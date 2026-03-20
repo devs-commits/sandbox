@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 
 export default function HeroSection() {
   const [greeting, setGreeting] = useState("Hello")
-  const [enrollmentCount, setEnrollmentCount] = useState(87)
+  const [enrollmentCount, setEnrollmentCount] = useState(70)
   const totalCapacity = 100
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function HeroSection() {
 
     const interval = setInterval(() => {
       setEnrollmentCount(prev => {
-        const increment = Math.random() > 0.8 ? 1 : 0
+        const increment = Math.random() > 0.7 ? 1 : 0
         return Math.min(prev + increment, 95)
       })
     }, 8000)
@@ -37,24 +37,26 @@ export default function HeroSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="text-center lg:text-left">
-            <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start lg:items-center">
+          <div className="w-full lg:w-1/2 text-center lg:text-left">
+            <div className="mb-6 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-3 sm:p-4 shadow-sm max-w-md mx-auto lg:mx-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                  <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-red-600 animate-pulse" />
                   <span className="text-xs sm:text-sm font-bold text-red-700 uppercase tracking-wide">
-                    April Cohort Filling Fast
+                    Cohorts, Finish Fast
                   </span>
                 </div>
-                <span className="text-xs font-bold text-slate-600">{spotsRemaining} spots left</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">{spotsRemaining} spots left</span>
+                </div>
               </div>
-              <div className="w-full bg-white rounded-full h-3 overflow-hidden shadow-inner">
+              <div className="w-full bg-white rounded-full h-2 sm:h-3 overflow-hidden shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-red-500 to-orange-500 h-full transition-all duration-1000 ease-out flex items-center justify-end pr-2"
+                  className="bg-gradient-to-r from-red-500 to-orange-500 h-full transition-all duration-1000 ease-out flex items-center justify-end pr-2 sm:pr-4"
                   style={{ width: `${capacityPercentage}%` }}
                 >
-                  <span className="text-[8px] font-bold text-white drop-shadow">
+                  <span className="text-[8px] sm:text-[10px] font-bold text-white drop-shadow">
                     {enrollmentCount}/{totalCapacity}
                   </span>
                 </div>
