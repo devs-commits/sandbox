@@ -40,7 +40,7 @@ export default function CompanyLogoWall() {
           <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10" />
           <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10" />
 
-          <div className="flex gap-8 animate-marquee py-6">
+          <div className="flex gap-8 animate-marquee-logos py-6">
             {duplicated.map((company, index) => (
               <div
                 key={`${company.name}-${index}`}
@@ -72,7 +72,7 @@ export default function CompanyLogoWall() {
 
         <div className="text-center mt-8">
           <p className="text-xs sm:text-sm text-slate-500">
-            <span className="font-bold text-[#12263f]">1,247+ WDC Labs alumni</span> working remotely across 15 countries
+            <span className="font-bold text-[#12263f]">1,247+ WDC alumni</span> working remotely across 15 countries
           </p>
         </div>
       </div>
