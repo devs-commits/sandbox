@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import wdcLogo from "../../public/wdc-logo copy.jpg";
 import actdLogo from "../../public/actd-logos.png";
+import ndpcLogo from "../../public/ndpc.png";
 import Link from "next/link";
 import Image from "next/image";
 const Navbar = () => {
@@ -59,6 +60,20 @@ const Navbar = () => {
             <Image
               src={actdLogo}
               alt="ACTD Accreditation"
+              width={120}
+              height={40}
+              className="object-contain h-8 md:h-10 object-contain"
+            />
+          </Link>
+          <Link
+            href="https://ndpc.gov.ng/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 hover:opacity-90 transition"
+          >
+            <Image
+              src={ndpcLogo}
+              alt="NDPC Compliance"
               width={120}
               height={40}
               className="object-contain h-8 md:h-10 object-contain"
