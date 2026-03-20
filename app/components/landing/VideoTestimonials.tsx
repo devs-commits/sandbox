@@ -30,7 +30,7 @@ export default function VideoTestimonials() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
           <h2 className="text-3xl md:text-5xl font-extrabold mb-4 text-[#12263f]">Real Results. Real Salaries.</h2>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">Before and After WDC</p>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">Hear from Nigerian professionals who transformed their careers with WDC</p>
         </motion.div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">

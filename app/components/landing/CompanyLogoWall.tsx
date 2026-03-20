@@ -29,7 +29,7 @@ export default function CompanyLogoWall() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-[#12263f] mb-2">
-            Tech companies where our Alumni work
+            Companies where our Alumni work
           </h2>
           <p className="text-sm sm:text-base text-slate-600">
             Our alumni are building careers at leading Nigerian and global companies
