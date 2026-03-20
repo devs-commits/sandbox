@@ -21,17 +21,17 @@ const Landing = () => {
  <div className="min-h-screen bg-[hsla(207,36%,95%,1)] pt-16">
   <Navbar />
   <HeroSection />
-  <ProblemSection />
   <CompanyLogoWall />
   <CareerPathQuiz />
+  <VideoTestimonials />
   <ROICalculator />
   <CareerComparisonMatrix />
   <CurriculumTransparency />
+  <ProblemSection />
   <OutcomesSection />
   <ChatSectionV3 />
-  <VideoTestimonials />
-  <AIOFaqSection />
   <PricingSection />
+  <AIOFaqSection />
   <WaitlistSection />
   <TrustBand />
   <FaqSection />
