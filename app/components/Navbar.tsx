@@ -1,9 +1,7 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-
 import wdcLogo from "../../public/wdc-logo copy.jpg";
 import actdLogo from "../../public/actd-logos.png";
 import ndpcLogo from "../../public/ndpc.png";
@@ -23,7 +21,6 @@ export default function Navbar() {
         
         <div className="flex items-center justify-between py-3">
 
-          {/* LEFT: Logo */}
           <Link href="https://wdc.ng/" target="_blank">
             <Image
               src={wdcLogo}
@@ -35,26 +32,7 @@ export default function Navbar() {
             />
           </Link>
 
-          {/* RIGHT SIDE */}
           <div className="flex items-center gap-2 sm:gap-4">
-
-            {/* Sign In */}
-            <Link
-              href="https://labs.wdc.ng/login"
-              className="text-xs sm:text-sm font-semibold text-[#12263f] px-3 py-2 rounded-lg hover:bg-[#12263f]/10 transition"
-            >
-              Sign In
-            </Link>
-
-            {/* Sign Up (Primary CTA) */}
-            <Link
-              href="https://labs.wdc.ng/signup"
-              className="text-xs sm:text-sm font-bold bg-[#12263f] text-white px-4 sm:px-6 py-2.5 rounded-xl hover:bg-blue-600 transition shadow-sm"
-            >
-              Get Started
-            </Link>
-
-            {/* Desktop ONLY: Trust badges */}
             <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-200">
               <Link
                 href="https://www.actd.us/wildfusiondigitalcentre/"
@@ -85,6 +63,19 @@ export default function Navbar() {
                 />
               </Link>
             </div>
+            <Link
+              href="https://labs.wdc.ng/login"
+              className="text-xs sm:text-sm font-semibold text-[#12263f] px-3 py-2 rounded-lg hover:bg-[#12263f]/10 transition"
+            >
+              Sign In
+            </Link>
+
+            <Link
+              href="https://labs.wdc.ng/signup"
+              className="text-xs sm:text-sm font-bold bg-[#12263f] text-white px-4 sm:px-6 py-2.5 rounded-xl hover:bg-blue-600 transition shadow-sm"
+            >
+              Get Started
+            </Link>
 
           </div>
         </div>
