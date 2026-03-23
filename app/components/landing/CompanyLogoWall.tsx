@@ -1,24 +1,24 @@
 'use client'
 
 const companies = [
-  { name: "Andela", logo: "https://logo.clearbit.com/andela.com", color: "#3dd08d" },
-  { name: "Flutterwave", logo: "https://logo.clearbit.com/flutterwave.com", color: "#f5a623" },
-  { name: "Paystack", logo: "https://logo.clearbit.com/paystack.com", color: "#00c3f7" },
-  { name: "Kuda Bank", logo: "https://logo.clearbit.com/kuda.com", color: "#40196d" },
-  { name: "Interswitch", logo: "https://logo.clearbit.com/interswitchgroup.com", color: "#d42e12" },
-  { name: "MTN", logo: "https://cdn.simpleicons.org/mtn/ffcc00", color: "#ffcc00" },
-  { name: "Jumia", logo: "https://logo.clearbit.com/jumia.com.ng", color: "#f89420" },
-  { name: "Carbon", logo: "https://logo.clearbit.com/carbon.ng", color: "#0c1e30" },
-  { name: "Cowrywise", logo: "https://logo.clearbit.com/cowrywise.com", color: "#2d6ff7" },
-  { name: "PiggyVest", logo: "https://logo.clearbit.com/piggyvest.com", color: "#083e9e" },
-  { name: "Access Bank", logo: "https://logo.clearbit.com/accessbankplc.com", color: "#ed7d31" },
-  { name: "GTBank", logo: "https://logo.clearbit.com/gtbank.com", color: "#ff6b00" },
-  { name: "Google", logo: "https://cdn.simpleicons.org/google", color: "#4285f4" },
-  { name: "Microsoft", logo: "https://cdn.simpleicons.org/microsoft/00a4ef", color: "#00a4ef" },
-  { name: "Amazon", logo: "https://cdn.simpleicons.org/amazon/ff9900", color: "#ff9900" },
-  { name: "Meta", logo: "https://cdn.simpleicons.org/meta/0668e1", color: "#0668e1" },
-  { name: "Deloitte", logo: "https://cdn.simpleicons.org/deloitte/0076a8", color: "#0076a8" },
-  { name: "PwC", logo: "https://cdn.simpleicons.org/pwc/d93954", color: "#d93954" },
+  { name: "Andela", logo: "/logos/andela.svg", color: "#3dd08d" },
+  { name: "Flutterwave", logo: "/logos/flutterwave.svg", color: "#f5a623" },
+  { name: "Paystack", logo: "/logos/paystack.svg", color: "#00c3f7" },
+  { name: "Kuda Bank", logo: "/logos/kuda-bank.svg", color: "#40196d" },
+  { name: "Interswitch", logo: "/logos/interswitch.svg", color: "#d42e12" },
+  { name: "MTN", logo: "/logos/mtn.svg", color: "#ffcc00" },
+  { name: "Jumia", logo: "/logos/jumia.svg", color: "#f89420" },
+  { name: "Carbon", logo: "/logos/carbon.svg", color: "#0c1e30" },
+  { name: "Cowrywise", logo: "/logos/cowrywise.svg", color: "#2d6ff7" },
+  { name: "PiggyVest", logo: "/logos/piggyvest.svg", color: "#083e9e" },
+  { name: "Access Bank", logo: "/logos/access-bank.svg", color: "#ed7d31" },
+  { name: "GTBank", logo: "/logos/gtbank.svg", color: "#ff6b00" },
+  { name: "Google", logo: "/logos/google.svg", color: "#4285f4" },
+  { name: "Microsoft", logo: "/logos/microsoft.svg", color: "#00a4ef" },
+  { name: "Amazon", logo: "/logos/amazon.svg", color: "#ff9900" },
+  { name: "Meta", logo: "/logos/meta.svg", color: "#0668e1" },
+  { name: "Deloitte", logo: "/logos/deloitte.svg", color: "#0076a8" },
+  { name: "PwC", logo: "/logos/pwc.svg", color: "#d93954" },
 ]
 
 export default function CompanyLogoWall() {
@@ -50,19 +50,7 @@ export default function CompanyLogoWall() {
                 <img
                   src={company.logo}
                   alt={`${company.name} logo`}
-                  className="h-10 w-auto object-contain grayscale group-hover:grayscale-0 transition-all duration-300 opacity-70 group-hover:opacity-100"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = "none"
-                    const parent = target.parentElement
-                    if (parent && !parent.querySelector(".logo-text-fallback")) {
-                      const fallback = document.createElement("span")
-                      fallback.className = "logo-text-fallback font-bold text-lg"
-                      fallback.style.color = company.color
-                      fallback.textContent = company.name
-                      parent.appendChild(fallback)
-                    }
-                  }}
+                  className="h-10 w-auto object-contain transition-all duration-300 opacity-100"
                   loading="lazy"
                 />
               </div>

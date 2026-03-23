@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import wdcNewLogo from "../../public/wdc_labs_logo.png";
 import wdcLogo from "../../public/wdc-logo copy.jpg";
 import actdLogo from "../../public/actd-logos.png";
 import ndpcLogo from "../../public/ndpc.png";
@@ -23,7 +24,7 @@ export default function Navbar() {
 
           <Link href="https://wdc.ng/" target="_blank">
             <Image
-              src={wdcLogo}
+              src={wdcNewLogo}
               alt="WildFusion Digital Centre"
               width={120}
               height={40}
@@ -34,6 +35,20 @@ export default function Navbar() {
 
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-200">
+              <Link
+                href="https://wdc.ng/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 hover:opacity-90 transition"
+              >
+                <Image
+                  src={wdcLogo}
+                  alt="WildFusion Digital Centre"
+                  width={120}
+                  height={40}
+                  className="h-8 object-contain"
+                />
+              </Link>
               <Link
                 href="https://www.actd.us/wildfusiondigitalcentre/"
                 target="_blank"
