@@ -43,25 +43,23 @@ export default function WaitlistSection() {
     try {
       setIsSubmitting(true)
 
-      const res = await fetch(
-        "https://klzjehlvjnjskixpabkr.supabase.co/functions/v1/add-subscriber",
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/add-subscriber`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify(formData),
         }
-      )
+      );
 
-      const data = await res.json()
-      console.log("FULL RESPONSE:", data)
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to submit")
+      if (!response.ok) {
+        throw new Error("Failed to join waitlist");
       }
 
-      toast.success("You're on the waitlist! 🎉")
+      toast.success("Successfully joined the waitlist!");
 
       setFormData({
         firstName: "",
@@ -69,15 +67,15 @@ export default function WaitlistSection() {
         email: "",
         whatsapp: "",
         linkedin: "",
-      })
+      });
 
     } catch (error) {
-      console.error(error)
-      toast.error("Something went wrong. Try again.")
+      console.error(error);
+      toast.error("Failed to join waitlist.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <section id="waitlist" className="py-16 bg-white relative overflow-hidden border-t border-slate-200">
