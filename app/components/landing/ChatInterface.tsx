@@ -197,7 +197,6 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
               </motion.div>
             )}
 
-            {/* Interactive Options on User's Side */}
             {options.length > 0 && !isTyping && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -236,9 +235,9 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
                 <div className="max-w-[85%]">
                   <motion.button
                     onClick={() => {
-                      const waitlistSection = document.getElementById('waitlist');
-                      if (waitlistSection) {
-                        waitlistSection.scrollIntoView({ behavior: 'smooth' });
+                      const pricingSection = document.getElementById('pricing');
+                      if (pricingSection) {
+                        pricingSection.scrollIntoView({ behavior: 'smooth' });
                       }
                     }}
                     whileHover={{ scale: 1.02, y: -2 }}
@@ -248,7 +247,6 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
                     <span className="relative z-10">Enter WDC Virtual Office</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-[#ff5722] to-[#ff6b35] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </motion.button>
-                  <p className="text-xs text-[#475569] mt-2 text-center font-inter">Join waitlist to get early access</p>
                 </div>
               </motion.div>
             )}
