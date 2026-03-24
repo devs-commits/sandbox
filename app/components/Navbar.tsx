@@ -22,7 +22,7 @@ export default function Navbar() {
         
         <div className="flex items-center justify-between py-3">
 
-          <Link href="https://wdc.ng/" target="_blank">
+          <Link href="https://labs.wdc.ng/signup" target="_blank">
             <Image
               src={wdcNewLogo}
               alt="WildFusion Digital Centre"
