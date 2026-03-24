@@ -7,16 +7,16 @@ const supabase = createClient(
 );
 
 const PRICE_MAP: Record<string, number> = {
-  "digital-marketing": 17500,
-  "data-analytics": 35500,
-  "cyber-security": 25000,
-  "recruiter": 35500
+  "digital-marketing": 15000,
+  "data-analytics": 15000,
+  "cyber-security": 15000,
+  "recruiter": 15000
 };
 
 export async function POST(req: Request) {
   try {
     const { fullName, email, track, role } = await req.json();
-    const amount = role === "recruiter" ? PRICE_MAP["recruiter"] : PRICE_MAP[track] || 17500;
+    const amount = role === "recruiter" ? PRICE_MAP["recruiter"] : PRICE_MAP[track] || 15000;
 
     const names = fullName.trim().split(" ");
     const firstName = names[0];

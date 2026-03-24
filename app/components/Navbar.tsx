@@ -78,19 +78,19 @@ export default function Navbar() {
                 />
               </Link>
             </div>
-            <Link
-              href="https://labs.wdc.ng/login"
-              className="text-xs sm:text-sm font-semibold text-[#12263f] px-3 py-2 rounded-lg hover:bg-[#12263f]/10 transition"
-            >
-              Sign In
-            </Link>
+              <Link
+                href="/login"
+                className="text-xs sm:text-sm font-semibold text-[#12263f] px-3 py-2 rounded-lg hover:bg-[#12263f]/10 transition"
+              >
+                Sign In
+              </Link>
 
-            <Link
-              href="https://labs.wdc.ng/signup"
-              className="text-xs sm:text-sm font-bold bg-[#12263f] text-white px-4 sm:px-6 py-2.5 rounded-xl hover:bg-blue-600 transition shadow-sm"
-            >
-              Get Started
-            </Link>
+              <Link
+                href="/signup"
+                className="text-xs sm:text-sm font-bold bg-[#12263f] text-white px-4 sm:px-6 py-2.5 rounded-xl hover:bg-blue-600 transition shadow-sm"
+              >
+                Get Started
+              </Link>
 
           </div>
         </div>

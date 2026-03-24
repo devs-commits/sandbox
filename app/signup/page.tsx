@@ -18,12 +18,12 @@ import { TermsAgreement } from "../components/auth/TermsAgreement";
 countries.registerLocale(enLocale);
 
 const tracks = [
-  { value: "digital-marketing", label: "Digital Marketing", price: "₦ 17,500" },
-  { value: "data-analytics", label: "Data Analytics", price: "₦ 35,500" },
-  { value: "cyber-security", label: "Cyber Security", price: "₦ 25,000" },
+  { value: "digital-marketing", label: "Digital Marketing", price: "₦ 15,000" },
+  { value: "data-analytics", label: "Data Analytics", price: "₦ 15,000" },
+  { value: "cyber-security", label: "Cyber Security", price: "₦ 15,000" },
 ];
 
-const RECRUITER_PRICE = "₦ 35,500";
+const RECRUITER_PRICE = "₦ 15,000";
 
 type PaymentDetails = {
   accountNumber: string;
@@ -62,7 +62,7 @@ const SignUpContent = () => {
   }, []);
 
   const selectedTrack = tracks.find((t) => t.value === track);
-  const subscriptionPrice = role === "recruiter" ? RECRUITER_PRICE : selectedTrack?.price || "₦ 17,500";
+  const subscriptionPrice = role === "recruiter" ? RECRUITER_PRICE : selectedTrack?.price || "₦ 15,000";
 
   const experienceLeveloptions = [
     { value: "beginner", label: "Beginner" },
@@ -188,7 +188,7 @@ const SignUpContent = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <AuthCard title="Join WDC Labs" onClose={() => router.push("/auth/verify-email")}>
+        <AuthCard title="Join WDC Labs" onClose={() => router.back()}>
           
           <div className="space-y-4">
             
