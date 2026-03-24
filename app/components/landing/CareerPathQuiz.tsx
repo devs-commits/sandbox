@@ -167,7 +167,7 @@ export default function CareerPathQuiz() {
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <a href="#waitlist" className="flex-1 px-6 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all text-center flex items-center justify-center gap-2">
+                    <a href="#pricing" className="flex-1 px-6 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all text-center flex items-center justify-center gap-2">
                       Start This Track <ArrowRight className="w-4 h-4" />
                     </a>
                     <button onClick={resetQuiz} className="px-6 py-4 border-2 border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all">
