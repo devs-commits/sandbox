@@ -32,8 +32,8 @@ export default function FooterSection() {
             <h4 className="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">Legal & Support</h4>
             <ul className="space-y-2 text-xs sm:text-sm">
               <li><a href="#" className="hover:text-white transition">Visa Letter Policy</a></li>
-              <li><a href="#" className="hover:text-white transition">Terms of Use</a></li>
-              <li><a href="#" className="hover:text-white transition">Privacy Policy (NDPA)</a></li>
+              <li><a href="https://wdc.ng/privacy-policy/" className="hover:text-white transition">Terms of Use</a></li>
+              <li><a href="https://wdc.ng/privacy-policy/" className="hover:text-white transition">Privacy Policy (NDPA)</a></li>
               <li><a href="#" className="hover:text-white transition">Recruiter Verification</a></li>
             </ul>
           </div>
