@@ -1,8 +1,8 @@
 'use client'
-// import wdcNewLogo from "../../../public/wdc_labs_logo.png";
+import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import {MapPin} from "lucide-react";
-// import Image from "next/image";
-// import Link from "next/link";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function FooterSection() {
   return (
@@ -11,18 +11,18 @@ export default function FooterSection() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10 sm:mb-12">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-blue-600 rounded text-white flex items-center justify-center font-bold">W</div>
-              <span className="font-bold text-xl sm:text-2xl text-white">WDC Labs</span>
-              {/* <Link href="https://labs.wdc.ng/signup" target="_blank">
+              {/* <div className="w-8 h-8 bg-blue-600 rounded text-white flex items-center justify-center font-bold">W</div>
+              <span className="font-bold text-xl sm:text-2xl text-white">WDC Labs</span> */}
+              <Link href="https://labs.wdc.ng/signup" target="_blank">
               <Image
               src={wdcNewLogo}
               alt="WildFusion Digital Centre"
               width={120}
               height={40}
-              className="h-8 md:h-10 object-contain"
+              className="h-8 md:h-10 object-contain contrast-50 brightness-200"
               priority
               />
-              </Link> */}
+              </Link>
             </div>
             <p className="text-xs sm:text-sm max-w-sm mb-4">
               A product of Wild Fusion Digital Centre. Accredited by the American Council of Training and Development (ACTD). Building global tech talent from Nigeria.

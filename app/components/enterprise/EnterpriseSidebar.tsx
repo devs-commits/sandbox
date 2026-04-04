@@ -1,7 +1,7 @@
 "use client";
 import { usePathname} from "next/navigation";
 import Link from "next/link";
-import wdcLogo from "../../../public/wdc-logo.jpg";
+import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import Image from "next/image";
 import {
   LayoutGrid,
@@ -27,10 +27,16 @@ export default function Page(){
 
   const SidebarContent = () => (
     <>
-      {/* Logo */}
-      <div className="p-4 mb-4">
-        <Link href="/enterprise/white-label" className="flex items-center gap-2">
-          <Image src={wdcLogo} alt="WDC Labs" className="h-8 h-[50px] w-[157px] sm:h-[65px] sm:w-[214px]" />
+      <div className="flex items-center gap-2 mb-4 mt-5 ml-5 max-w-3xl">
+        <Link href="https://labs.wdc.ng/signup" target="_blank">
+         <Image
+          src={wdcNewLogo}
+          alt="WildFusion Digital Centre"
+          width={120}
+          height={40}
+          className="h-8 md:h-10 object-contain contrast-50 brightness-200"
+          priority
+          />
         </Link>
       </div>
 
