@@ -24,15 +24,15 @@ export function WithdrawModal({
   userId 
 }: any) {
   
-  const [step, setStep] = useState(1); // 1: Form, 2: PIN
+  const [step, setStep] = useState(1); 
   const [banks, setBanks] = useState<any[]>([]);
   const [resolvedName, setResolvedName] = useState("");
+  const [nameEnquiryRef, setNameEnquiryRef] = useState("");
   const [isResolving, setIsResolving] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [nameMatchError, setNameMatchError] = useState(false);
   const [enteredPin, setEnteredPin] = useState("");
 
-  // 1. Fetch live bank list from API
   useEffect(() => {
     if (open) {
       const fetchBanks = async () => {
@@ -48,10 +48,10 @@ export function WithdrawModal({
     }
   }, [open]);
 
-  // 2. Resolve account name when account number is 10 digits
   useEffect(() => {
     const resolveName = async () => {
       setResolvedName("");
+      setNameEnquiryRef(""); 
       setNameMatchError(false);
 
       if (accountNumber.length === 10 && bankName) {
@@ -65,10 +65,12 @@ export function WithdrawModal({
           const data = await res.json();
 
           if (res.ok && data.success) {
-            const fetchedBankName = data.accountName.toUpperCase();
+            const fetchedBankName = (data.accountName || data.data?.accountName || "").toUpperCase();
             setResolvedName(fetchedBankName);
+            
+            const safeRef = data.nameEnquiryRef || data.sessionId || data.data?.sessionId || data.data?.nameEnquiryRef || `SS-${Date.now()}`;
+            setNameEnquiryRef(safeRef); 
 
-            // Fuzzy Match Logic
             const userParts = userName.toUpperCase().split(" ").filter((p: string) => p.length > 2);
             const isMatch = userParts.every((part: string) => fetchedBankName.includes(part));
             if (!isMatch) setNameMatchError(true);
@@ -85,7 +87,6 @@ export function WithdrawModal({
     resolveName();
   }, [accountNumber, bankName, userName]);
 
-  // 3. Final Step: Verify PIN and Execute Transfer
   const handleFinalWithdraw = async () => {
     if (enteredPin !== userPin) {
       toast.error("Invalid Transaction PIN");
@@ -95,22 +96,28 @@ export function WithdrawModal({
 
     setIsProcessing(true);
     try {
+      // 🔥 Extract actual bank name for the email
+      const selectedBank = banks.find(b => b.institutionCode === bankName);
+      const actualBankName = selectedBank ? selectedBank.institutionName : bankName;
+
       const res = await fetch("/api/wallet/transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          bankCode: bankName,
+          bankCode: bankName, 
+          bankName: actualBankName, // 🔥 Sending real name for the email
           accountNumber,
           amount: parseFloat(amount),
-          narration: `WDC Withdrawal - ${userName}`
+          accountName: resolvedName,
+          nameEnquiryRef: nameEnquiryRef
         }),
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
-        onWithdraw(); // Triggers success modal in parent
+        onWithdraw(); 
         setStep(1);
         setEnteredPin("");
       } else {
@@ -125,7 +132,13 @@ export function WithdrawModal({
 
   const numericAmount = parseFloat(amount || "0");
   const isInsufficient = numericAmount > totalEarnings;
-  const canProceedToPin = resolvedName && !isResolving && numericAmount > 0 && !isInsufficient && !nameMatchError;
+  const canProceedToPin = resolvedName && nameEnquiryRef && !isResolving && numericAmount > 0 && !isInsufficient && !nameMatchError;
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9.]/g, '');
+    if ((val.match(/\./g) || []).length > 1) return;
+    setAmount(val);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(val) => { if(!val) setStep(1); onClose(); }}>
@@ -199,10 +212,11 @@ export function WithdrawModal({
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">₦</span>
                   <Input 
-                    type="number" 
+                    type="text" 
+                    inputMode="decimal"
                     placeholder="0.00"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={handleAmountChange}
                     className={`bg-white/5 h-12 pl-10 rounded-xl font-bold text-lg border-white/10 ${isInsufficient ? 'border-red-500/50 text-red-400' : ''}`}
                   />
                 </div>
@@ -213,7 +227,7 @@ export function WithdrawModal({
             <Button 
               disabled={!canProceedToPin}
               onClick={() => setStep(2)}
-              className={`w-full h-14 font-black rounded-2xl transition-all shadow-xl mt-2 ${canProceedToPin ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-white/5 text-white/20'}`}
+              className={`w-full h-14 font-black rounded-2xl transition-all shadow-xl mt-2 ${canProceedToPin ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
             >
               CONTINUE TO PIN
             </Button>
@@ -224,9 +238,9 @@ export function WithdrawModal({
                 <Lock className="text-emerald-500" size={28} />
             </div>
             
-            <div className="space-y-2 px-4">
-                <h3 className="font-bold text-xl tracking-tight">Verify Identity</h3>
-                <p className="text-xs text-white/40">You are authorizing a withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span></p>
+                <div className="space-y-2 px-4">
+        <h3 className="font-bold text-xl tracking-tight">Authenticate</h3>
+        <p className="text-xs text-white/40">You are authorizing a withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span></p>
             </div>
             
             <PinInput onComplete={(pin) => setEnteredPin(pin)} />

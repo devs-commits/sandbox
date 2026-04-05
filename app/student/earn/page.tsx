@@ -8,7 +8,7 @@ import Image from "next/image";
 import {
   Copy, Link as LinkIcon, ShieldCheckIcon, CheckCircle2, Eye, EyeOff, 
   Loader2, Lock, Coins, Wallet, RotateCw, ChevronRight, UserCircle, 
-  MapPin, Briefcase, Calendar
+  MapPin, Briefcase, Calendar, Info
 } from "lucide-react";
 
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
@@ -53,7 +53,6 @@ export default function EarnMoney() {
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<any>("none");
   const [isVerified, setIsVerified] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   // Profile Data
   const [profile, setProfile] = useState({ fullName: "", address: "", dob: "", occupation: "", nationality: "", bvn: "", nin: "" });
@@ -128,6 +127,17 @@ export default function EarnMoney() {
     }
   };
 
+  // 🔥 KYC Enforcement Check
+  const handleCashOutClick = () => {
+    const isProfileComplete = profile.dob !== "Not Set" && profile.bvn !== "";
+    
+    if (!isProfileComplete) {
+      toast.error("Action Required: Please complete your KYC details (DOB, BVN) in your profile before withdrawing.");
+      return;
+    }
+    setActiveModal("withdraw");
+  };
+
   return (
     <>
       <StudentHeader title="Financial Hub" subtitle="Manage your network and security." />
@@ -139,7 +149,8 @@ export default function EarnMoney() {
             <div className="relative z-10 space-y-4">
                <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em]">Referral Earnings</p>
                <h2 className="text-5xl font-bold text-white tracking-tighter">₦{earnData.earningsBalance.toLocaleString()}</h2>
-               <Button onClick={() => setActiveModal("withdraw")} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] h-12 rounded-2xl tracking-widest shadow-xl">
+               {/* 🔥 Added Enforcement Check here */}
+               <Button onClick={handleCashOutClick} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] h-12 rounded-2xl tracking-widest shadow-xl">
                  CASH OUT EARNINGS <ChevronRight size={14} />
                </Button>
             </div>
@@ -193,13 +204,22 @@ export default function EarnMoney() {
               </div>
 
               {/* KYC DATA DISPLAY */}
-              <div className="space-y-8 pt-4">
+              <div className="space-y-8 pt-4 border-t border-white/5 relative">
+                
+                {/* 🔥 Added Edit Profile Button Header */}
+                <div className="flex justify-between items-center mt-2 mb-6">
+                  <p className="text-sm font-bold text-white">KYC Details</p>
+                  <Button variant="ghost" onClick={() => router.push("/student/profile")} className="text-[10px] font-black uppercase text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 tracking-widest h-8 px-4 rounded-lg transition-all">
+                    Edit Profile
+                  </Button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><UserCircle size={10} /> Name</label><p className="text-sm text-white/70 font-semibold">{profile.fullName}</p></div>
                   <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><MapPin size={10} /> Nationality</label><p className="text-sm text-white/70 font-semibold">{profile.nationality}</p></div>
                 </div>
                 <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><Calendar size={10} /> DOB</label><p className="text-sm text-white/70 font-semibold">{profile.dob}</p></div>
+                  <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><Calendar size={10} /> DOB</label><p className={`text-sm font-semibold ${profile.dob === 'Not Set' ? 'text-red-400' : 'text-white/70'}`}>{profile.dob}</p></div>
                   <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><Briefcase size={10} /> Occupation</label><p className="text-sm text-white/70 font-semibold truncate">{profile.occupation}</p></div>
                 </div>
                 <div className="space-y-3">
@@ -207,9 +227,18 @@ export default function EarnMoney() {
                     <Input value={profile.address} readOnly className="bg-white/5 border-white/5 h-12 rounded-xl text-white text-sm opacity-50 cursor-not-allowed" />
                 </div>
                 <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
-                  <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">BVN (Encrypted)</label><p className="font-mono text-sm text-white/40">{"********" + profile.bvn.slice(-4)}</p></div>
-                  <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">NIN (Encrypted)</label><p className="font-mono text-sm text-white/40">{"********" + profile.nin.slice(-4)}</p></div>
+                  <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">BVN (Encrypted)</label><p className={`font-mono text-sm ${!profile.bvn ? 'text-red-400' : 'text-white/40'}`}>{profile.bvn ? "********" + profile.bvn.slice(-4) : "Not Set"}</p></div>
+                  <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">NIN (Encrypted)</label><p className="font-mono text-sm text-white/40">{profile.nin ? "********" + profile.nin.slice(-4) : "Not Set"}</p></div>
                 </div>
+
+                {/* 🔥 Added Fineprint for Locked Data */}
+                <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex gap-3 items-start mt-6">
+                  <Info size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-white/40 leading-relaxed">
+                    To maintain account security and comply with financial regulations, sensitive KYC data (DOB, BVN, NIN) are locked after your wallet is created. To update these details, please <button onClick={() => window.location.href='mailto:hello@wdc.ng'} className="text-indigo-400 font-semibold hover:underline">contact support</button>.
+                  </p>
+                </div>
+
               </div>
           </div>
 
