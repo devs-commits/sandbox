@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     // ==========================================
     // 1. Check if wallet already exists locally in wallets table
     // ==========================================
-    const { data: existingWallet } = await supabaseAdmin
+    const { data: existingWallet } = await supabaseAdmin!
       .from("wallets")
       .select("account_number")
       .eq("user_id", userId)
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Get user KYC data
-    const { data: user, error: userError } = await supabaseAdmin
+    const { data: user, error: userError } = await supabaseAdmin!
       .from("users")
       .select("full_name, nin, bvn")
       .eq("auth_id", userId)
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
           if (recoveredWallet) {
              console.log("✅ Wallet Recovered! Saving to wallets table...");
              
-             const { error: recoveryUpdateError } = await supabaseAdmin.from("wallets").upsert({
+             const { error: recoveryUpdateError } = await supabaseAdmin!.from("wallets").upsert({
                 user_id: userId,
                 account_number: recoveredWallet.accountNumber,
                 account_name: recoveredWallet.accountName || `${firstName} ${lastName}`,
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     console.log("✅ New Wallet Created! Saving to wallets table...");
     
-    const { error: newUpdateError } = await supabaseAdmin.from("wallets").upsert({
+    const { error: newUpdateError } = await supabaseAdmin!.from("wallets").upsert({
         user_id: userId,
         account_number: account.accountNumber,
         account_name: account.accountName || `${firstName} ${lastName}`,

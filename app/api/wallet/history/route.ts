@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     console.log("🔍 Checking history for account:", accountNumber);
 
     // 1. Get User Data (Need the email for the DB constraint)
-    const { data: userData } = await supabaseAdmin
+    const { data: userData } = await supabaseAdmin!
       .from('users')
       .select('email')
       .eq('auth_id', userId)
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         
       });
 
-      const { error: upsertError } = await supabaseAdmin
+      const { error: upsertError } = await supabaseAdmin!
         .from('wallet_transactions')
         .upsert(dbEntries, { onConflict: 'provider_tx_id' });
 
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Always return the full history from the DB (The Marriage)
-    const { data: finalHistory } = await supabaseAdmin
+    const { data: finalHistory } = await supabaseAdmin!
       .from('wallet_transactions')
       .select('*')
       .eq('user_id', userId)

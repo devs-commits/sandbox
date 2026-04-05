@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
     const userEmail = paystackData.data.customer.email;
 
     // 2. Get current wallet balance
-    const { data: wallet } = await supabaseAdmin.from('wallets').select('balance').eq('user_id', userId).single();
+    const { data: wallet } = await supabaseAdmin!.from('wallets').select('balance').eq('user_id', userId).single();
     const oldBalance = wallet?.balance || 0;
     const newBalance = oldBalance + amountFunded;
 
     // 3. Update Wallet Balance
-    const { error: balError } = await supabaseAdmin
+    const { error: balError } = await supabaseAdmin!
       .from('wallets')
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     // 4. Log the Ledger Entry (Matches your DB Columns exactly)
     console.log("📝 Attempting to log Ledger entry for Paystack...");
     
-    const { error: txError } = await supabaseAdmin.from('wallet_transactions').upsert({
+    const { error: txError } = await supabaseAdmin!.from('wallet_transactions').upsert({
       user_id: userId,
       email: userEmail,
       amount: amountFunded,

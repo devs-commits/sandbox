@@ -34,7 +34,7 @@ export function PinInput({ length = 4, onComplete }: { length?: number; onComple
           type="password"
           maxLength={1}
           value={digit}
-          ref={(el) => (inputRefs.current[index] = el!)}
+          ref={(el) => { inputRefs.current[index] = el!; }}
           onChange={(e) => handleChange(e.target.value, index)}
           onKeyDown={(e) => handleKeyDown(e, index)}
           className="w-12 h-14 text-center text-2xl font-bold bg-white/5 border border-white/10 rounded-xl focus:border-emerald-500 outline-none transition-all"

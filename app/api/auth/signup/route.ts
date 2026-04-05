@@ -182,8 +182,8 @@ export async function POST(request: Request) {
 
       if (dbError) {
         console.error("Error creating public profile:", dbError);
-        if (supabaseAdmin) {
-          await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+        if (supabaseAdmin!) {
+          await supabaseAdmin!.auth.admin.deleteUser(data.user.id);
         }
         return NextResponse.json({ success: false, error: "Account created but profile failed. Please contact support." }, { status: 500 });
       }

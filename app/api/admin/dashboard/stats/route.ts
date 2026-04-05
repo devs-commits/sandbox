@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    let supabase = supabaseAdmin;
+    let supabase = supabaseAdmin!;
 
     if (!supabase) {
         // Fallback: Try to use the authenticated user's token

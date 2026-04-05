@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     // 🔥 THE FIX: Abandoned Cart Recovery - Lookup user if frontend sends null
     let dbUserId = userId; 
     if (!dbUserId && email) {
-      const { data: existingUser } = await supabaseAdmin
+      const { data: existingUser } = await supabaseAdmin!
         .from('users')
         .select('auth_id')
         .eq('email', email)
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     if (data.status) {
       // 🔥 Log the entry in your payments table immediately with the correctly fetched ID
-      await supabaseAdmin.from('payments').insert({
+      await supabaseAdmin!.from('payments').insert({
         email: email,
         full_name: fullName,
         track: track,

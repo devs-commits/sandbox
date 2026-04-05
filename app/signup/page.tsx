@@ -126,7 +126,7 @@ const SignUpContent = () => {
       }
       return { success: false, error: result.error };
     }
-    return { success: true, isExisting: false, userId: result.user?.id || result.data?.user?.id };
+    return { success: true, isExisting: false, userId: (result as any).user?.id || (result as any).data?.user?.id };
   };
 
   const createPaymentAccount = async () => {

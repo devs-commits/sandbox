@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "User ID required" }, { status: 400 });
 
     // 1. Get the user's registered name to identify their wallet on the provider side
-    const { data: userProfile, error: profileError } = await supabaseAdmin
+    const { data: userProfile, error: profileError } = await supabaseAdmin!
       .from('users')
       .select('full_name')
       .eq('auth_id', userId)
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const liveBankName = providerWallet.bankName;
 
     // 4. REPAIR & UPDATE: Overwrite whatever is in the local DB with the truth from Supply Smart
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin!
       .from('wallets')
       .update({ 
         balance: liveBalance, 

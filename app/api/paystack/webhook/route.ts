@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       const customerEmail = event.data.customer.email;
 
       // Update the general payments tracking
-      const { data: updatedPayment, error: paymentError } = await supabaseAdmin
+      const { data: updatedPayment, error: paymentError } = await supabaseAdmin!
         .from('payments')
         .update({ payment_status: 'successful', confirmed_at: new Date().toISOString() })
         .eq('reference', ref)
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         // ====================================================
         if (updatedPayment.track === 'wallet_funding') {
           
-          const { data: wallet } = await supabaseAdmin
+          const { data: wallet } = await supabaseAdmin!
             .from('wallets')
             .select('balance, account_name, account_number')
             .eq('user_id', updatedPayment.user_id)
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
           const balanceAfter = balanceBefore + fundingAmount;
 
           // Update Wallet Balance
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('wallets')
             .update({ 
               balance: balanceAfter,
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
             .eq('user_id', updatedPayment.user_id);
 
           // 🔥 Use UPSERT with provider_tx_id to prevent duplicates from webhook retries
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('wallet_transactions')
             .upsert({
               user_id: updatedPayment.user_id,
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         // 👉 SCENARIO B: STANDARD REGISTRATION
         // ====================================================
         else {
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('users')
             .update({ has_completed_onboarding: true }) 
             .eq('auth_id', updatedPayment.user_id);

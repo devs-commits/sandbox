@@ -21,13 +21,13 @@ export async function POST(req: NextRequest) {
     const baseUrl = process.env.PAYMENT_BASE_URL!;
 
     // 2. Fetch User Info for the Ledger Constraints
-    const { data: userData } = await supabaseAdmin
+    const { data: userData } = await supabaseAdmin!
       .from('users')
       .select('email')
       .eq('auth_id', userId)
       .single();
 
-    const { data: wallet } = await supabaseAdmin
+    const { data: wallet } = await supabaseAdmin!
       .from('wallets')
       .select('balance')
       .eq('user_id', userId)
@@ -80,9 +80,9 @@ export async function POST(req: NextRequest) {
       const txId = transferResult.data?.result?.transactionId || `SS-${Date.now()}`;
 
       // 5. Atomic Update: Balance + Unified Ledger Entry
-      await supabaseAdmin.from('wallets').update({ balance: balanceAfter }).eq('user_id', userId);
+      await supabaseAdmin!.from('wallets').update({ balance: balanceAfter }).eq('user_id', userId);
       
-      await supabaseAdmin.from('wallet_transactions').upsert({
+      await supabaseAdmin!.from('wallet_transactions').upsert({
         user_id: userId,
         email: userData?.email || 'N/A',
         amount: Number(amount),

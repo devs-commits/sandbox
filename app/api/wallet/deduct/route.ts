@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const { userId, amount, reference, description } = await req.json();
 
     // 1. Fetch from the 'wallets' table (NOT the 'users' table)
-    const { data: wallet, error: walletError } = await supabaseAdmin
+    const { data: wallet, error: walletError } = await supabaseAdmin!
       .from("wallets")
       .select("balance, user_id")
       .eq("user_id", userId) // Using user_id to match our GlobalWallet logic
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch User Email for the ledger requirement
-    const { data: userRecord } = await supabaseAdmin
+    const { data: userRecord } = await supabaseAdmin!
       .from('users')
       .select('email')
       .eq('auth_id', userId)
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const balanceAfter = balanceBefore - amount;
 
     // 3. Update the 'wallets' table balance
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin!
       .from("wallets")
       .update({ balance: balanceAfter, updated_at: new Date().toISOString() })
       .eq("user_id", userId);
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     // 4. Log to the Unified 'wallet_transactions' table
     const txRef = reference || `WDC-DED-${Date.now()}`;
     
-    await supabaseAdmin.from("wallet_transactions").upsert({
+    await supabaseAdmin!.from("wallet_transactions").upsert({
       user_id: userId,
       email: userRecord?.email || 'N/A',
       amount: amount,
