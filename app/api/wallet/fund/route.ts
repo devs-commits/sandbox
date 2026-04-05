@@ -3,132 +3,57 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
-  console.log("Fund Wallet API called");
   try {
-    const body = await request.json();
-    console.log("Request body:", body);
-    const { reference, amount, email } = body;
+    const { reference, amount } = await request.json();
 
-    // 1. Verify the user session
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: request.headers.get('Authorization') || '',
-          },
-        },
-      }
-    );
+    // 1. Verify User Session
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      global: { headers: { Authorization: request.headers.get('Authorization') || '' } },
+    });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-    if (authError || !user) {
-      console.error("Auth error:", authError);
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-    console.log("User authenticated:", user.id);
-
-    if (!supabaseAdmin) {
-      console.error("Supabase Admin client not initialized. Check SUPABASE_SERVICE_ROLE_KEY.");
-      return NextResponse.json({ success: false, error: "Server configuration error" }, { status: 500 });
-    }
-
-    // Check for existing transaction (Idempotency)
+    // 2. Check for existing transaction (Idempotency)
     const { data: existingTx } = await supabaseAdmin
-      .from('recruiter_transactions')
+      .from('transactions')
       .select('id')
       .eq('reference', reference)
       .single();
 
-    if (existingTx) {
-      console.log("Transaction already processed:", reference);
-      return NextResponse.json({ success: false, error: "Transaction already processed" }, { status: 409 });
-    }
+    if (existingTx) return NextResponse.json({ success: false, error: "Transaction already processed" }, { status: 409 });
 
+    // 3. Verify with Paystack
     let verifiedAmount = 0;
-
-    // 2. Verify transaction with Paystack (Server-side)
     if (process.env.PAYSTACK_SECRET_KEY) {
-      console.log("Verifying with Paystack...");
-      try {
-        const paystackResponse = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-          headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
-        });
-        
-        if (!paystackResponse.ok) {
-           const errorText = await paystackResponse.text();
-           console.error("Paystack verification failed:", errorText);
-           throw new Error("Paystack verification failed: " + errorText);
-        }
-
-        const paystackData = await paystackResponse.json();
-        console.log("Paystack verification success:", paystackData.data.status);
-        
-        if (!paystackData.status || paystackData.data.status !== 'success') {
-          throw new Error("Invalid transaction status: " + paystackData.data.status);
-        }
-        
-        // Use the amount from Paystack (in kobo) converted to Naira
-        verifiedAmount = paystackData.data.amount / 100;
-
-      } catch (err) {
-        console.error("Paystack verification error:", err);
-        return NextResponse.json({ success: false, error: "Payment verification failed" }, { status: 400 });
-      }
-    } else {
-      console.warn("PAYSTACK_SECRET_KEY not found. Skipping server-side verification. (DEV ONLY)");
-      // Fallback to body amount if no secret key (ONLY FOR DEV)
-      verifiedAmount = Number(amount);
-    }
-
-    // 3. Get Recruiter Profile
-    console.log("Fetching recruiter profile for auth_id:", user.id);
-    const { data: recruiter, error: recruiterError } = await supabaseAdmin
-      .from('recruiters')
-      .select('id, wallet_balance')
-      .eq('auth_id', user.id)
-      .single();
-
-    if (recruiterError || !recruiter) {
-      console.error("Recruiter profile not found or error:", recruiterError);
-      return NextResponse.json({ success: false, error: "Recruiter profile not found" }, { status: 404 });
-    }
-    console.log("Recruiter found:", recruiter);
-
-    // 4. Update Wallet Balance
-    const newBalance = (recruiter.wallet_balance || 0) + verifiedAmount;
-    console.log("Updating balance. Old:", recruiter.wallet_balance, "New:", newBalance);
-
-    const { error: updateError } = await supabaseAdmin
-      .from('recruiters')
-      .update({ wallet_balance: newBalance })
-      .eq('id', recruiter.id);
-
-    if (updateError) {
-      console.error("Error updating wallet balance:", updateError);
-      throw updateError;
-    }
-
-    // 5. Log Transaction
-    console.log("Logging transaction...");
-    const { error: transactionError } = await supabaseAdmin
-      .from('recruiter_transactions')
-      .insert({
-        recruiter_id: recruiter.id,
-        amount: verifiedAmount,
-        type: 'credit',
-        description: 'Wallet Funding (Paystack)',
-        reference: reference,
+      const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+        headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
       });
-
-    if (transactionError) {
-      console.error("Error logging transaction:", transactionError);
-      // We don't fail the request if logging fails, but we should alert admin
+      const paystackData = await paystackRes.json();
+      if (!paystackData.status || paystackData.data.status !== 'success') {
+        throw new Error("Invalid transaction status");
+      }
+      verifiedAmount = paystackData.data.amount / 100; // Convert Kobo to Naira
     } else {
-      console.log("Transaction logged successfully");
+      verifiedAmount = Number(amount); // Dev fallback
     }
+
+    // 4. Update Student/User Wallet
+    const { data: student } = await supabaseAdmin.from('users').select('id, wallet_balance').eq('auth_id', user.id).single();
+    if (!student) return NextResponse.json({ success: false, error: "User profile not found" }, { status: 404 });
+
+    const newBalance = (student.wallet_balance || 0) + verifiedAmount;
+    await supabaseAdmin.from('users').update({ wallet_balance: newBalance }).eq('auth_id', user.id);
+
+    // 5. Log Transaction (Ledger)
+    await supabaseAdmin.from('transactions').insert({
+      auth_id: user.id,
+      amount: verifiedAmount,
+      type: 'credit',
+      source: 'paystack',
+      description: 'Wallet Funding via Card',
+      reference: reference,
+    });
 
     return NextResponse.json({ success: true, newBalance });
 

@@ -1,40 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase"; // make sure this path is correct
+import { supabaseAdmin } from "@/lib/supabase-admin"; // Use Admin for sensitive deducts
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, amount } = body;
+    const { userId, amount, reference, description } = await req.json(); // Pass reference from frontend or generate it
 
-    // Fetch user
-    const { data: user, error } = await supabase
+    // 1. Fetch user
+    const { data: user, error } = await supabaseAdmin
       .from("users")
-      .select("wallet_balance, bank_name, account_number")
+      .select("wallet_balance")
       .eq("auth_id", userId)
       .single();
 
-    if (error || !user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    if (error || !user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if ((user.wallet_balance || 0) < amount) return NextResponse.json({ error: "Insufficient funds" }, { status: 400 });
 
-    // Check balance
-    if (user.wallet_balance < amount) {
-      return NextResponse.json({ error: "Insufficient funds" }, { status: 400 });
-    }
+    /* TODO: Call Payout API (Supply Smart) here if needed */
 
-    /*
-      Call payout API here
-    */
+    // 2. Update wallet
+    const newBalance = user.wallet_balance - amount;
+    await supabaseAdmin.from("users").update({ wallet_balance: newBalance }).eq("auth_id", userId);
 
-    // Update wallet
-    await supabase
-      .from("users")
-      .update({
-        wallet_balance: user.wallet_balance - amount,
-      })
-      .eq("auth_id", userId);
+    // 3. Log Transaction (Ledger)
+    await supabaseAdmin.from("transactions").insert({
+      auth_id: userId,
+      amount: amount,
+      type: 'debit',
+      source: 'system',
+      reference: reference || `WDC-DED-${Date.now()}`,
+      description: description || 'Wallet Deduction',
+    });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, newBalance });
 
   } catch (err) {
     console.error(err);

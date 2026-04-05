@@ -3,827 +3,243 @@ import { StudentHeader } from "@/app/components/students/StudentHeader";
 import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  Copy,
-  Link as LinkIcon,
-  ShieldCheckIcon,
+  Copy, Link as LinkIcon, ShieldCheckIcon, CheckCircle2, Eye, EyeOff, 
+  Loader2, Lock, Coins, Wallet, RotateCw, ChevronRight, UserCircle, 
+  MapPin, Briefcase, Calendar
 } from "lucide-react";
 
-import { IdentityVerifiedModal } from "../../components/students/earn/IdentityVerifiedModal";
-import { IdentityFailedModal } from "../../components/students/earn/IdentityFailedModal";
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
 import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
-import { WithdrawFailedModal } from "../../components/students/earn/WithdrawalFailedModal";
 import { SocialIcon } from "../../components/students/earn/SocialIcon";
-
+import { PinInput } from "../../components/auth/PinInput";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
+import { toast } from "sonner";
 
-const initialEarnData = {
-  totalEarnings: 0,
-  activeReferrals: 0,
-  referralLink: "Loading...",
-  userName: "User",
-  bvn: "",
+const formatCountry = (code: string) => {
+  if (!code) return "Nigeria";
+  if (code.length > 2) return code; 
+  try {
+    const uc = code.toUpperCase();
+    const flag = Array.from(uc).map(char => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
+    return `${flag} ${new Intl.DisplayNames(['en'], { type: 'region' }).of(uc)}`;
+  } catch (e) { return code.toUpperCase(); }
 };
 
 const getSocialLinks = (referralLink: string) => {
   const encodedLink = encodeURIComponent(`https://${referralLink}`);
   const shareText = encodeURIComponent("Join me on Warlord Digital Club and start earning! 💰");
-
   return [
     { name: "Copy link", icon: "link", color: "bg-cyan-500/20 text-cyan-500", url: null },
-    { name: "Instagram", icon: "instagram", color: "bg-pink-500/20 text-pink-500", url: `https://www.instagram.com/` },
+    { name: "Instagram", icon: "instagram", color: "bg-pink-500/10 text-pink-500", url: `https://www.instagram.com/` },
     { name: "Whatsapp", icon: "whatsapp", color: "bg-green-500/20 text-green-500", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
-    { name: "Status", icon: "status", color: "bg-green-500/20 text-green-500", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
-    { name: "Facebook", icon: "facebook", color: "bg-blue-600/20 text-blue-600", url: `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}` },
-    { name: "Snapchat", icon: "snapchat", color: "bg-yellow-500/20 text-yellow-500", url: `https://www.snapchat.com/` },
-    { name: "Telegram", icon: "telegram", color: "bg-blue-400/20 text-blue-400", url: `https://t.me/share/url?url=${encodedLink}&text=${shareText}` },
-    { name: "Tiktok", icon: "tiktok", color: "bg-foreground/20 text-foreground", url: `https://www.tiktok.com/` },
-    { name: "Linkedin", icon: "linkedin", color: "bg-blue-700/20 text-blue-700", url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}` },
-    { name: "Email", icon: "email", color: "bg-purple-500/20 text-purple-500", url: `mailto:?subject=${shareText}&body=${shareText}%20${encodedLink}` },
-    { name: "Thread", icon: "thread", color: "bg-foreground/20 text-foreground", url: `https://www.threads.net/` },
-    { name: "X", icon: "x", color: "bg-foreground/20 text-foreground", url: `https://twitter.com/intent/tweet?text=${shareText}&url=${encodedLink}` },
+    { name: "Status", icon: "status", color: "bg-emerald-500/10 text-emerald-500", url: `https://wa.me/?text=${shareText}%20${encodedLink}` },
+    { name: "Facebook", icon: "facebook", color: "bg-blue-600/10 text-blue-600", url: `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}` },
+    { name: "Snapchat", icon: "snapchat", color: "bg-yellow-500/10 text-yellow-500", url: `https://www.snapchat.com/` },
+    { name: "Telegram", icon: "telegram", color: "bg-blue-400/10 text-blue-400", url: `https://t.me/share/url?url=${encodedLink}&text=${shareText}` },
+    { name: "Tiktok", icon: "tiktok", color: "bg-white/10 text-white", url: `https://www.tiktok.com/` },
+    { name: "Linkedin", icon: "linkedin", color: "bg-blue-700/10 text-blue-700", url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}` },
+    { name: "Email", icon: "email", color: "bg-purple-500/10 text-purple-500", url: `mailto:?subject=${shareText}&body=${shareText}%20${encodedLink}` },
+    { name: "Thread", icon: "thread", color: "bg-slate-400/10 text-slate-400", url: `https://www.threads.net/` },
+    { name: "X", icon: "x", color: "bg-white/10 text-white", url: `https://twitter.com/intent/tweet?text=${shareText}&url=${encodedLink}` },
   ];
 };
 
-type ModalType =
-  | "none"
-  | "identityVerified"
-  | "identityFailed"
-  | "withdraw"
-  | "withdrawSuccess"
-  | "withdrawFailed"
-  | "basicInfo"
-  | "identityWarning";
-
 export default function EarnMoney() {
   const { user } = useAuth();
-  const [activeModal, setActiveModal] = useState<ModalType>("none");
+  const router = useRouter();
+  const [activeModal, setActiveModal] = useState<any>("none");
   const [isVerified, setIsVerified] = useState(false);
-  const [bvn, setBvn] = useState("");
-  const [nin, setNin] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [amount, setAmount] = useState("");
-  
-  const [fullName, setFullName] = useState("");
-  const [address, setAddress] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [occupation, setOccupation] = useState("");
-  const [nationality, setNationality] = useState("");
-  
-  const [formErrors, setFormErrors] = useState({
-    fullName: "",
-    address: "",
-    dateOfBirth: "",
-    occupation: "",
-    nationality: ""
-  });
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const searchParams = useSearchParams();
-  const [earnData, setEarnData] = useState(initialEarnData);
+  // Profile Data
+  const [profile, setProfile] = useState({ fullName: "", address: "", dob: "", occupation: "", nationality: "", bvn: "", nin: "" });
+  const [earnData, setEarnData] = useState({ earningsBalance: 0, walletTotal: 0, activeReferrals: 0, referralLink: "Loading...", userPin: "", hasPin: false });
 
-  useEffect(() => {
-    if (user) {
-      fetchEarnData();
-    }
-  }, [user]);
+  // PIN Management
+  const [pinFlow, setPinFlow] = useState<"idle" | "setup" | "update">("idle");
+  const [pinStep, setPinStep] = useState(1);
+  const [tempPin, setTempPin] = useState("");
 
-  useEffect(() => {
-    const focus = searchParams.get('focus');
+  // Withdrawal form state for Modal
+  const [wBank, setWBank] = useState("");
+  const [wAcc, setWAcc] = useState("");
+  const [wAmt, setWAmt] = useState("");
 
-    if (focus === 'verification') {
-      const section = document.getElementById('verification-section');
-      if (section) {
-        setTimeout(() => {
-          section.scrollIntoView({ behavior: 'smooth' });
-        }, 500);
-      }
-    } else if (focus === 'withdraw') {
-      setActiveModal("withdraw");
-    }
-  }, [searchParams]);
-
+  useEffect(() => { if (user) fetchEarnData(); }, [user]);
 
   const fetchEarnData = async () => {
     try {
-      // 🔥 EXACT FIX: Clean single-line string with double quotes. 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select("id, wallet_balance, referral_code, full_name, address, date_of_birth, occupation, nationality, id_verified, bvn, nin, bank_name, account_number, account_name")
-        .eq('auth_id', user?.id)
-        .single();
-
-      const { count, error: refError } = await supabase
-        .from('referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('referrer_id', userData?.id || 0);
+      const { data: userData } = await supabase.from('users').select("*").eq('auth_id', user?.id).single();
+      const { data: walletData } = await supabase.from('wallets').select("*").eq('user_id', user?.id).maybeSingle();
+      const { count } = await supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_id', userData?.id || 0);
 
       if (userData) {
-        const code = userData.referral_code || "Generate Code";
-
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-
-        const fullLink = userData.referral_code
-          ? `${origin}/signup?code=${userData.referral_code}`
-          : "Complete setup to get code";
-
         setEarnData({
-          totalEarnings: userData.wallet_balance || 0,
+          earningsBalance: userData.earnings || 0,
+          walletTotal: walletData?.balance || 0,
           activeReferrals: count || 0,
-          referralLink: fullLink,
-          userName: userData.full_name || "User",
-          bvn: ""
+          referralLink: userData.referral_code ? `${window.location.origin}/signup?code=${userData.referral_code}` : "Setup profile",
+          userPin: walletData?.transaction_pin || "",
+          hasPin: !!walletData?.transaction_pin
         });
-
-        // identity status
-        setIsVerified(userData.id_verified || false);
-
-        // BVN + NIN
-        setBvn(userData.bvn || "");
-        setNin(userData.nin || "");
-
-        // bank details
-        setBankName(userData.bank_name || "");
-        setAccountNumber(userData.account_number || "");
-
-        /*
-        PREFILL BASIC INFO FORM
-        */
-        setFullName(prev => prev || userData.full_name || "");
-        console.log("Setting full name:", userData.full_name); 
-        console.log("FULL NAME STATE:", fullName);
-        
-        setAddress(userData.address || "");
-        setDateOfBirth(userData.date_of_birth || "");
-        setOccupation(userData.occupation || "");
-        setNationality(userData.nationality || "");
-      }
-    } catch (error) {
-      console.error("Error fetching earn data:", error);
-    }
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(earnData.referralLink);
-  };
-
-  const validateBasicInfo = () => {
-    const errors = {
-      fullName: "",
-      address: "",
-      dateOfBirth: "",
-      occupation: "",
-      nationality: ""
-    };
-
-    if (!fullName.trim()) {
-      errors.fullName = "Full name is required";
-    } else if (fullName.length < 3) {
-      errors.fullName = "Full name must be at least 3 characters";
-    } else if (!/^[a-zA-Z\s]+$/.test(fullName)) {
-      errors.fullName = "Full name should only contain letters and spaces";
-    }
-
-    if (!address.trim()) {
-      errors.address = "Address is required";
-    } else if (address.length < 10) {
-      errors.address = "Please enter a complete address";
-    }
-
-    if (!dateOfBirth) {
-      errors.dateOfBirth = "Date of birth is required";
-    } else {
-      const dob = new Date(dateOfBirth);
-      const today = new Date();
-      const age = today.getFullYear() - dob.getFullYear();
-      if (age < 18) {
-        errors.dateOfBirth = "You must be at least 18 years old";
-      } else if (age > 100) {
-        errors.dateOfBirth = "Please enter a valid date of birth";
-      }
-    }
-
-    if (!occupation.trim()) {
-      errors.occupation = "Occupation is required";
-    } else if (occupation.length < 2) {
-      errors.occupation = "Please enter a valid occupation";
-    }
-
-    if (!nationality.trim()) {
-      errors.nationality = "Nationality is required";
-    } else if (nationality.length < 2) {
-      errors.nationality = "Please enter a valid nationality";
-    }
-
-    setFormErrors(errors);
-    
-    return !Object.values(errors).some(error => error !== "");
-  };
-
-  const handleBasicInfoSubmit = () => {
-    if (!validateBasicInfo()) {
-      return;
-    }
-    setActiveModal("identityWarning");
-  };
-
-  const handleProceedToIdentityVerification = () => {
-    setActiveModal("none");
-    const basicSection = document.getElementById('verification-section');
-    const bvnSection = document.getElementById('identity-verification-form');
-    
-    if (basicSection && bvnSection) {
-      basicSection.classList.add('hidden');
-      bvnSection.classList.remove('hidden');
-      bvnSection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleVerifyIdentity = async () => {
-    if (bvn && nin && bvn.length >= 10 && nin.length >= 11) {
-      try {
-        // STEP 1: Save BVN + NIN + verification
-        const { error } = await supabase
-          .from('users')
-          .update({
-            id_verified: true,
-            bvn: bvn,
-            nin: nin
-          })
-          .eq('auth_id', user?.id);
-
-        if (error) throw error;
-
-        /*
-        STEP 2: Initialize Wallet (VERY IMPORTANT)
-        */
-        const walletRes = await fetch("/api/wallet/initialize", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            userId: user?.id
-          })
+        setIsVerified(userData.id_verified === true);
+        setProfile({
+          fullName: userData.full_name || "",
+          address: userData.address || "",
+          dob: userData.date_of_birth || "Not Set",
+          occupation: userData.occupation || "Not Set",
+          nationality: formatCountry(userData.nationality || userData.country || ""),
+          bvn: userData.bvn || "",
+          nin: userData.nin || ""
         });
-
-        if (!walletRes.ok) {
-          throw new Error("Wallet initialization failed");
-        }
-
-        /*
-        STEP 3: Refresh data so bank details show immediately
-        */
-        await fetchEarnData();
-
-        setIsVerified(true);
-        setActiveModal("identityVerified");
-
-      } catch (err) {
-        console.error("Verification error:", err);
-        setActiveModal("identityFailed");
       }
-    } else {
-      setActiveModal("identityFailed");
+    } catch (err) { console.error(err); }
+  };
+
+  const handlePinAction = async (pin: string) => {
+    if (pinFlow === "setup") {
+      if (pinStep === 1) { setTempPin(pin); setPinStep(2); toast.info("Re-enter PIN to verify"); }
+      else { 
+        if (pin === tempPin) savePinToDB(pin); 
+        else { toast.error("Mismatch. Try again."); setPinStep(1); setTempPin(""); } 
+      }
+    } else if (pinFlow === "update") {
+      if (pinStep === 1) {
+        if (pin === earnData.userPin) { setPinStep(2); toast.success("Identity verified. Set New PIN."); }
+        else toast.error("Incorrect current PIN.");
+      } else if (pinStep === 2) {
+        setTempPin(pin); setPinStep(3); toast.info("Re-enter New PIN to verify");
+      } else {
+        if (pin === tempPin) savePinToDB(pin);
+        else { toast.error("Mismatch. Try again."); setPinStep(2); setTempPin(""); }
+      }
     }
   };
 
-  const handleWithdrawClick = () => {
-    if (isVerified) {
-      setActiveModal("withdraw");
-    } else {
-      setActiveModal("identityFailed");
+  const savePinToDB = async (finalPin: string) => {
+    const { error } = await supabase.from('wallets').update({ transaction_pin: finalPin }).eq('user_id', user?.id);
+    if (!error) {
+      toast.success("Security PIN updated!");
+      setPinFlow("idle"); fetchEarnData();
     }
-  };
-
-  const handleWithdraw = async () => {
-    const withdrawAmount = parseInt(amount);
-
-    if (
-      bankName &&
-      accountNumber &&
-      withdrawAmount &&
-      withdrawAmount > 0
-    ) {
-      if (withdrawAmount > earnData.totalEarnings) {
-        console.error("Insufficient funds");
-        setActiveModal("withdrawFailed");
-        return;
-      }
-
-      try {
-        await supabase
-          .from('users')
-          .update({
-            bank_name: bankName,
-            account_number: accountNumber,
-            account_name: earnData.userName
-          })
-          .eq('auth_id', user?.id);
-
-        setActiveModal("withdrawSuccess");
-      } catch (err) {
-        console.error("Withdraw error:", err);
-        setActiveModal("withdrawFailed");
-      }
-    } else {
-      setActiveModal("withdrawFailed");
-    }
-  };
-
-  const closeModal = () => {
-    setActiveModal("none");
   };
 
   return (
     <>
-      <StudentHeader
-        title="Earn Money"
-        subtitle="Digital Marketing Intern"
-      />
-      <main className="flex-1 p-4 lg:p-6">
-        <div className="max-w-5xl space-y-6">
-          <div className="bg-[linear-gradient(135deg,hsla(176,50%,12%,1)_0%,hsla(204,48%,12%,1)_45%,hsla(176,50%,14%,1)_100%)] rounded-xl p-6 border border-primary/30 relative overflow-hidden">
-            <div className="relative z-10">
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Turn Your Network into Net Worth
-              </h2>
-              <p className="text-muted-foreground">
-                Earn N2,000 instantly (once your friend pays the first month subscription)
-                <br />
-                + 10% recurring commission every payment he makes. Cash out anytime.
-              </p>
-            </div>
-            <div className="absolute right-0 top-0 w-1/3 h-full bg-green-500/10 skew-x-12 transform translate-x-10"></div>
-          </div>
-
-          {/* Top Row - Earnings and Referrals */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[linear-gradient(135deg,hsla(261,56%,20%,1)_0%,hsla(256,49%,18%,1)_100%)] rounded-xl p-6 border border-border">
-              <p className="text-[hsla(145,100%,39%,1)] text-sm font-medium uppercase tracking-wider mb-2">
-                TOTAL EARNINGS
-              </p>
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-foreground">
-                  ₦{earnData.totalEarnings.toLocaleString()}
-                </h2>
-                <Button
-                  onClick={handleWithdrawClick}
-                  className="bg-[hsla(145,100%,39%,1)] hover:bg-[hsla(145,100%,39%,1)]/90 text-primary-foreground px-6 text-foreground"
-                >
-                  Withdraw
-                </Button>
-              </div>
-            </div>
-
-            {/* Active Referrals Card */}
-            <div className="bg-[linear-gradient(135deg,hsla(198,82%,33%,1)_0%,hsla(206,61%,15%,1)_100%)] rounded-xl p-6 border border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider mb-1">
-                    ACTIVE REFERRALS
-                  </p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {earnData.activeReferrals} <span className="text-lg font-normal">Interns</span>
-                  </p>
-                </div>
-                <div className="w-[100px] h-[100px] bg-purple/20 rounded-lg flex items-center justify-center">
-                  <Image src="/proicons_gift.png" alt="Gift" width={60} height={40} className="w-28 h-28 text-foreground" />
-                </div>
-              </div>
+      <StudentHeader title="Financial Hub" subtitle="Manage your network and security." />
+      <main className="flex-1 p-4 lg:p-8 space-y-8 max-w-7xl mx-auto">
+        
+        {/* STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-[#1e1b4b] to-[#0f172a] rounded-[2rem] p-8 border border-indigo-500/20 shadow-2xl relative overflow-hidden group">
+            <div className="relative z-10 space-y-4">
+               <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em]">Referral Earnings</p>
+               <h2 className="text-5xl font-bold text-white tracking-tighter">₦{earnData.earningsBalance.toLocaleString()}</h2>
+               <Button onClick={() => setActiveModal("withdraw")} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] h-12 rounded-2xl tracking-widest shadow-xl">
+                 CASH OUT EARNINGS <ChevronRight size={14} />
+               </Button>
             </div>
           </div>
 
-          {/* Bottom Row - Verification and Referral Link */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div id="verification-section" className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border relative overflow-hidden">
-              <div className="flex items-center justify-between mb-6 relative z-10">
-                <div className="flex items-center gap-3">
-                  <ShieldCheckIcon className="w-5 h-5 text-primary" />
-                  <h3 className="font-bold text-foreground">Complete Verification</h3>
-                </div>
-                <div className="p-1 rounded-md justify-between flex ">
-                  <Image
-                    src="/cbn-logo.png"
-                    alt="CBN Logo"
-                    width={40}
-                    height={40}
-                    className="object-contain w-14 h-14"
-                  />
-                  <Image
-                    src="/ndpb.png"
-                    alt="NDPB Logo"
-                    width={40}
-                    height={40}
-                    className="object-contain w-14 h-14"
-                  />
-                </div>
-              </div>
+          <div className="bg-gradient-to-br from-[#064e3b] to-[#0f172a] rounded-[2rem] p-8 border border-emerald-500/20 shadow-2xl relative overflow-hidden group">
+            <div className="relative z-10 space-y-4">
+               <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">Total Wallet Balance</p>
+               <h2 className="text-5xl font-bold text-white tracking-tighter">₦{earnData.walletTotal.toLocaleString()}</h2>
+               <Button variant="outline" onClick={() => router.push("/student/wallet")} className="w-full border-emerald-500/20 bg-emerald-500/5 text-emerald-400 font-black text-[10px] h-12 rounded-2xl tracking-widest hover:bg-emerald-500/10">
+                  GO TO WALLET <ChevronRight size={14} />
+               </Button>
+            </div>
+          </div>
+
+          <div className="bg-[#0f172a] rounded-[2rem] p-8 border border-white/5 flex items-center justify-between shadow-2xl">
+            <div className="space-y-1">
+               <p className="text-white/30 text-[10px] font-black uppercase tracking-[0.2em]">Active Referrals</p>
+               <h2 className="text-5xl font-bold text-white tracking-tighter">{earnData.activeReferrals}</h2>
+               <p className="text-xs text-white/20 font-medium italic">Interns</p>
+            </div>
+            <div className="w-20 h-20 bg-white/5 rounded-[1.5rem] flex items-center justify-center">
+               <Image src="/proicons_gift.png" alt="Gift" width={44} height={44} className="opacity-40" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* SECURITY HUB */}
+          <div className="bg-[#0f172a] rounded-[2.5rem] p-8 lg:p-10 border border-white/5 shadow-2xl space-y-10">
+              <h3 className="text-xl font-bold text-white flex items-center gap-4"><ShieldCheckIcon className="text-emerald-500" /> Security Hub</h3>
               
-              <div className="bg-blue-50/10 border border-blue-200/30 rounded-lg p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <ShieldCheckIcon className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-sm font-semibold text-blue-100 mb-2">Your Privacy & Security</h4>
-                    <p className="text-xs text-blue-200 leading-relaxed">
-                      WDC Labs collects your data primarily to provide and improve your banking experience. 
-                      We do not sell your personal data to third parties. Your information is encrypted 
-                      and protected according to industry standards.
+              <div className="p-6 bg-white/[0.02] rounded-2xl border border-white/[0.05] space-y-6">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-bold text-white">Withdrawal PIN</p>
+                  <Button variant="ghost" onClick={() => { setPinFlow(earnData.hasPin ? "update" : "setup"); setPinStep(1); }} className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">
+                    {earnData.hasPin ? "Update PIN" : "Setup PIN"}
+                  </Button>
+                </div>
+                {pinFlow !== "idle" ? (
+                  <div className="space-y-6 py-4 animate-in fade-in zoom-in-95">
+                    <p className="text-[10px] text-white/40 uppercase font-black text-center tracking-[0.2em]">
+                      {pinFlow === "update" && pinStep === 1 ? "Enter Current PIN" : "Verify PIN"}
                     </p>
+                    <PinInput key={pinStep} onComplete={handlePinAction} />
+                    <Button variant="ghost" onClick={() => setPinFlow("idle")} className="w-full text-[9px] text-white/20 font-bold uppercase tracking-widest h-6">Cancel</Button>
                   </div>
-                </div>
+                ) : (
+                  <p className="text-xs text-white/20 leading-relaxed italic">A 4-digit security PIN is required for all cash outs. Do not share your PIN.</p>
+                )}
               </div>
 
-              {/* Basic Information Form */}
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                    FULL NAME
-                  </label>
-                  <Input
-                    type="text"
-                    disabled={isVerified}
-                    placeholder="Enter your full legal name"
-                    value={fullName ?? ""}
-                    onChange={(e) => {
-                      setFullName(e.target.value);
-                      if (formErrors.fullName) {
-                        setFormErrors(prev => ({ ...prev, fullName: "" }));
-                      }
-                    }}
-                    className={`bg-background border-border h-10 ${
-                      formErrors.fullName ? "border-red-500 focus:border-red-500" : ""
-                    }`}
-                  />
-                  {formErrors.fullName && (
-                    <p className="text-xs text-red-500 mt-1">{formErrors.fullName}</p>
-                  )}
+              {/* KYC DATA DISPLAY */}
+              <div className="space-y-8 pt-4">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><UserCircle size={10} /> Name</label><p className="text-sm text-white/70 font-semibold">{profile.fullName}</p></div>
+                  <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><MapPin size={10} /> Nationality</label><p className="text-sm text-white/70 font-semibold">{profile.nationality}</p></div>
                 </div>
-                
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                    RESIDENTIAL ADDRESS
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Enter your current address"
-                    value={address ?? ""}
-                    onChange={(e) => {
-                      setAddress(e.target.value);
-                      if (formErrors.address) {
-                        setFormErrors(prev => ({ ...prev, address: "" }));
-                      }
-                    }}
-                    className={`bg-background border-border h-10 ${
-                      formErrors.address ? "border-red-500 focus:border-red-500" : ""
-                    }`}
-                  />
-                  {formErrors.address && (
-                    <p className="text-xs text-red-500 mt-1">{formErrors.address}</p>
-                  )}
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><Calendar size={10} /> DOB</label><p className="text-sm text-white/70 font-semibold">{profile.dob}</p></div>
+                  <div className="space-y-1.5"><label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><Briefcase size={10} /> Occupation</label><p className="text-sm text-white/70 font-semibold truncate">{profile.occupation}</p></div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                      DATE OF BIRTH
-                    </label>
-                    <Input
-                      type="date"
-                      value={dateOfBirth ?? ""}
-                      onChange={(e) => {
-                        setDateOfBirth(e.target.value);
-                        if (formErrors.dateOfBirth) {
-                          setFormErrors(prev => ({ ...prev, dateOfBirth: "" }));
-                        }
-                      }}
-                      className={`bg-background border-border h-10 ${
-                        formErrors.dateOfBirth ? "border-red-500 focus:border-red-500" : ""
-                      }`}
-                    />
-                    {formErrors.dateOfBirth && (
-                      <p className="text-xs text-red-500 mt-1">{formErrors.dateOfBirth}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                      OCCUPATION
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="Your occupation"
-                      value={occupation ?? ""}
-                      onChange={(e) => {
-                        setOccupation(e.target.value);
-                        if (formErrors.occupation) {
-                          setFormErrors(prev => ({ ...prev, occupation: "" }));
-                        }
-                      }}
-                      className={`bg-background border-border h-10 ${
-                        formErrors.occupation ? "border-red-500 focus:border-red-500" : ""
-                      }`}
-                    />
-                    {formErrors.occupation && (
-                      <p className="text-xs text-red-500 mt-1">{formErrors.occupation}</p>
-                    )}
-                  </div>
+                <div className="space-y-3">
+                    <label className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-1.5"><MapPin size={10} /> Home Address</label>
+                    <Input value={profile.address} readOnly className="bg-white/5 border-white/5 h-12 rounded-xl text-white text-sm opacity-50 cursor-not-allowed" />
                 </div>
-                
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                    NATIONALITY
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="e.g., Nigerian"
-                    value={nationality ?? ""}
-                    onChange={(e) => {
-                      setNationality(e.target.value);
-                      if (formErrors.nationality) {
-                        setFormErrors(prev => ({ ...prev, nationality: "" }));
-                      }
-                    }}
-                    className={`bg-background border-border h-10 ${
-                      formErrors.nationality ? "border-red-500 focus:border-red-500" : ""
-                    }`}
-                  />
-                  {formErrors.nationality && (
-                    <p className="text-xs text-red-500 mt-1">{formErrors.nationality}</p>
-                  )}
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
+                  <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">BVN (Encrypted)</label><p className="font-mono text-sm text-white/40">{"********" + profile.bvn.slice(-4)}</p></div>
+                  <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">NIN (Encrypted)</label><p className="font-mono text-sm text-white/40">{"********" + profile.nin.slice(-4)}</p></div>
                 </div>
               </div>
+          </div>
 
-              {/* Identity Verification */}
-              <div className="mt-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheckIcon className="w-4 h-4 text-primary" />
-                  <p className="text-sm font-semibold text-foreground">
-                    Identity Verification
-                  </p>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Required by CBN to enable wallet withdrawals.
-                </p>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                      BANK VERIFICATION NUMBER (BVN)
-                    </label>
-
-                    <Input
-                      type="text"
-                      disabled={isVerified}
-                      placeholder="Enter your 11 digit BVN"
-                      value={bvn ?? ""}
-                      onChange={(e) => setBvn(e.target.value)}
-                      className="bg-background border-border h-10"
-                      maxLength={11}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                      NATIONAL IDENTIFICATION NUMBER (NIN)
-                    </label>
-
-                    <Input
-                      type="text"
-                      placeholder="Enter your 11 digit NIN"
-                      value={nin ?? ""}
-                      onChange={(e) => setNin(e.target.value)}
-                      className="bg-background border-border h-10"
-                      maxLength={11}
-                    />
-                  </div>
-                </div>
-
-                {/* NDPR Security Notice */}
-                <div className="flex items-start gap-2 bg-blue-50/10 border border-blue-200/30 rounded-lg p-3">
-                  <ShieldCheckIcon className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-blue-200 leading-relaxed">
-                    Your BVN and NIN are encrypted and protected under the 
-                    <span className="font-semibold"> Nigeria Data Protection Regulation (NDPR)</span>. 
-                    This information is used strictly for identity verification and is never shared with third parties.
-                  </p>
-                </div>
-
-                {/* Verification Button */}
-                <Button
-                  onClick={handleVerifyIdentity}
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white mt-2"
-                >
-                  Complete Verification
-                </Button>
+          {/* SOCIAL NETWORK */}
+          <div className="bg-[#0f172a] rounded-[2.5rem] p-8 lg:p-10 border border-white/5 shadow-2xl h-full flex flex-col">
+              <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20"><LinkIcon className="text-indigo-400" size={24} /></div>
+                  <h3 className="text-xl font-bold text-white tracking-tight">Referral Network</h3>
               </div>
-            </div>
-
-            <div id="identity-verification-form" className="hidden bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
-              <div className="flex items-center justify-between mb-6 relative z-10">
-                <div className="flex items-center gap-3">
-                  <ShieldCheckIcon className="w-5 h-5 text-primary" />
-                  <h3 className="font-bold text-foreground">Complete Verification</h3>
-                </div>
-                <div className="p-1 rounded-md justify-between flex ">
-                  <Image
-                    src="/cbn-logo.png"
-                    alt="CBN Logo"
-                    width={40}
-                    height={40}
-                    className="object-contain w-14 h-14"
-                  />
-                  <Image
-                    src="/ndpb.png"
-                    alt="NDPB Logo"
-                    width={40}
-                    height={40}
-                    className="object-contain w-14 h-14"
-                  />
-                </div>
+              <div className="p-5 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl mb-10 group hover:border-indigo-400/50 transition-all flex items-center justify-between">
+                  <p className="font-mono text-indigo-400 text-xs truncate mr-4 select-all">{earnData.referralLink}</p>
+                  <button onClick={() => { navigator.clipboard.writeText(earnData.referralLink); toast.success("Link Copied"); }} className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl transition-all"><Copy size={18} /></button>
               </div>
-              
-              <p className="text-sm text-muted-foreground mb-6">
-                To enable withdrawals, we are required by CBN to verify your identity with your BVN and NIN.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                    BANK VERIFICATION NUMBER (BVN)
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="222 *********"
-                    value={bvn ?? ""}
-                    onChange={(e) => setBvn(e.target.value)}
-                    className="bg-background border-border h-10"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-2">
-                    NATIONAL IDENTIFICATION NUMBER (NIN)
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="11 Digits"
-                    value={nin ?? ""}
-                    onChange={(e) => setNin(e.target.value)}
-                    className="bg-background border-border h-10"
-                  />
-                </div>
+              <div className="space-y-6 flex-1">
+                 <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Share Link To:</p>
+                 <div className="grid grid-cols-4 gap-4">
+                    {getSocialLinks(earnData.referralLink).map((link, i) => (
+                      <button key={i} onClick={() => link.url ? window.open(link.url, '_blank') : null} className="flex flex-col items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all group">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${link.color} group-hover:scale-110 transition-transform shadow-inner`}><SocialIcon name={link.icon} /></div>
+                        <span className="text-[8px] font-black text-white/20 uppercase tracking-tighter text-center group-hover:text-white transition-colors">{link.name}</span>
+                      </button>
+                    ))}
+                 </div>
               </div>
-
-              <Button
-                onClick={handleVerifyIdentity}
-                className="w-full h-11 mt-6 bg-primary hover:bg-primary/90 text-white"
-              >
-                Complete Verification
-              </Button>
-            </div>
-
-            {/* Your Warlord Link Card */}
-            <div className="bg-[hsla(216,36%,18%,1)] rounded-xl p-6 border border-border">
-              <div className="flex items-center gap-2 mb-4">
-                <LinkIcon className="w-5 h-5 text-purple-500" />
-                <h3 className="font-semibold text-foreground">Your Warlord Link</h3>
-              </div>
-
-              <div className="flex items-center gap-2 bg-background rounded-lg p-3 mb-6">
-                <p className="flex-1 text-primary">{earnData.referralLink}</p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={copyToClipboard}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <Copy className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
-                SHARE LINK TO:
-              </p>
-
-              <div className="grid grid-cols-4 gap-1">
-                {getSocialLinks(earnData.referralLink).map((link, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      if (link.name === "Copy link") {
-                        copyToClipboard();
-                      } else if (link.url) {
-                        window.open(link.url, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                    className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-secondary transition-colors"
-                  >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${link.color}`}>
-                      <SocialIcon name={link.icon} />
-                    </div>
-                    <span className="text-xs text-muted-foreground">{link.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </main>
 
-      {/* Identity Warning Modal */}
-      {activeModal === "identityWarning" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-xl p-6 max-w-md w-full border border-border">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <ShieldCheckIcon className="w-5 h-5 text-yellow-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Confirm Your Information</h3>
-            </div>
-            
-            <div className="space-y-3 mb-6">
-              <p className="text-sm text-muted-foreground">
-                Please ensure all information provided is accurate and correct. 
-                Incorrect information may lead to verification delays or failure.
-              </p>
-              
-              <div className="bg-yellow-50/10 border border-yellow-200/30 rounded-lg p-3">
-                <p className="text-xs text-yellow-200">
-                  <strong>Important:</strong> Make sure your full name, address, date of birth, 
-                  occupation, and nationality match your official documents.
-                </p>
-              </div>
-              
-              <div className="text-xs text-muted-foreground">
-                <p><strong>Information you provided:</strong></p>
-                <ul className="mt-2 space-y-1">
-                  <li>• Full Name: {fullName || "Not provided"}</li>
-                  <li>• Address: {address || "Not provided"}</li>
-                  <li>• Date of Birth: {dateOfBirth || "Not provided"}</li>
-                  <li>• Occupation: {occupation || "Not provided"}</li>
-                  <li>• Nationality: {nationality || "Not provided"}</li>
-                </ul>
-              </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={closeModal}
-                className="flex-1"
-              >
-                Review Information
-              </Button>
-              <Button
-                onClick={handleProceedToIdentityVerification}
-                className="flex-1 bg-primary hover:bg-primary/90 text-white"
-              >
-                Confirm & Proceed
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <IdentityVerifiedModal
-        open={activeModal === "identityVerified"}
-        onClose={closeModal}
-      />
-
-      <IdentityFailedModal
-        open={activeModal === "identityFailed"}
-        onClose={closeModal}
-      />
-
-      <WithdrawModal
-        open={activeModal === "withdraw"}
-        onClose={closeModal}
-        totalEarnings={earnData.totalEarnings}
-        userName={earnData.userName}
-        bankName={bankName}
-        setBankName={setBankName}
-        accountNumber={accountNumber}
-        setAccountNumber={setAccountNumber}
-        amount={amount}
-        setAmount={setAmount}
-        onWithdraw={handleWithdraw}
-      />
-
-      <WithdrawSuccessModal
-        open={activeModal === "withdrawSuccess"}
-        onClose={closeModal}
-        amount={amount}
-      />
-
-      <WithdrawFailedModal
-        open={activeModal === "withdrawFailed"}
-        onClose={closeModal}
-      />
+      <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={earnData.walletTotal} userName={profile.fullName} userPin={earnData.userPin} userId={user?.id} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={() => { fetchEarnData(); setActiveModal("success"); }} />
+      <WithdrawSuccessModal open={activeModal === "success"} onClose={() => setActiveModal("none")} amount={wAmt} />
     </>
   );
 }
