@@ -12,7 +12,6 @@ export async function POST(req: NextRequest) {
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "User ID required" }, { status: 400 });
 
-    // 1. Fetch User Profile
     const { data: userProfile } = await supabaseAdmin
       .from('users')
       .select('full_name, email')
@@ -21,96 +20,113 @@ export async function POST(req: NextRequest) {
 
     if (!userProfile) return NextResponse.json({ error: "User profile not found" }, { status: 404 });
 
-    // 2. Get Global Balance AND the Provider Snapshot
+    // 1. Get Global Balance AND Both Snapshots
     const { data: wallet } = await supabaseAdmin
       .from('wallets')
-      .select('balance, last_ss_balance')
+      .select('balance, last_ss_balance, last_paystack_balance')
       .eq('user_id', userId)
       .single();
 
-    const currentGlobalBalance = Number(wallet?.balance || 0);
+    let currentGlobalBalance = Number(wallet?.balance || 0);
     const lastKnownSSBalance = Number(wallet?.last_ss_balance || 0);
+    const lastKnownPaystackBalance = Number(wallet?.last_paystack_balance || 0);
 
-    // 3. Fetch live data from Supply Smart
-    const res = await fetch(`${process.env.PAYMENT_BASE_URL}/partners/virtual/accounts`, {
+    // ==========================================
+    // 🔍 FETCH 1: SUPPLY SMART
+    // ==========================================
+    const ssRes = await fetch(`${process.env.PAYMENT_BASE_URL}/partners/virtual/accounts`, {
       method: "GET",
-      headers: { 
-        "x-api-key": process.env.PAYMENT_API_KEY!, 
-        "merchant-id": process.env.PAYMENT_MERCHANT_ID! 
-      }
+      headers: { "x-api-key": process.env.PAYMENT_API_KEY!, "merchant-id": process.env.PAYMENT_MERCHANT_ID! }
     });
-
-    const responseData = await res.json();
-    const walletsList = responseData?.data?.result || [];
+    const ssData = await ssRes.json();
+    const walletsList = ssData?.data?.result || [];
     const providerWallet = walletsList.find((w: any) => 
       w.accountName.toUpperCase().includes(userProfile.full_name.toUpperCase())
     );
 
-    if (!providerWallet) return NextResponse.json({ error: "Virtual account not found" }, { status: 404 });
+    const liveSSBalance = Number(providerWallet?.balance || 0);
+    const liveAccountNumber = providerWallet?.accountNumber || null;
+    const liveBankName = providerWallet?.bankName || null;
 
-    const liveSSBalance = Number(providerWallet.balance || 0);
-    const liveAccountNumber = providerWallet.accountNumber;
-    const liveBankName = providerWallet.bankName;
-
-    /**
-     * 🔥 PRODUCTION MATH LOGIC (The Snapshot Method)
-     * We calculate the deposit based ONLY on the movement within the Supply Smart account.
-     * New Deposit = $LiveSSBalance - LastKnownSSBalance$
-     */
-    const newDeposit = liveSSBalance - lastKnownSSBalance;
-
-    // 4. Update Strategy
-    const updates: any = { 
-      account_number: liveAccountNumber, 
-      bank_name: liveBankName, 
-      updated_at: new Date().toISOString() 
-    };
-
-    if (newDeposit > 0) {
-      const newGlobalBalance = currentGlobalBalance + newDeposit;
-      const txRef = `SS-VIRT-${Date.now()}`;
-
-      // Update the Global Balance AND the Snapshot
-      updates.balance = newGlobalBalance;
-      updates.last_ss_balance = liveSSBalance;
-
-      await supabaseAdmin.from('wallets').update(updates).eq('user_id', userId);
-
-      // 5. Log to Unified Ledger
-      await supabaseAdmin.from('wallet_transactions').insert({
-        user_id: userId,
-        email: userProfile.email || 'N/A',
-        amount: newDeposit,
-        transaction_type: 'INFLOW',
-        funding_method: 'BANK_TRANSFER',
-        balance_before: currentGlobalBalance,
-        balance_after: newGlobalBalance,
-        status: 'SUCCESS',
-        reference: txRef,
-        provider_tx_id: txRef,
-        source: 'SUPPLY_SMART',
-        created_at: new Date().toISOString()
-      });
-
-      // 6. Trigger ZeptoMail Alert (Awaited for Vercel stability)
-      if (userProfile.email) {
-        const firstName = userProfile.full_name.split(' ')[0] || "Intern";
-        await sendDepositEmail(userProfile.email, firstName, newDeposit, newGlobalBalance, txRef);
-      }
-      
-      console.log(`💰 Snapshot Sync: Detected ₦${newDeposit} deposit. Global Balance is now ₦${newGlobalBalance}`);
-
-      return NextResponse.json({ 
-        success: true, 
-        balance: newGlobalBalance,
-        accountNumber: liveAccountNumber,
-        bankName: liveBankName
-      });
+    // ==========================================
+    // 🔍 FETCH 2: PAYSTACK
+    // ==========================================
+    const paystackRes = await fetch(`https://api.paystack.co/transaction?email=${userProfile.email}&status=success`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
+    });
+    const paystackData = await paystackRes.json();
+    
+    // Sum up all successful Paystack transactions (convert kobo to naira)
+    let livePaystackTotal = 0;
+    if (paystackData.status && paystackData.data) {
+      livePaystackTotal = paystackData.data.reduce((sum: number, tx: any) => sum + (tx.amount / 100), 0);
     }
 
-    // If no new money, just ensure bank details are synced
+    // ==========================================
+    // 🧮 RECONCILIATION MATH
+    // ==========================================
+    const newSSDeposit = liveSSBalance - lastKnownSSBalance;
+    const newPaystackDeposit = livePaystackTotal - lastKnownPaystackBalance;
+
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (liveAccountNumber && liveBankName) {
+        updates.account_number = liveAccountNumber;
+        updates.bank_name = liveBankName;
+    }
+
+    let fundsAdded = false;
+
+    // --- Process Missing Supply Smart Funds ---
+    if (newSSDeposit > 0) {
+      currentGlobalBalance += newSSDeposit;
+      updates.balance = currentGlobalBalance;
+      updates.last_ss_balance = liveSSBalance;
+      
+      const txRef = `SS-VIRT-${Date.now()}`;
+      await supabaseAdmin.from('wallet_transactions').insert({
+        user_id: userId, email: userProfile.email || 'N/A', amount: newSSDeposit,
+        transaction_type: 'INFLOW', funding_method: 'BANK_TRANSFER',
+        balance_before: currentGlobalBalance - newSSDeposit, balance_after: currentGlobalBalance,
+        status: 'SUCCESS', reference: txRef, provider_tx_id: txRef, source: 'SUPPLY_SMART', created_at: new Date().toISOString()
+      });
+
+      if (userProfile.email) {
+        await sendDepositEmail(userProfile.email, userProfile.full_name.split(' ')[0] || "Intern", newSSDeposit, currentGlobalBalance, txRef);
+      }
+      fundsAdded = true;
+    }
+
+    // --- Process Missing Paystack Funds ---
+    if (newPaystackDeposit > 0) {
+      currentGlobalBalance += newPaystackDeposit;
+      updates.balance = currentGlobalBalance;
+      updates.last_paystack_balance = livePaystackTotal;
+
+      const txRef = `PS-RECOV-${Date.now()}`;
+      await supabaseAdmin.from('wallet_transactions').insert({
+        user_id: userId, email: userProfile.email || 'N/A', amount: newPaystackDeposit,
+        transaction_type: 'INFLOW', funding_method: 'PAYSTACK_CARD',
+        balance_before: currentGlobalBalance - newPaystackDeposit, balance_after: currentGlobalBalance,
+        status: 'SUCCESS', reference: txRef, provider_tx_id: txRef, source: 'PAYSTACK', created_at: new Date().toISOString()
+      });
+
+      if (userProfile.email) {
+        await sendDepositEmail(userProfile.email, userProfile.full_name.split(' ')[0] || "Intern", newPaystackDeposit, currentGlobalBalance, txRef);
+      }
+      fundsAdded = true;
+    }
+
+    // ==========================================
+    // 💾 SAVE TO DATABASE
+    // ==========================================
     await supabaseAdmin.from('wallets').update(updates).eq('user_id', userId);
-    console.log(`✅ Snapshot Sync: No new funds. Bank details verified.`);
+
+    if (fundsAdded) {
+      console.log(`💰 Dual Sync: Recovered SS: ₦${newSSDeposit > 0 ? newSSDeposit : 0} | Recovered PS: ₦${newPaystackDeposit > 0 ? newPaystackDeposit : 0}. New Global: ₦${currentGlobalBalance}`);
+    } else {
+      console.log(`✅ Dual Sync: Ledgers are perfectly balanced. No missing funds.`);
+    }
 
     return NextResponse.json({ 
       success: true, 

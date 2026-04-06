@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // 🔥 Added Link for the button
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { 
   ShieldCheckIcon, Eye, EyeOff, ArrowDownLeft, ArrowUpRight, 
   Loader2, Copy, RotateCw, Lock, CheckCircle2, ExternalLink,
-  ArrowUpCircle, ArrowDownCircle, Clock
+  ArrowUpCircle, ArrowDownCircle, Clock, Landmark // 🔥 Added Landmark icon
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner"; 
@@ -33,6 +34,9 @@ const getBankName = (codeOrName: string) => {
 export default function GlobalWallet() {
   const { user } = useAuth();
   
+  // 🔥 Added isLoadingWallet to prevent UI flashing
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
+  
   const [walletData, setWalletData] = useState({
     balance: 0, bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
   });
@@ -52,7 +56,6 @@ export default function GlobalWallet() {
   const [fundAmount, setFundAmount] = useState("");
   const [isInitializingPayment, setIsInitializingPayment] = useState(false);
 
-  // 🔥 UPDATED: History Fetching now includes userId for DB sync
   const fetchTransactionHistory = useCallback(async (accNum: string) => {
     if (!accNum || accNum === "****") return;
     setIsLoadingHistory(true);
@@ -85,8 +88,10 @@ export default function GlobalWallet() {
         userPin: wallet.transaction_pin || ""
       };
       setWalletData(formattedData);
+      setIsLoadingWallet(false); // 🔥 Stop loading when data arrives
       return wallet;
     }
+    setIsLoadingWallet(false); // 🔥 Stop loading even if no wallet
     return null;
   }, [user?.id]);
 
@@ -137,41 +142,39 @@ export default function GlobalWallet() {
           amount: amountNum * 100,
           reference: data.data.reference,
           onSuccess: async (response: any) => {
-  const toastId = toast.loading("Confirming your deposit..."); // Capture toast ID
-  
-  try {
-    const verifyRes = await fetch("/api/paystack/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reference: response.reference, userId: user?.id })
-    });
+            const toastId = toast.loading("Confirming your deposit..."); 
+            
+            try {
+              const verifyRes = await fetch("/api/paystack/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reference: response.reference, userId: user?.id })
+              });
 
-    const verifyData = await verifyRes.json();
-    
-    toast.dismiss(toastId); // 🔥 Always dismiss the loading toast
+              const verifyData = await verifyRes.json();
+              
+              toast.dismiss(toastId); 
 
-    if (verifyData.success) {
-      toast.success(`Successfully funded ₦${amountNum}`);
-      // Refresh everything
-      fetchWalletData();
-      if (walletData.accountNumber !== "****") {
-          fetchTransactionHistory(walletData.accountNumber);
-      }
-    } else {
-      toast.error(verifyData.message || "Verification failed but money may have been added. Please refresh.");
-    }
-  } catch (err) {
-    toast.dismiss(toastId);
-    toast.error("Connection lost. Please refresh to see your balance.");
-  }
-},
+              if (verifyData.success) {
+                toast.success(`Successfully funded ₦${amountNum}`);
+                fetchWalletData();
+                if (walletData.accountNumber !== "****") {
+                    fetchTransactionHistory(walletData.accountNumber);
+                }
+              } else {
+                toast.error(verifyData.message || "Verification failed but money may have been added. Please refresh.");
+              }
+            } catch (err) {
+              toast.dismiss(toastId);
+              toast.error("Connection lost. Please refresh to see your balance.");
+            }
+          },
           onCancel: () => { toast.info("Payment cancelled."); setIsInitializingPayment(false); }
         });
       }
     } catch (err) { toast.error("Gateway error."); } finally { setIsInitializingPayment(false); }
   };
 
-  // 🔥 Properly defined function to prevent Runtime ReferenceError
   const onWithdrawSuccess = () => {
     fetchWalletData().then(wallet => {
         if (wallet?.account_number) fetchTransactionHistory(wallet.account_number);
@@ -189,103 +192,137 @@ export default function GlobalWallet() {
       <StudentHeader title="Global Payroll" subtitle="Settlement and Transaction History" />
       
       <main className="flex-1 p-4 lg:p-8 space-y-10 max-w-6xl mx-auto">
-        <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
-          <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
-              <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-                  <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">Live Portfolio</div>
-                        {isSyncing && <Loader2 size={14} className="animate-spin text-emerald-500/50" />}
-                      </div>
-                      <p className="text-white/40 text-sm font-medium">Available Balance</p>
-                      <div className="flex items-center gap-6">
-                          <h2 className="text-6xl font-bold text-white tracking-tighter">
-                              {showSensitive ? `₦${walletData.balance.toLocaleString()}` : "₦****"}
-                          </h2>
+        
+        {/* 🔥 THE WRAPPER LOGIC STARTS HERE */}
+        {isLoadingWallet ? (
+          
+          <div className="flex flex-col items-center justify-center py-40">
+             <Loader2 className="w-10 h-10 animate-spin text-emerald-500/50 mb-4" />
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Loading Secure Environment...</p>
+          </div>
+
+        ) : walletData.walletReady ? (
+          
+          /* --- THE ACTUAL DASHBOARD (IF THEY HAVE A WALLET) --- */
+          <>
+            <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
+              <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
+                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                      <div className="space-y-4">
                           <div className="flex items-center gap-2">
-                              <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-                              <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5"><RotateCw size={20} className={isSyncing ? "animate-spin" : ""} /></button>
+                            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">Live Portfolio</div>
+                            {isSyncing && <Loader2 size={14} className="animate-spin text-emerald-500/50" />}
+                          </div>
+                          <p className="text-white/40 text-sm font-medium">Available Balance</p>
+                          <div className="flex items-center gap-6">
+                              <h2 className="text-6xl font-bold text-white tracking-tighter">
+                                  {showSensitive ? `₦${walletData.balance.toLocaleString()}` : "₦****"}
+                              </h2>
+                              <div className="flex items-center gap-2">
+                                  <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                                  <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5"><RotateCw size={20} className={isSyncing ? "animate-spin" : ""} /></button>
+                              </div>
                           </div>
                       </div>
-                  </div>
-                  <div className="flex gap-4 mb-2">
-                      <Button variant="outline" className="h-14 px-8 bg-white/5 border-white/10 text-white font-bold rounded-2xl hover:bg-white/10" onClick={() => setActiveModal("withdraw")}>
-                          <ArrowDownLeft size={20} className="mr-2 text-red-400" /> Withdraw
-                      </Button>
-                      <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl" onClick={() => setActiveModal("fund")}>
-                          Fund Account <ArrowUpRight size={20} className="ml-2" />
-                      </Button>
-                  </div>
-              </div>
-          </div>
-
-          <div className="px-8 lg:px-12 py-10 bg-black/20 border-y border-white/5 grid grid-cols-1 md:grid-cols-3 gap-10">
-              <div className="space-y-2"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p><p className="text-white font-bold tracking-tight">{walletData.bankName}</p></div>
-              <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
-                  <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Settlement Account</p>
-                  <div className="flex items-center gap-3">
-                      <p className="text-white font-mono text-xl font-bold tracking-widest">{walletData.accountNumber}</p>
-                      <button onClick={copyAccountNumber} className="text-emerald-500 hover:text-emerald-400"><Copy size={16} /></button>
+                      <div className="flex gap-4 mb-2">
+                          <Button variant="outline" className="h-14 px-8 bg-white/5 border-white/10 text-white font-bold rounded-2xl hover:bg-white/10" onClick={() => setActiveModal("withdraw")}>
+                              <ArrowDownLeft size={20} className="mr-2 text-red-400" /> Withdraw
+                          </Button>
+                          <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl" onClick={() => setActiveModal("fund")}>
+                              Fund Account <ArrowUpRight size={20} className="ml-2" />
+                          </Button>
+                      </div>
                   </div>
               </div>
-              <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Account Designee</p><p className="text-white font-bold">{walletData.accountName}</p></div>
+
+              <div className="px-8 lg:px-12 py-10 bg-black/20 border-y border-white/5 grid grid-cols-1 md:grid-cols-3 gap-10">
+                  <div className="space-y-2"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p><p className="text-white font-bold tracking-tight">{walletData.bankName}</p></div>
+                  <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
+                      <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Settlement Account</p>
+                      <div className="flex items-center gap-3">
+                          <p className="text-white font-mono text-xl font-bold tracking-widest">{walletData.accountNumber}</p>
+                          <button onClick={copyAccountNumber} className="text-emerald-500 hover:text-emerald-400"><Copy size={16} /></button>
+                      </div>
+                  </div>
+                  <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Account Designee</p><p className="text-white font-bold">{walletData.accountName}</p></div>
+              </div>
+            </div>
+
+            <section className="space-y-6">
+                <h3 className="text-xl font-bold text-white tracking-tight">Transaction History</h3>
+                <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
+                    {isLoadingHistory ? (
+                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20"><Loader2 className="animate-spin" /><p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p></div>
+                    ) : transactions.length === 0 ? (
+                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/10 text-center"><Clock size={40} className="mx-auto mb-2 opacity-20" /><p className="text-sm font-medium">No transactions found yet.</p></div>
+                    ) : (
+                       <div className="divide-y divide-white/5">
+                          {transactions.map((tx) => {
+                              const isLocalInflow = tx.transaction_type === 'INFLOW';
+                              const amount = Number(tx.amount || 0);
+                              const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Pending';
+                              const ref = tx.reference || tx.provider_tx_id || 'N/A';
+
+                              return (
+                                  <div key={tx.id || tx.provider_tx_id} className="p-5 flex items-center justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0">
+                                      <div className="flex items-center gap-4">
+                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                              {isLocalInflow ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
+                                          </div>
+                                          <div>
+                                              <p className="text-sm font-bold text-white">
+                                                  {isLocalInflow ? 'Wallet Funding' : 'Withdrawal'}
+                                                  <span className="ml-2 text-[8px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded uppercase">
+                                                      {tx.source || 'WDC'}
+                                                  </span>
+                                              </p>
+                                              <p className="text-[10px] text-white/30 font-medium uppercase">{date} • {tx.status || 'COMPLETED'}</p>
+                                          </div>
+                                      </div>
+                                      <div className="text-right">
+                                          <p className={`text-lg font-bold ${isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
+                                              {isLocalInflow ? '+' : '-'} ₦{amount.toLocaleString()}
+                                          </p>
+                                          <p className="text-[9px] text-white/20 font-mono">Ref: {ref.slice(-10)}</p>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                       </div>
+                    )}
+                </div>
+            </section>
+
+            <div className="flex justify-center pt-10">
+                <a href="https://www.supplysmart.co/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
+                    Wallet and Transfer Powered by <span className="text-white/60">Supply Smart</span> <ExternalLink size={10} />
+                </a>
+            </div>
+          </>
+
+        ) : (
+
+          /* --- THE EMPTY STATE (IF THEY HAVE NO WALLET) --- */
+          <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
+             
+             {/* Background glow for styling */}
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+             
+             <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
+             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Setup Your Settlement Account</h2>
+             <p className="text-white/50 text-center mb-10 max-w-md text-sm leading-relaxed relative z-10">
+               Before you can track your earnings, make deposits, or withdraw funds, you need to configure your banking profile and create your secure wallet.
+             </p>
+             <Link href="/student/profile" className="relative z-10">
+               <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
+                 CONFIGURE WALLET
+               </Button>
+             </Link>
           </div>
-        </div>
 
-        {/* UNIFIED TRANSACTION HISTORY SECTION */}
-        <section className="space-y-6">
-            <h3 className="text-xl font-bold text-white tracking-tight">Transaction History</h3>
-            <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
-                {isLoadingHistory ? (
-                   <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20"><Loader2 className="animate-spin" /><p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p></div>
-                ) : transactions.length === 0 ? (
-                   <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/10 text-center"><Clock size={40} className="mx-auto mb-2 opacity-20" /><p className="text-sm font-medium">No transactions found yet.</p></div>
-                ) : (
-                   <div className="divide-y divide-white/5">
-                      {/* Replace the transaction map in your GlobalWallet return */}
-{transactions.map((tx) => {
-    // Standardize the fields coming from Supabase
-    const isLocalInflow = tx.transaction_type === 'INFLOW';
-    const amount = Number(tx.amount || 0);
-    const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Pending';
-    const ref = tx.reference || tx.provider_tx_id || 'N/A';
+        )}
+        {/* 🔥 END OF WRAPPER LOGIC */}
 
-    return (
-        <div key={tx.id || tx.provider_tx_id} className="p-5 flex items-center justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0">
-            <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                    {isLocalInflow ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
-                </div>
-                <div>
-                    <p className="text-sm font-bold text-white">
-                        {isLocalInflow ? 'Wallet Funding' : 'Withdrawal'}
-                        <span className="ml-2 text-[8px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded uppercase">
-                            {tx.source || 'WDC'}
-                        </span>
-                    </p>
-                    <p className="text-[10px] text-white/30 font-medium uppercase">{date} • {tx.status || 'COMPLETED'}</p>
-                </div>
-            </div>
-            <div className="text-right">
-                <p className={`text-lg font-bold ${isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
-                    {isLocalInflow ? '+' : '-'} ₦{amount.toLocaleString()}
-                </p>
-                <p className="text-[9px] text-white/20 font-mono">Ref: {ref.slice(-10)}</p>
-            </div>
-        </div>
-    );
-})}
-                   </div>
-                )}
-            </div>
-        </section>
-
-        {/* SUPPLY SMART FOOTER */}
-        <div className="flex justify-center pt-10">
-            <a href="https://www.supplysmart.co/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
-                Wallet and Transfer Powered by <span className="text-white/60">Supply Smart</span> <ExternalLink size={10} />
-            </a>
-        </div>
       </main>
 
       {/* Funding Modal */}
