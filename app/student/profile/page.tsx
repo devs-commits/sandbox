@@ -45,15 +45,19 @@ export default function ProfileSetup() {
           .single();
           
         if (userData) {
-          // 🔥 Pull name from DB. If empty, fallback to the name they typed during Auth Signup!
+          // Pull name from DB. If empty, fallback to the name they typed during Auth Signup!
           setFullName(userData.full_name || (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || "");
           
           if (userData.bvn) setBvn(userData.bvn);
           if (userData.nin) setNin(userData.nin);
           if (userData.phone) setPhone(userData.phone);
-          if (userData.dob) setDob(userData.dob);
           if (userData.address) setAddress(userData.address);
           if (userData.occupation) setOccupation(userData.occupation);
+          
+          // SCHEMA FIX: Pulling from 'date_of_birth'
+          if (userData.date_of_birth) {
+            setDob(userData.date_of_birth.split('T')[0]);
+          }
 
           // If their profile is complete, switch to "Edit Mode"
           if (userData.is_complete) {
@@ -71,24 +75,39 @@ export default function ProfileSetup() {
   }, [user]);
 
   const handleAction = async () => {
-    // 1. EDIT MODE: They already have a wallet, just save the flexible fields
+    // DATABASE SANITIZATION: Postgres hates empty strings ("") for Timestamps.
+    // We explicitly convert any empty string to a pure 'null' before saving.
+    const safeDob = dob ? dob : null;
+    const safeAddress = address ? address : null;
+    const safeOccupation = occupation ? occupation : null;
+    const safePhone = phone ? phone : null;
+
+    // ==========================================
+    // 1. EDIT MODE: Save flexible fields
+    // ==========================================
     if (hasWallet) {
       if (pin && pin !== confirmPin) return toast.error("PINs do not match.");
-      if (pin && pin.length !== 4) return toast.error("PIN must be 4 digits.");
+      if (pin && pin.length !== 4 && pin.length > 0) return toast.error("PIN must be 4 digits.");
 
       setIsGenerating(true);
       try {
-        await supabase.from("users").update({ 
-          phone, address, occupation 
+        const { error: editError } = await supabase.from("users").update({ 
+          phone: safePhone, 
+          address: safeAddress, 
+          occupation: safeOccupation 
         }).eq("auth_id", user?.id);
 
+        if (editError) throw editError;
+
         if (pin) {
-          await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
+          const { error: pinError } = await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
+          if (pinError) throw pinError;
         }
 
         toast.success("Profile updated successfully!");
         setPin(""); setConfirmPin(""); // Clear pin fields after save
-      } catch (error: any) {
+      } catch (error) {
+        console.error("Edit Profile Error:", (error as any).message);
         toast.error("Failed to update profile.");
       } finally {
         setIsGenerating(false);
@@ -96,7 +115,9 @@ export default function ProfileSetup() {
       return;
     }
 
-    // 2. SETUP MODE: They are generating a wallet for the first time
+    // ==========================================
+    // 2. SETUP MODE: Generating Wallet First Time
+    // ==========================================
     if (!fullName || !phone || !dob || !bvn || !nin || !pin || !confirmPin) {
       return toast.error("Please fill in all KYC and security details.");
     }
@@ -109,12 +130,21 @@ export default function ProfileSetup() {
     setIsGenerating(true);
 
     try {
-      // Save full KYC payload to database before initializing
+      // 🔥 THE RLS FIX: Pure UPDATE command (instead of upsert)
       const { error: userError } = await supabase.from("users").update({ 
-          full_name: fullName, phone, bvn, nin, dob, address, occupation 
+          full_name: fullName, 
+          phone: safePhone, 
+          bvn: bvn, 
+          nin: nin, 
+          date_of_birth: safeDob, 
+          address: safeAddress, 
+          occupation: safeOccupation 
       }).eq("auth_id", user?.id);
 
-      if (userError) throw new Error("Failed to save KYC data.");
+      if (userError) {
+        console.error("Supabase Error:", userError);
+        throw new Error("DB Error: " + userError.message);
+      }
 
       // Call Backend to generate Virtual Account
       const res = await fetch("/api/wallet/initialize", {
@@ -132,8 +162,8 @@ export default function ProfileSetup() {
       toast.success("Virtual Account Generated Successfully!", { icon: <ShieldCheck className="text-emerald-500" /> });
       router.push("/student/earn"); 
 
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error((error as any).message || "An error occurred while generating your wallet.");
     } finally {
       setIsGenerating(false);
     }
