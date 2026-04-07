@@ -1,5 +1,5 @@
 "use client"
-import React, { createContext, useContext, useState, ReactNode, useEffect, use } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 
 interface AuthUser {
@@ -45,9 +45,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-
-
-
     // Check active session
     const checkSession = async () => {
       try {
@@ -60,6 +57,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .select('id')
             .eq('auth_id', session.user.id)
             .single();
+            
           console.log("Fetched user profile data:", data);
           if (error) {
             console.error("Error fetching user profile:", error);
@@ -127,7 +125,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify({ email, password, role }),
       });
 
-      const data = await response.json();
+      // Securely parse to avoid crashing on 500 HTML errors
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response.");
+      }
 
       if (!data.success) {
         setIsLoading(false);
@@ -139,10 +143,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(data.session);
       }
 
+      setIsLoading(false); // 🔥 FIX: Reset loading state on success!
       return { success: true };
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Login Error:", err);
       setIsLoading(false);
-      return { success: false, error: "An unexpected error occurred" };
+      return { success: false, error: err.message || "An unexpected error occurred" };
     }
   };
 
@@ -156,7 +162,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      // Securely parse to avoid crashing on 500 HTML errors
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        throw new Error("Backend crashed. Check server logs.");
+      }
 
       if (!result.success) {
         setIsLoading(false);
@@ -168,10 +180,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(result.session);
       }
 
+      setIsLoading(false); // 🔥 FIX: Reset loading state on success!
       return { success: true };
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Signup Error:", err);
       setIsLoading(false);
-      return { success: false, error: "An unexpected error occurred" };
+      return { success: false, error: err.message || "An unexpected error occurred" };
     }
   };
 
