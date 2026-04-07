@@ -37,7 +37,7 @@ type PaymentDetails = {
 
 const SignUpContent = () => {
   const router = useRouter();
-  const { signup, isLoading } = useAuth();
+  const { signup } = useAuth();
   const searchParams = useSearchParams();
 
   const [role, setRole] = useState<"student" | "recruiter">("student");
@@ -108,7 +108,6 @@ const SignUpContent = () => {
     return true;
   };
 
-  // 🔥 THE FIX: Centralized Abandoned Cart Recovery
   const handleRegistration = async () => {
     const result = await signup({
       fullName, email, password, role, country,
@@ -122,7 +121,7 @@ const SignUpContent = () => {
       // If Supabase says the email exists, we intercept it and proceed to payment anyway!
       if (errorStr.includes("already registered") || errorStr.includes("already exists") || errorStr.includes("duplicate")) {
          toast.info("Email recognized. Resuming your payment...", { id: "resume-toast" });
-         return { success: true, isExisting: true, userId: null }; // Backend will find them via email
+         return { success: true, isExisting: true, userId: null }; 
       }
       return { success: false, error: result.error };
     }
@@ -149,7 +148,7 @@ const SignUpContent = () => {
           email, 
           track: role === "student" ? track : "recruiter", 
           role,
-          userId: reg.userId // Might be null if existing user, backend will handle it
+          userId: reg.userId 
         }),
       });
       
@@ -181,7 +180,6 @@ const SignUpContent = () => {
       });
       const data = await response.json();
       
-      // 🔥 Frontend relies entirely on the backend to marry the statuses
       if (data.success) {
         setPaymentConfirmed(true);
         toast.success("Payment verified successfully!");
@@ -195,14 +193,11 @@ const SignUpContent = () => {
     }
   };
 
+  // 🔥 THE FIX: Removed the redundant 2nd handleRegistration call.
+  // Their account was already created in Step 1. We just need to route them!
   const handleSubmit = async () => {
-    const reg = await handleRegistration();
-    if (reg.success) {
-      toast.success(reg.isExisting ? "Payment confirmed! Welcome back." : "Account created successfully!");
-      router.push("/auth/verify-email");
-    } else {
-      setError(reg.error || "Registration failed");
-    }
+    toast.success("Payment confirmed! Check your email.");
+    router.push("/auth/verify-email");
   };
 
   const handlePaystackCheckout = async () => {
@@ -230,7 +225,7 @@ const SignUpContent = () => {
           track: role === "student" ? track : "recruiter",
           role,
           amount: numericAmount,
-          userId: reg.userId, // Might be null if existing user, backend will handle it
+          userId: reg.userId, 
           callback_url: `${window.location.origin}/auth/verify-email` 
         }),
       });
@@ -356,9 +351,20 @@ const SignUpContent = () => {
                 {timerExpired && <div className="flex items-center justify-center gap-2 text-destructive text-[11px] font-bold animate-pulse uppercase"><AlertCircle size={14} /> Account Expired</div>}
               </div>
             )}
-            <Button type="button" className="w-full h-12 text-base font-bold transition-all shadow-lg" disabled={isLoading || creatingAccount || initializingPaystack || (paymentMethod === "transfer" && paymentDetails !== null && !paymentConfirmed && timerExpired)} onClick={handleMainAction}>
-              {creatingAccount || initializingPaystack ? <Loader2 className="w-5 h-5 animate-spin" /> : paymentMethod === "paystack" ? "Pay with Paystack" : paymentDetails === null || timerExpired ? "Generate Payment Details" : paymentConfirmed ? "Register Now" : "Awaiting Payment..."}
+            
+            {/* 🔥 THE FIX: Removed the global isLoading from the disabled array so it never state-locks the button */}
+            <Button 
+              type="button" 
+              className="w-full h-12 text-base font-bold transition-all shadow-lg" 
+              disabled={creatingAccount || initializingPaystack || (paymentMethod === "transfer" && paymentDetails !== null && !paymentConfirmed && timerExpired)} 
+              onClick={handleMainAction}
+            >
+              {creatingAccount || initializingPaystack ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+               paymentMethod === "paystack" ? "Pay with Paystack" : 
+               paymentDetails === null || timerExpired ? "Generate Payment Details" : 
+               paymentConfirmed ? "Register Now" : "Awaiting Payment..."}
             </Button>
+            
             <p className="text-center text-xs text-muted-foreground pb-2">
               Have an account? <Link href="/login" className="text-primary font-bold hover:underline underline-offset-4">Login</Link>
             </p>
