@@ -9,14 +9,17 @@ const supabaseAdmin = createClient(
 export async function POST(req: NextRequest) {
   try {
     const { userId, accountNumber } = await req.json();
-    console.log("🔍 Checking history for account:", accountNumber);
 
-    // 1. Get User Data (Need the email for the DB constraint)
-    const { data: userData } = await supabaseAdmin!
+    if (!userId || !accountNumber || accountNumber === "****") {
+      return NextResponse.json({ success: false, error: "Missing account credentials" }, { status: 400 });
+    }
+
+    // 1. Get User Data
+    const { data: userData } = await supabaseAdmin
       .from('users')
       .select('email')
       .eq('auth_id', userId)
-      .single();
+      .maybeSingle();
 
     // 2. Fetch from Supply Smart
     const res = await fetch(`${process.env.PAYMENT_BASE_URL}/partners/transaction/history`, {
@@ -24,58 +27,62 @@ export async function POST(req: NextRequest) {
       headers: {
         "x-api-key": process.env.PAYMENT_API_KEY!,
         "merchant-id": process.env.PAYMENT_MERCHANT_ID!,
+        "Accept": "application/json"
       }
     });
 
     const responseData = await res.json();
     const apiTransactions = responseData?.data?.result || [];
 
-    // 3. Filter with padding safety (The fix for "userTx is not defined")
-    const target = String(accountNumber).padStart(10, '0');
+    // 3. Filter for THIS specific student's account
+    const targetAccStr = String(accountNumber).padStart(10, '0');
     
     const userTx = apiTransactions.filter((tx: any) => {
-        const receiver = String(tx.receiverDetails?.accountNumber || "").padStart(10, '0');
-        const sender = String(tx.senderDetails?.originatingAccountNumber || "").padStart(10, '0');
-        return receiver === target || sender === target;
+        const receiverStr = String(tx.receiverDetails?.accountNumber || "").padStart(10, '0');
+        const senderStr = String(tx.senderDetails?.originatingAccountNumber || "").padStart(10, '0');
+        return receiverStr === targetAccStr || senderStr === targetAccStr;
     });
 
-    console.log(`✅ Found ${userTx.length} matching transactions.`);
-
-    // 4. If we have matches, sync them to the DB
+    // 4. Map the exact JSON schema to your database
     if (userTx.length > 0) {
       const dbEntries = userTx.map((tx: any) => {
-        const receiverAcc = String(tx.receiverDetails?.accountNumber || "").padStart(10, '0');
-        const isInflow = receiverAcc === target;
+        // Check if it's an inflow based on the exact JSON you provided
+        const isInflow = tx.transactionType === "PARTNER_INFLOW" || String(tx.receiverDetails?.accountNumber).includes(String(accountNumber));
         
+        // Extract real names instead of generic terms!
+        let sourceName = 'Supply Smart Transfer';
+        if (isInflow && tx.senderDetails?.originatingAccountName) {
+             sourceName = tx.senderDetails.originatingAccountName; // e.g. "ADEMOLA JOHN ALABI"
+        } else if (!isInflow && tx.receiverDetails?.bankName) {
+             sourceName = `Transfer to ${tx.receiverDetails.bankName}`; // e.g. "Transfer to Opay"
+        }
+
         return {
             user_id: userId,
             email: userData?.email || 'N/A',
-            amount: Number(tx.amount),
+            amount: Number(tx.amount || 0), // Pulls the exact "500" from the JSON
             transaction_type: isInflow ? 'INFLOW' : 'OUTFLOW',
-            funding_method: 'BANK_TRANSFER', // 🔥 Matches the new SQL constraint exactly
+            funding_method: 'BANK_TRANSFER', 
             balance_before: 0,
             balance_after: 0,
-            status: 'SUCCESS',
-            reference: tx.paymentReference || tx.sessionID || tx._id, // 🔥 Satisfies NOT NULL
+            status: tx.status === 'SUCCESSFUL' ? 'SUCCESS' : 'PENDING',
+            reference: tx.transactionReference || tx.providerReference || tx._id, // Captures TRN-...
             provider_tx_id: tx._id, 
-            source: 'SUPPLY_SMART',
+            source: sourceName, // 🔥 This passes the real name to the DB!
             sender_info: tx.senderDetails || {},
             receiver_info: tx.receiverDetails || {},
             created_at: tx.createdAt || new Date().toISOString()
         };
-
-        
       });
 
-      const { error: upsertError } = await supabaseAdmin!
+      // Upsert into DB
+      await supabaseAdmin
         .from('wallet_transactions')
         .upsert(dbEntries, { onConflict: 'provider_tx_id' });
-
-      if (upsertError) console.error("❌ DB UPSERT ERROR:", upsertError.message);
     }
 
-    // 5. Always return the full history from the DB (The Marriage)
-    const { data: finalHistory } = await supabaseAdmin!
+    // 5. Return the full history
+    const { data: finalHistory } = await supabaseAdmin
       .from('wallet_transactions')
       .select('*')
       .eq('user_id', userId)
@@ -85,6 +92,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error("🔥 API CRASH:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

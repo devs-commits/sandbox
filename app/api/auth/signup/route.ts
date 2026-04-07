@@ -79,10 +79,18 @@ export async function POST(request: Request) {
     // 🟢 BRAND NEW USER CREATION LOGIC
     // ==========================================
 
+    // Get the base URL dynamically based on the request headers (helpful for Vercel/AWS environments)
+    // Fallback to your production URL if headers aren't available
+    const protocol = request.headers.get("x-forwarded-proto") || "https";
+    const host = request.headers.get("host") || "labs.wdc.ng";
+    const originUrl = `${protocol}://${host}`;
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        // 🔥 THE FIX: Tell Supabase exactly where to send them after email verification
+        emailRedirectTo: `${originUrl}/auth/login`, // Change '/auth/login' to whatever your actual login route is!
         data: {
           fullName,
           role,
@@ -182,8 +190,8 @@ export async function POST(request: Request) {
 
       if (dbError) {
         console.error("Error creating public profile:", dbError);
-        if (supabaseAdmin!) {
-          await supabaseAdmin!.auth.admin.deleteUser(data.user.id);
+        if (supabaseAdmin) {
+          await supabaseAdmin.auth.admin.deleteUser(data.user.id);
         }
         return NextResponse.json({ success: false, error: "Account created but profile failed. Please contact support." }, { status: 500 });
       }
@@ -191,6 +199,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, user: data.user, session: data.session });
   } catch (error) {
+    console.error("Signup Route Error:", error);
     return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
