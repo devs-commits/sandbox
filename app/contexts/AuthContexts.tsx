@@ -1,5 +1,5 @@
 "use client"
-import React, { createContext, useContext, useState, ReactNode, useEffect, use } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 
 interface AuthUser {
@@ -13,7 +13,6 @@ interface AuthUser {
   country?: string;
   referralLink?: string;
   created_at?: string;
-  updated_at?: string;
 }
 
 interface AuthContextType {
@@ -25,6 +24,7 @@ interface AuthContextType {
   logout: () => void;
   forgotPassword: (email: string, role: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (newPassword: string, token?: string) => Promise<{ success: boolean; error?: string }>;
+  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>;
 }
 
 interface SignupData {
@@ -45,22 +45,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-
-
-
-    // Check active session
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const { user_metadata } = session.user;
-          //query the user profile from your users table now to get the user_id and other info
           const { error, data } = await supabase
             .from('users')
             .select('id')
             .eq('auth_id', session.user.id)
             .single();
-          console.log("Fetched user profile data:", data);
+          
           if (error) {
             console.error("Error fetching user profile:", error);
             setUser(null);
@@ -79,7 +74,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             referralLink: user_metadata.referralLink,
             created_at: session.user.created_at,
           });
-          console.log("User session found:", user);
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -90,7 +84,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     checkSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const { user_metadata } = session.user;
@@ -112,14 +105,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -134,7 +124,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: data.error };
       }
 
-      // Sync session with client-side Supabase instance
       if (data.session) {
         await supabase.auth.setSession(data.session);
       }
@@ -148,7 +137,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signup = async (data: SignupData): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-
     try {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -163,7 +151,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: result.error };
       }
 
-      // If signup automatically logs in (Supabase default behavior if email confirm is off), sync session
       if (result.session) {
         await supabase.auth.setSession(result.session);
       }
@@ -177,17 +164,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    await supabase.auth.signOut(); // Also clear client side
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem("wdc_user");
   };
 
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Use configured site URL or fallback to current origin
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-      console.log("Using site URL for password reset:", siteUrl);
-
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-password`,
       });
@@ -209,8 +193,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+      'Content-Type': 'application/json',
+    };
+
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+
+    return fetch(url, { ...options, headers });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, signup, logout, forgotPassword, resetPassword }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, signup, logout, forgotPassword, resetPassword, authenticatedFetch }}>
       {children}
     </AuthContext.Provider>
   );

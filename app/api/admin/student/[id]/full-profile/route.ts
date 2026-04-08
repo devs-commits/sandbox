@@ -15,7 +15,7 @@ export async function GET(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     
-    // Authenticate the request
+    // Authenticate request
     const supabaseServer = createSupabaseClientFromRequest(request);
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
     
@@ -105,7 +105,7 @@ export async function GET(
       tasks: taskCount || 0,
       weeks: weeksSinceJoining,
       streak: student.current_streak || 0,
-      longestStreak: student.current_streak || 0, // We don't track longest streak separately
+      longestStreak: student.current_streak || 0,
       lastTaskDate: formattedLastActivityDate,
       skills: student.skills || [],
       bvn: student.bvn,
