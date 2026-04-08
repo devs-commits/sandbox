@@ -29,12 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!supabaseAdmin) {
+    if (!supabaseAdmin!) {
       return NextResponse.json({ success: false, error: "Server configuration error" }, { status: 500 });
     }
 
     // 2. Get Recruiter Profile and Balance
-    const { data: recruiter, error: recruiterError } = await supabaseAdmin
+    const { data: recruiter, error: recruiterError } = await supabaseAdmin!
       .from('recruiters')
       .select('id, wallet_balance')
       .eq('auth_id', user.id)
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Check if already unlocked
-    const { data: existingUnlock } = await supabaseAdmin
+    const { data: existingUnlock } = await supabaseAdmin!
       .from('recruiter_unlocks')
       .select('id')
       .eq('recruiter_id', recruiter.id)
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     // 4. Deduct Balance
     const newBalance = currentBalance - deductionAmount;
 
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin!
       .from('recruiters')
       .update({ wallet_balance: newBalance })
       .eq('id', recruiter.id);
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     // 5. Record Transaction
-    await supabaseAdmin
+    await supabaseAdmin!
       .from('recruiter_transactions')
       .insert({
         recruiter_id: recruiter.id,
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       });
 
     // 6. Record Unlock
-    const { error: unlockError } = await supabaseAdmin
+    const { error: unlockError } = await supabaseAdmin!
       .from('recruiter_unlocks')
       .insert({
         recruiter_id: recruiter.id,

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       data,
       error,
       env: {
-        hasAdmin: !!supabaseAdmin
+        hasAdmin: !!supabaseAdmin!
       }
     });
   } catch (error: any) {

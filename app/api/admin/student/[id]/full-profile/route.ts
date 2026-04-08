@@ -27,7 +27,7 @@ export async function GET(
     }
 
     // Verify admin role
-    const { data: adminUser, error: adminError } = await supabaseAdmin
+    const { data: adminUser, error: adminError } = await supabaseAdmin!
       .from('users')
       .select('role')
       .eq('auth_id', user.id)
@@ -40,7 +40,7 @@ export async function GET(
       );
     }
 
-    const { data: student, error: studentError } = await supabaseAdmin
+    const { data: student, error: studentError } = await supabaseAdmin!
       .from('users')
       .select(`
         id,
@@ -68,7 +68,7 @@ export async function GET(
       );
     }
 
-    const { count: taskCount, error: taskError } = await supabaseAdmin
+    const { count: taskCount, error: taskError } = await supabaseAdmin!
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', student.id);

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   try {
     if (type === 'student') {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin!
         .from('users')
         .select('*')
         .eq('role', 'student');
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       if (error) throw error;
       return NextResponse.json({ success: true, data });
     } else if (type === 'recruiter') {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin!
         .from('recruiters')
         .select('*');
         // .order('created_at', { ascending: false }); // Uncomment if created_at exists

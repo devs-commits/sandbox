@@ -1,43 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase"; // make sure this path is correct
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize inside the route with ! to satisfy the Vercel build worker
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, amount } = body;
+    const { userId, amount, reference, description } = await req.json();
 
-    // Fetch user
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("wallet_balance, bank_name, account_number")
-      .eq("auth_id", userId)
+    // 1. Fetch from the 'wallets' table (NOT the 'users' table)
+    const { data: wallet, error: walletError } = await supabaseAdmin!
+      .from("wallets")
+      .select("balance, user_id")
+      .eq("user_id", userId) // Using user_id to match our GlobalWallet logic
       .single();
 
-    if (error || !user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (walletError || !wallet) {
+        return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
     }
 
-    // Check balance
-    if (user.wallet_balance < amount) {
-      return NextResponse.json({ error: "Insufficient funds" }, { status: 400 });
+    const balanceBefore = Number(wallet.balance || 0);
+    if (balanceBefore < amount) {
+        return NextResponse.json({ error: "Insufficient funds" }, { status: 400 });
     }
 
-    /*
-      Call payout API here
-    */
+    // 2. Fetch User Email for the ledger requirement
+    const { data: userRecord } = await supabaseAdmin!
+      .from('users')
+      .select('email')
+      .eq('auth_id', userId)
+      .single();
 
-    // Update wallet
-    await supabase
-      .from("users")
-      .update({
-        wallet_balance: user.wallet_balance - amount,
-      })
-      .eq("auth_id", userId);
+    const balanceAfter = balanceBefore - amount;
 
-    return NextResponse.json({ success: true });
+    // 3. Update the 'wallets' table balance
+    const { error: updateError } = await supabaseAdmin!
+      .from("wallets")
+      .update({ balance: balanceAfter, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
 
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    if (updateError) throw updateError;
+
+    // 4. Log to the Unified 'wallet_transactions' table
+    const txRef = reference || `WDC-DED-${Date.now()}`;
+    
+    await supabaseAdmin!.from("wallet_transactions").upsert({
+      user_id: userId,
+      email: userRecord?.email || 'N/A',
+      amount: amount,
+      transaction_type: 'OUTFLOW',
+      funding_method: 'SYSTEM_DEDUCTION', // Matches our SQL check constraint
+      balance_before: balanceBefore,
+      balance_after: balanceAfter,
+      status: 'SUCCESS',
+      reference: txRef,
+      provider_tx_id: `SYS-${txRef}`,
+      source: 'WDC_INTERNAL',
+      created_at: new Date().toISOString()
+    }, { onConflict: 'provider_tx_id' });
+
+    return NextResponse.json({ success: true, newBalance: balanceAfter });
+
+  } catch (err: any) {
+    console.error("🔥 Deduction Error:", err.message);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

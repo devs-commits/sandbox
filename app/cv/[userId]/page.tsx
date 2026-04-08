@@ -6,9 +6,9 @@ import { Briefcase, CheckCircle2, Award, Calendar, Ghost } from "lucide-react"
 export const revalidate = 0
 
 async function getCVData(userId: string) {
-  if (!supabaseAdmin) return null
+  if (!supabaseAdmin!) return null
 
-  const { data: user, error: userError } = await supabaseAdmin
+  const { data: user, error: userError } = await supabaseAdmin!
     .from("users")
     .select("*")
     .eq("auth_id", userId)
@@ -17,7 +17,7 @@ async function getCVData(userId: string) {
   let finalUser = user
 
   if (userError || !user) {
-    const { data: userById, error: userByIdError } = await supabaseAdmin
+    const { data: userById, error: userByIdError } = await supabaseAdmin!
       .from("users")
       .select("*")
       .eq("id", userId)
@@ -27,7 +27,7 @@ async function getCVData(userId: string) {
     finalUser = userById
   }
 
-  const { data: tasks } = await supabaseAdmin
+  const { data: tasks } = await supabaseAdmin!
     .from("tasks")
     .select("*")
     .eq("user", userId)

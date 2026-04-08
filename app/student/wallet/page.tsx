@@ -1,337 +1,354 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // 🔥 Added Link for the button
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
-import { Progress } from "../../components/ui/progress";
-import { ShieldCheckIcon, Lock, X } from "lucide-react";
+import { 
+  ShieldCheckIcon, Eye, EyeOff, ArrowDownLeft, ArrowUpRight, 
+  Loader2, Copy, RotateCw, Lock, CheckCircle2, ExternalLink,
+  ArrowUpCircle, ArrowDownCircle, Clock, Landmark // 🔥 Added Landmark icon
+} from "lucide-react";
 import Image from "next/image";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
-
+import { toast } from "sonner"; 
+import { Input } from "../../components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
 
-// Initial state
-const initialWalletData = {
-  balance: 0,
-  bankName: "Add Bank Details",
-  accountNumber: "****",
-  accountName: "User",
-  earnedTotal: 0,
-  loanTarget: 100000,
-  loanAmount: 50000,
-  interestRate: "2.5%/Month",
-  duration: "30 Days",
-  repayment: "Bounty Hunter Earning",
-  isVerified: false,
-  walletReady: false
+import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
+import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
+
+// External Paystack Script Declaration
+declare const PaystackPop: any;
+
+const getBankName = (codeOrName: string) => {
+  const bankMap: Record<string, string> = {
+    "000013": "GTBank", "000015": "Zenith Bank", "000014": "Access Bank",
+    "000016": "First Bank", "000030": "Parallex Bank", "000004": "UBA",
+    "100004": "OPay", "090405": "Moniepoint", "100033": "PalmPay"
+  };
+  return bankMap[codeOrName] || codeOrName;
 };
 
-type ModalType = "locked" | "eligible" | "granted" | null;
-
 export default function GlobalWallet() {
-  const router = useRouter();
   const { user } = useAuth();
-  const [modalType, setModalType] = useState<ModalType>(null);
-  const [walletData, setWalletData] = useState(initialWalletData);
+  
+  // 🔥 Added isLoadingWallet to prevent UI flashing
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
+  
+  const [walletData, setWalletData] = useState({
+    balance: 0, bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
+  });
+  
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [showSensitive, setShowSensitive] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Modal States
+  const [activeModal, setActiveModal] = useState<"none" | "withdraw" | "success" | "fund">("none");
+  const [wBank, setWBank] = useState("");
+  const [wAcc, setWAcc] = useState("");
+  const [wAmt, setWAmt] = useState("");
+
+  // Paystack Funding States
+  const [fundAmount, setFundAmount] = useState("");
+  const [isInitializingPayment, setIsInitializingPayment] = useState(false);
+
+  const fetchTransactionHistory = useCallback(async (accNum: string) => {
+    if (!accNum || accNum === "****") return;
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch("/api/wallet/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id, accountNumber: accNum }) 
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTransactions(data.transactions || []);
+      }
+    } catch (err) {
+      console.error("History fetch error:", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [user?.id]);
+
+  const fetchWalletData = useCallback(async () => {
+    const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', user?.id).maybeSingle();
+    if (wallet) {
+      const formattedData = {
+        balance: wallet.balance || 0,
+        bankName: getBankName(wallet.bank_name || "Parallex Bank"),
+        accountNumber: wallet.account_number || "****",
+        accountName: wallet.account_name || "User",
+        walletReady: !!(wallet.account_number && wallet.account_number !== "****"),
+        userPin: wallet.transaction_pin || ""
+      };
+      setWalletData(formattedData);
+      setIsLoadingWallet(false); // 🔥 Stop loading when data arrives
+      return wallet;
+    }
+    setIsLoadingWallet(false); // 🔥 Stop loading even if no wallet
+    return null;
+  }, [user?.id]);
 
   useEffect(() => {
-    if (user) {
-      fetchWalletData();
-    }
-  }, [user]);
+    if (!user?.id) return;
+    const init = async () => {
+        const wallet = await fetchWalletData();
+        if (wallet?.account_number) fetchTransactionHistory(wallet.account_number);
+    };
+    init();
 
-  const fetchWalletData = async () => {
+    const channel = supabase.channel('wallet-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, 
+      () => fetchWalletData()).subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, fetchWalletData, fetchTransactionHistory]);
+
+  const manualRefresh = async () => {
+    setIsSyncing(true);
     try {
-      // 🔥 THE CRITICAL FIX: Clean, single-line, no-spaces string
-      const { data, error } = await supabase
-        .from('users')
-        .select("wallet_balance,bank_name,account_number,account_name,id_verified")
-        .eq('auth_id', user?.id)
-        .single();
-
-      if (error) {
-        console.error("Supabase Error:", error);
-        return;
-      }
-
-      if (data) {
-        const walletReady = data.id_verified && data.bank_name && data.account_number;
-
-        setWalletData(prev => ({
-          ...prev,
-          balance: data.wallet_balance || 0,
-          bankName: data.bank_name || "Add Bank Details",
-          accountNumber: data.account_number || "****",
-          accountName: data.account_name || user?.fullName || "User",
-          earnedTotal: data.wallet_balance || 0,
-          isVerified: data.id_verified || false,
-          walletReady: !!walletReady
-        }));
-      }
-    } catch (err) {
-      console.error("Error fetching wallet:", err);
-    }
+      await fetch("/api/wallet/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: user?.id }) });
+      const wallet = await fetchWalletData();
+      if (wallet?.account_number) await fetchTransactionHistory(wallet.account_number);
+      toast.success("Account Refreshed");
+    } finally { setIsSyncing(false); }
   };
 
-  // 🔥 MOVED OUTSIDE OF THE STATE UPDATER: This must be at the component level
-  const handleCreateWallet = async () => {
+  const executePaystackFunding = async () => {
+    const amountNum = parseInt(fundAmount);
+    if (!amountNum || amountNum < 100) return toast.error("Minimum ₦100 required.");
+    
+    setIsInitializingPayment(true);
     try {
-      const res = await fetch("/api/wallet/initialize", {
+      const res = await fetch("/api/paystack/initialize", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId: user?.id }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user?.email, amount: amountNum, userId: user?.id })
       });
-
       const data = await res.json();
+      
+      if (data?.data?.reference) {
+        setActiveModal("none");
+        const paystack = new PaystackPop();
+        paystack.newTransaction({
+          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+          email: user?.email,
+          amount: amountNum * 100,
+          reference: data.data.reference,
+          onSuccess: async (response: any) => {
+            const toastId = toast.loading("Confirming your deposit..."); 
+            
+            try {
+              const verifyRes = await fetch("/api/paystack/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reference: response.reference, userId: user?.id })
+              });
 
-      if (!res.ok) {
-        console.error(data.error);
-        return;
+              const verifyData = await verifyRes.json();
+              
+              toast.dismiss(toastId); 
+
+              if (verifyData.success) {
+                toast.success(`Successfully funded ₦${amountNum}`);
+                fetchWalletData();
+                if (walletData.accountNumber !== "****") {
+                    fetchTransactionHistory(walletData.accountNumber);
+                }
+              } else {
+                toast.error(verifyData.message || "Verification failed but money may have been added. Please refresh.");
+              }
+            } catch (err) {
+              toast.dismiss(toastId);
+              toast.error("Connection lost. Please refresh to see your balance.");
+            }
+          },
+          onCancel: () => { toast.info("Payment cancelled."); setIsInitializingPayment(false); }
+        });
       }
-
-      // Refresh wallet data after successful creation
-      await fetchWalletData();
-
-    } catch (err) {
-      console.error("Wallet creation failed:", err);
-    }
+    } catch (err) { toast.error("Gateway error."); } finally { setIsInitializingPayment(false); }
   };
 
-  const loanProgress = Math.min((walletData.earnedTotal / walletData.loanTarget) * 100, 100);
-  const isEligible = walletData.earnedTotal >= walletData.loanTarget;
-
-  const handleRequestLoan = () => {
-    if (isEligible) {
-      setModalType("eligible");
-    } else {
-      setModalType("locked");
-    }
+  const onWithdrawSuccess = () => {
+    fetchWalletData().then(wallet => {
+        if (wallet?.account_number) fetchTransactionHistory(wallet.account_number);
+    });
+    setActiveModal("success");
   };
 
-  const handleAcceptLoan = () => {
-    setModalType("granted");
+  const copyAccountNumber = () => {
+    navigator.clipboard.writeText(walletData.accountNumber);
+    toast.success("Copied to clipboard", { icon: <Copy size={14} className="text-emerald-500"/> });
   };
 
   return (
     <>
-      <StudentHeader
-        title="Global Payroll Wallet"
-        subtitle="The smartest way for African talent to receive, hold, and spend global income."
-      />
-      <main className="flex-1 p-4 lg:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Main Wallet Card */}
-          <div className="gradient-bg rounded-xl p-6 border border-primary/30">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <p className="text-[hsla(145,100%,39%,1)] text-xs font-bold uppercase tracking-wider mb-2">
-                  TOTAL BALANCE (NGN EQUIV)
-                </p>
-                <h2 className="text-4xl font-bold text-foreground">
-                  ₦{walletData.balance.toLocaleString()}
-                </h2>
+      <StudentHeader title="Global Payroll" subtitle="Settlement and Transaction History" />
+      
+      <main className="flex-1 p-4 lg:p-8 space-y-10 max-w-6xl mx-auto">
+        
+        {/* 🔥 THE WRAPPER LOGIC STARTS HERE */}
+        {isLoadingWallet ? (
+          
+          <div className="flex flex-col items-center justify-center py-40">
+             <Loader2 className="w-10 h-10 animate-spin text-emerald-500/50 mb-4" />
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Loading Secure Environment...</p>
+          </div>
+
+        ) : walletData.walletReady ? (
+          
+          /* --- THE ACTUAL DASHBOARD (IF THEY HAVE A WALLET) --- */
+          <>
+            <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
+              <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
+                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                      <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">Live Portfolio</div>
+                            {isSyncing && <Loader2 size={14} className="animate-spin text-emerald-500/50" />}
+                          </div>
+                          <p className="text-white/40 text-sm font-medium">Available Balance</p>
+                          <div className="flex items-center gap-6">
+                              <h2 className="text-6xl font-bold text-white tracking-tighter">
+                                  {showSensitive ? `₦${walletData.balance.toLocaleString()}` : "₦****"}
+                              </h2>
+                              <div className="flex items-center gap-2">
+                                  <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                                  <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5"><RotateCw size={20} className={isSyncing ? "animate-spin" : ""} /></button>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="flex gap-4 mb-2">
+                          <Button variant="outline" className="h-14 px-8 bg-white/5 border-white/10 text-white font-bold rounded-2xl hover:bg-white/10" onClick={() => setActiveModal("withdraw")}>
+                              <ArrowDownLeft size={20} className="mr-2 text-red-400" /> Withdraw
+                          </Button>
+                          <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl" onClick={() => setActiveModal("fund")}>
+                              Fund Account <ArrowUpRight size={20} className="ml-2" />
+                          </Button>
+                      </div>
+                  </div>
               </div>
-              <div className="w-12 h-12 rounded-full flex items-center justify-center">
-                <ShieldCheckIcon className="w-12 h-12 text-primary" />
+
+              <div className="px-8 lg:px-12 py-10 bg-black/20 border-y border-white/5 grid grid-cols-1 md:grid-cols-3 gap-10">
+                  <div className="space-y-2"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p><p className="text-white font-bold tracking-tight">{walletData.bankName}</p></div>
+                  <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
+                      <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Settlement Account</p>
+                      <div className="flex items-center gap-3">
+                          <p className="text-white font-mono text-xl font-bold tracking-widest">{walletData.accountNumber}</p>
+                          <button onClick={copyAccountNumber} className="text-emerald-500 hover:text-emerald-400"><Copy size={16} /></button>
+                      </div>
+                  </div>
+                  <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Account Designee</p><p className="text-white font-bold">{walletData.accountName}</p></div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 p-4 bg-card/30 rounded-lg mb-6">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                  BANK NAME
-                </p>
-                <p className="font-medium text-foreground text-sm">{walletData.bankName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                  ACCOUNT NUMBER
-                </p>
-                <p className="font-medium text-foreground text-sm">
-                  {walletData.accountNumber}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                  ACCOUNT NAME
-                </p>
-                <p className="font-medium text-foreground text-sm">
-                  {walletData.accountName}
-                </p>
-              </div>
-            </div>
+            <section className="space-y-6">
+                <h3 className="text-xl font-bold text-white tracking-tight">Transaction History</h3>
+                <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
+                    {isLoadingHistory ? (
+                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20"><Loader2 className="animate-spin" /><p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p></div>
+                    ) : transactions.length === 0 ? (
+                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/10 text-center"><Clock size={40} className="mx-auto mb-2 opacity-20" /><p className="text-sm font-medium">No transactions found yet.</p></div>
+                    ) : (
+                       <div className="divide-y divide-white/5">
+                          {transactions.map((tx) => {
+                              const isLocalInflow = tx.transaction_type === 'INFLOW';
+                              const amount = Number(tx.amount || 0);
+                              const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Pending';
+                              const ref = tx.reference || tx.provider_tx_id || 'N/A';
 
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <p className="text-sm text-muted-foreground">
-                Powered by Parallex Bank licensed by CBN
-              </p>
-              <div className="flex items-center gap-1">
-                <Image src="/cbn-logo.png" alt="Logo" className="h-9 w-9 object-contain" width={36} height={36} />
-                <Image
-                  src="/ndpb.png"
-                  alt="NDPB Logo"
-                  width={40}
-                  height={40}
-                  className="object-contain w-10 h-10"
-                />
-                <ShieldCheckIcon className="w-9 h-9 text-primary object-contain" />
-              </div>
-            </div>
+                              return (
+                                  <div key={tx.id || tx.provider_tx_id} className="p-5 flex items-center justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0">
+                                      <div className="flex items-center gap-4">
+                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                              {isLocalInflow ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
+                                          </div>
+                                          <div>
+                                              <p className="text-sm font-bold text-white">
+                                                  {isLocalInflow ? 'Wallet Funding' : 'Withdrawal'}
+                                                  <span className="ml-2 text-[8px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded uppercase">
+                                                      {tx.source || 'WDC'}
+                                                  </span>
+                                              </p>
+                                              <p className="text-[10px] text-white/30 font-medium uppercase">{date} • {tx.status || 'COMPLETED'}</p>
+                                          </div>
+                                      </div>
+                                      <div className="text-right">
+                                          <p className={`text-lg font-bold ${isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
+                                              {isLocalInflow ? '+' : '-'} ₦{amount.toLocaleString()}
+                                          </p>
+                                          <p className="text-[9px] text-white/20 font-mono">Ref: {ref.slice(-10)}</p>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                       </div>
+                    )}
+                </div>
+            </section>
 
-            <Button
-              className="w-full bg-[hsla(145,100%,39%,1)] hover:bg-green/90 text-white"
-              onClick={() => {
-                if (!walletData.isVerified) {
-                  router.push("/student/earn?focus=verification");
-                  return;
-                }
-                if (!walletData.accountNumber || walletData.accountNumber === "****") {
-                  handleCreateWallet();
-                  return;
-                }
-                router.push("/student/earn?focus=withdraw");
-              }}
-            >
-              {!walletData.isVerified
-                ? "Complete Verification"
-                : (!walletData.accountNumber || walletData.accountNumber === "****")
-                ? "Create Wallet"
-                : "Withdraw"}
+            <div className="flex justify-center pt-10">
+                <a href="https://www.supplysmart.co/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
+                    Wallet and Transfer Powered by <span className="text-white/60">Supply Smart</span> <ExternalLink size={10} />
+                </a>
+            </div>
+          </>
+
+        ) : (
+
+          /* --- THE EMPTY STATE (IF THEY HAVE NO WALLET) --- */
+          <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
+             
+             {/* Background glow for styling */}
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+             
+             <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
+             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Setup Your Settlement Account</h2>
+             <p className="text-white/50 text-center mb-10 max-w-md text-sm leading-relaxed relative z-10">
+               Before you can track your earnings, make deposits, or withdraw funds, you need to configure your banking profile and create your secure wallet.
+             </p>
+             <Link href="/student/profile" className="relative z-10">
+               <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
+                 CONFIGURE WALLET
+               </Button>
+             </Link>
+          </div>
+
+        )}
+        {/* 🔥 END OF WRAPPER LOGIC */}
+
+      </main>
+
+      {/* Funding Modal */}
+      <Dialog open={activeModal === "fund"} onOpenChange={(v) => !v && setActiveModal("none")}>
+        <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase">Top Up Wallet</DialogTitle>
+            <DialogDescription className="text-white/40">Enter amount to fund via Paystack secure gateway.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div className="relative group">
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500 font-bold text-xl">₦</span>
+              <Input 
+                type="number" className="pl-12 h-16 text-3xl font-bold bg-black/20 border-white/10 rounded-2xl focus:border-emerald-500/50 text-white"
+                value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} placeholder="0"
+              />
+            </div>
+            <Button onClick={executePaystackFunding} disabled={isInitializingPayment} className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-xl">
+              {isInitializingPayment ? <Loader2 className="animate-spin" /> : "PROCEED TO PAYMENT"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* Side Cards */}
-          <div className="space-y-4">
-            {/* Career Support Loan */}
-            <div className="bg-[hsla(261,56%,20%,1)] rounded-xl p-5 border border-border">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 bg-purple/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Image src="/support.png" height={20} width={20} alt="Support Icon" className="w-9 h-9" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground mb-1">Career Support Loan</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Earn a total of ₦100,000 to unlock access to low-interest loans for accessories, laptops, and tools that support your career growth.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-2">
-                <Progress value={loanProgress} className="h-2 bg-[hsla(0,0%,72%,1)]" />
-              </div>
-              <p className="text-right text-sm text-muted-foreground mb-4">
-                You've earned: ₦{walletData.earnedTotal.toLocaleString()} / ₦{walletData.loanTarget.toLocaleString()}
-              </p>
-
-              <Button
-                variant="outline"
-                className="w-full border-coral/50 text-slate-900 hover:bg-coral/10 hover:text-coral bg-white"
-                onClick={handleRequestLoan}
-              >
-                <Lock className="w-4 h-4 mr-2" />
-                Request Career Loan
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Loan Locked Modal */}
-        <Dialog open={modalType === "locked"} onOpenChange={(open) => !open && setModalType(null)}>
-          <DialogContent className="bg-card border-border max-w-md">
-            <DialogHeader className="text-center relative">
-              <DialogTitle className="text-xl font-semibold text-foreground text-center pt-4">
-                Loan Feature Locked
-              </DialogTitle>
-            </DialogHeader>
-            <div className="text-center py-4">
-              <p className="text-muted-foreground mb-4">
-                You need to earn a minimum of ₦100,000 on the platform to access Career Support Loans. This helps us verify your activity, performance, and repayment reliability.
-              </p>
-              <p className="text-muted-foreground mb-6">
-                Once unlocked, you'll be able to request loans to purchase: Laptops, Accessories, Learning tools, Work essentials.
-              </p>
-              <Button
-                className="bg-primary hover:bg-coral/90 text-white px-8"
-                onClick={() => setModalType(null)}
-              >
-                Okay, Got It
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Loan Eligible Modal */}
-        <Dialog open={modalType === "eligible"} onOpenChange={(open) => !open && setModalType(null)}>
-          <DialogContent className="bg-card border-border max-w-md">
-            <DialogHeader className="text-center relative">
-              <DialogTitle className="text-xl font-semibold text-foreground text-center pt-4">
-                Career Support Loan
-              </DialogTitle>
-            </DialogHeader>
-            <div className="text-center py-4">
-              <p className="text-4xl font-bold text-green mb-4">
-                ₦{walletData.loanAmount.toLocaleString()}
-              </p>
-              <p className="text-muted-foreground mb-6">
-                You are eligible to access our Career Support Loan to purchase work tools such as laptops, accessories, and learning equipment.
-              </p>
-
-              <div className="bg-secondary rounded-lg p-4 mb-6 text-left">
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Interest Rate:</span>
-                  <span className="text-foreground font-medium">{walletData.interestRate}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Duration:</span>
-                  <span className="text-foreground font-medium">{walletData.duration}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-muted-foreground">Repayment:</span>
-                  <span className="text-foreground font-medium">{walletData.repayment}</span>
-                </div>
-              </div>
-
-              <Button
-                className="w-full bg-[hsla(145,100%,39%,1)] hover:bg-[hsla(145,100%,39%,1)]/90 text-white"
-                onClick={handleAcceptLoan}
-              >
-                Accept Loan
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Loan Granted Modal */}
-        <Dialog open={modalType === "granted"} onOpenChange={(open) => !open && setModalType(null)}>
-          <DialogContent className="bg-card border-border max-w-md">
-            <DialogHeader className="text-center relative">
-              <DialogTitle className="text-xl font-semibold text-foreground text-center pt-4">
-                Loan Granted
-              </DialogTitle>
-            </DialogHeader>
-            <div className="text-center py-4">
-              <p className="text-muted-foreground mb-6">
-                Your loan application has been received. Your account will be funded within 24-72 hours.
-              </p>
-              <Button
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8"
-                onClick={() => setModalType(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </main>
+      <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={walletData.balance} userName={walletData.accountName} userPin={walletData.userPin} userId={user?.id} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={onWithdrawSuccess} />
+      <WithdrawSuccessModal open={activeModal === "success"} onClose={() => setActiveModal("none")} amount={wAmt} />
     </>
   );
 }
