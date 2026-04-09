@@ -3,30 +3,28 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { email, password } = body;
+    const { email, password, role } = await request.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ success: false, error: "Email and password are required" }, { status: 400 });
+    if (!email || !password || !role) {
+      return NextResponse.json({ success: false, error: "Email, password, and role are required" }, { status: 400 });
     }
 
-    // Attempt to log the user in via Supabase
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      // Supabase handles the "Invalid credentials" or "Email not confirmed" messages automatically
       return NextResponse.json({ success: false, error: error.message }, { status: 401 });
     }
 
-    // Login successful! Return the user data and session to the frontend
-    return NextResponse.json({ 
-      success: true, 
-      user: data.user, 
-      session: data.session 
-    });
+    const userRole = data.user?.user_metadata?.role;
+    if (userRole !== role) {
+      await supabase.auth.signOut();
+      return NextResponse.json({ 
+        success: false, 
+        error: `This email is registered as ${userRole}, not ${role}` 
+      }, { status: 403 });
+    }
+
+    return NextResponse.json({ success: true, user: data.user, session: data.session });
 
   } catch (error) {
     console.error("Login Route Error:", error);

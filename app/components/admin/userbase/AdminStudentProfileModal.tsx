@@ -39,6 +39,18 @@ interface AdminStudentProfileModalProps {
   onClose: () => void;
 }
 
+const formatCourseName = (course: string) => {
+  const courseMap: { [key: string]: string } = {
+    'data-analytics': 'Data Analytics',
+    'cyber-security': 'Cyber Security',
+    'digital-marketing': 'Digital Marketing',
+  };
+  
+  return courseMap[course] || course.split('-').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ');
+};
+
 export function AdminStudentProfileModal({
   student,
   isOpen,
@@ -162,7 +174,7 @@ export function AdminStudentProfileModal({
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-400">Course</p>
-                    <p className="text-base text-white font-medium">{student.course}</p>
+                    <p className="text-base text-white font-medium">{formatCourseName(student.course)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

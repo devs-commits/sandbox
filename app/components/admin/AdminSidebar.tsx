@@ -1,28 +1,21 @@
 "use client";
-import { usePathname} from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import Image from "next/image";
-import {
-  LayoutGrid,
-  Target,
-  Wallet,
-  LogOut,
-  Menu,
-  X
-} from "lucide-react";
+import { LayoutGrid, Target, Wallet, Menu, X } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useState } from "react";
+import LogoutButton from "../shared/LogoutButton";
 
 const navItems = [
   { label: "Admin Dashboard", path: "/admin/dashboard", icon: LayoutGrid },
   { label: "User Base", path: "/admin/user-base", icon: Wallet },
-  {label: "Bounty Management", path:"/admin/bounty", icon: Wallet},
+  { label: "Bounty Management", path: "/admin/bounty", icon: Wallet },
   { label: "Revenue", path: "/admin/revenue", icon: Target },
 ];
 
-
-export default function Page(){
+export default function AdminSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -30,18 +23,17 @@ export default function Page(){
     <>
       <div className="flex items-center gap-2 mb-4 mt-5 ml-5 max-w-3xl">
         <Link href="https://labs.wdc.ng/signup" target="_blank">
-         <Image
-          src={wdcNewLogo}
-          alt="WildFusion Digital Centre"
-          width={120}
-          height={40}
-          className="h-8 md:h-10 object-contain contrast-50 brightness-200"
-          priority
+          <Image
+            src={wdcNewLogo}
+            alt="WildFusion Digital Centre"
+            width={120}
+            height={40}
+            className="h-8 md:h-10 object-contain contrast-50 brightness-200"
+            priority
           />
         </Link>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
@@ -52,9 +44,7 @@ export default function Page(){
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors",
-                isActive 
-                  ? "bg-primary/20 text-primary" 
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
+                isActive ? "bg-primary/20 text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
               )}
             >
               <div className="flex items-center gap-3">
@@ -64,31 +54,21 @@ export default function Page(){
             </Link>
           );
         })}
-        
       </nav>
 
-      {/* Persona Section */}
       <div className="p-4 mx-3 mb-3 bg-sidebar-accent/50 rounded-lg">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Admin</p>
       </div>
-      {/* Logout */}
+      
       <div className="px-3 pb-4">
-        <Link
-          href="/login"
-          onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-        >
-          <LogOut size={18} />
-          <span className="text-sm font-medium">Log out</span>
-        </Link>
+        <LogoutButton variant="sidebar" onClick={() => setMobileOpen(false)} />
       </div>
     </>
   );
 
   return (
     <>
-      {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-sidebar rounded-lg text-sidebar-foreground"
@@ -96,7 +76,6 @@ export default function Page(){
         <Menu size={24} />
       </button>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
@@ -104,7 +83,6 @@ export default function Page(){
         />
       )}
 
-      {/* Mobile sidebar */}
       <aside className={cn(
         "lg:hidden fixed top-0 left-0 h-full w-64 bg-background z-50 flex flex-col transform transition-transform duration-300",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
@@ -118,10 +96,9 @@ export default function Page(){
         <SidebarContent />
       </aside>
 
-      {/* Desktop sidebar */}
       <aside className="hidden lg:flex bg-background min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
         <SidebarContent />
       </aside>
     </>
   );
-};
+}

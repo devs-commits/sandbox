@@ -1,39 +1,28 @@
 "use client";
-import { usePathname} from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import Image from "next/image";
-import { 
-  LayoutGrid, 
-  Briefcase, 
-  FolderOpen,
-  Target,
-  Wallet,
-  Users,
-  DollarSign,
-  LogOut,
-  Menu,
-  X
-} from "lucide-react";
+import { LayoutGrid, Briefcase, FolderOpen, Target, Wallet, Users, DollarSign, Menu, X } from "lucide-react";
+import LogoutButton from "../shared/LogoutButton";
 import { cn } from "../../../lib/utils";
 import { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContexts";
 
 const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
-  // { label: "Bounty Hunter", icon: Target, path: "/student/bounty" },
+  { label: "Bounty Hunter", icon: Target, path: "/student/bounty" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
   { label: "Squad", icon: Users, path: "/student/squad" },
 ];
 
-import { useAuth } from "../../contexts/AuthContexts";
-
 export const StudentSidebar = () => {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
 
   useEffect(() => {
@@ -43,7 +32,7 @@ export const StudentSidebar = () => {
       const { count, error } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
-        .eq('user', user.id)
+        .eq('user_id', user.user_id)
         .eq('completed', true);
         
       if (!error && count !== null) {
@@ -53,17 +42,14 @@ export const StudentSidebar = () => {
 
     fetchCompletedTasks();
     
-    // Optional: Subscribe to changes to update in real-time
     const channel = supabase
       .channel('tasks-changes')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'tasks',
-        filter: `user=eq.${user?.id}`
-      }, () => {
-        fetchCompletedTasks();
-      })
+        filter: `user_id=eq.${user?.user_id}`
+      }, fetchCompletedTasks)
       .subscribe();
 
     return () => {
@@ -73,30 +59,23 @@ export const StudentSidebar = () => {
 
   const SidebarContent = () => (
     <>
-      {/* Logo */}
-      {/* <div className="max-w-3xl ml-[5px] mt-5">
-        <Link href="/student/headquarters" className="inline-block">
-          <Image src={wdcLogo} alt="WDC Labs" className="h-auto w-auto sm:h-[40px] sm:w-[135px]" />
-        </Link>
-      </div> */}
       <div className="flex items-center gap-2 mb-4 mt-5 ml-5 max-w-3xl">
         <Link href="https://labs.wdc.ng/signup" target="_blank">
-         <Image
-          src={wdcNewLogo}
-          alt="WildFusion Digital Centre"
-          width={120}
-          height={40}
-          className="h-8 md:h-10 object-contain contrast-50 brightness-200"
-          priority
+          <Image
+            src={wdcNewLogo}
+            alt="WildFusion Digital Centre"
+            width={120}
+            height={40}
+            className="h-8 md:h-10 object-contain contrast-50 brightness-200"
+            priority
           />
         </Link>
       </div>
-      {/* Navigation */}
+
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
-          // @ts-ignore
-          const badgeCount = item.id === "office" ? completedTasksCount : item.badge;
+          const badgeCount = item.id === "office" ? completedTasksCount : 0;
           
           return (
             <Link
@@ -105,9 +84,7 @@ export const StudentSidebar = () => {
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors",
-                isActive 
-                  ? "bg-primary/20 text-primary" 
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
+                isActive ? "bg-primary/20 text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
               )}
             >
               <div className="flex items-center gap-3">
@@ -122,8 +99,7 @@ export const StudentSidebar = () => {
             </Link>
           );
         })}
-        
-        {/* Earn Money - Special styling */}
+
         <Link
           href="/student/earn"
           onClick={() => setMobileOpen(false)}
@@ -139,30 +115,19 @@ export const StudentSidebar = () => {
         </Link>
       </nav>
 
-      {/* Persona Section */}
       <div className="p-2 m-4 mx-3 mb-3 bg-sidebar-accent/50 rounded-lg">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Persona</p>
         <p className="text-foreground font-semibold">Student</p>
       </div>
-      {/* Logout */}
+
       <div className="px-3 pb-4">
-        <button
-          onClick={() => {
-            setMobileOpen(false);
-            logout();
-          }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-        >
-          <LogOut size={18} />
-          <span className="text-sm font-medium">Log out</span>
-        </button>
+        <LogoutButton variant="sidebar" onClick={() => setMobileOpen(false)} />
       </div>
     </>
   );
 
   return (
     <>
-      {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-sidebar rounded-lg text-sidebar-foreground"
@@ -170,7 +135,6 @@ export const StudentSidebar = () => {
         <Menu size={24} />
       </button>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
@@ -178,7 +142,6 @@ export const StudentSidebar = () => {
         />
       )}
 
-      {/* Mobile sidebar */}
       <aside className={cn(
         "lg:hidden fixed top-0 left-0 h-full w-64 bg-background z-50 flex flex-col transform transition-transform duration-300",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
@@ -192,7 +155,6 @@ export const StudentSidebar = () => {
         <SidebarContent />
       </aside>
 
-      {/* Desktop sidebar */}
       <aside className="hidden lg:flex bg-[hsla(222,47%,11%,1)] min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
         <SidebarContent />
       </aside>
