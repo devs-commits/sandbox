@@ -1,26 +1,21 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link"; // 🔥 Added Link for the button
+import Link from "next/link"; 
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { 
-  ShieldCheckIcon, Eye, EyeOff, ArrowDownLeft, ArrowUpRight, 
-  Loader2, Copy, RotateCw, Lock, CheckCircle2, ExternalLink,
-  ArrowUpCircle, ArrowDownCircle, Clock, Landmark // 🔥 Added Landmark icon
+  Eye, EyeOff, ArrowDownLeft, ArrowUpRight, 
+  Loader2, Copy, RotateCw, ExternalLink,
+  ArrowUpCircle, ArrowDownCircle, Clock, Landmark 
 } from "lucide-react";
-import Image from "next/image";
 import { toast } from "sonner"; 
-import { Input } from "../../components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
 
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
 import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
-
-// External Paystack Script Declaration
-declare const PaystackPop: any;
 
 const getBankName = (codeOrName: string) => {
   const bankMap: Record<string, string> = {
@@ -34,7 +29,6 @@ const getBankName = (codeOrName: string) => {
 export default function GlobalWallet() {
   const { user } = useAuth();
   
-  // 🔥 Added isLoadingWallet to prevent UI flashing
   const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
   
   const [walletData, setWalletData] = useState({
@@ -52,10 +46,6 @@ export default function GlobalWallet() {
   const [wAcc, setWAcc] = useState("");
   const [wAmt, setWAmt] = useState("");
 
-  // Paystack Funding States
-  const [fundAmount, setFundAmount] = useState("");
-  const [isInitializingPayment, setIsInitializingPayment] = useState(false);
-
   const fetchTransactionHistory = useCallback(async (accNum: string) => {
     if (!accNum || accNum === "****") return;
     setIsLoadingHistory(true);
@@ -68,6 +58,12 @@ export default function GlobalWallet() {
       const data = await res.json();
       if (data.success) {
         setTransactions(data.transactions || []);
+        // 🔥 Update the balance with the Absolute Truth from Supply Smart
+        setWalletData(prev => ({ 
+           ...prev, 
+           balance: data.balance,
+           bankName: data.bankName || prev.bankName
+        }));
       }
     } catch (err) {
       console.error("History fetch error:", err);
@@ -83,17 +79,17 @@ export default function GlobalWallet() {
         balance: wallet.balance || 0,
         bankName: getBankName(wallet.bank_name || "Parallex Bank"),
         accountNumber: wallet.account_number || "****",
-        accountName: wallet.account_name || "User",
+        accountName: wallet.account_name || user?.fullName || "User",
         walletReady: !!(wallet.account_number && wallet.account_number !== "****"),
         userPin: wallet.transaction_pin || ""
       };
       setWalletData(formattedData);
-      setIsLoadingWallet(false); // 🔥 Stop loading when data arrives
+      setIsLoadingWallet(false);
       return wallet;
     }
-    setIsLoadingWallet(false); // 🔥 Stop loading even if no wallet
+    setIsLoadingWallet(false);
     return null;
-  }, [user?.id]);
+  }, [user?.id, user?.fullName]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -103,6 +99,7 @@ export default function GlobalWallet() {
     };
     init();
 
+    // Supabase subscription just keeps local state fresh if something updates DB
     const channel = supabase.channel('wallet-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, 
       () => fetchWalletData()).subscribe();
@@ -110,75 +107,23 @@ export default function GlobalWallet() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, fetchWalletData, fetchTransactionHistory]);
 
+  // 🔥 Now directly calls the history route to sync with Supply Smart, bypassing the deleted sync route
   const manualRefresh = async () => {
     setIsSyncing(true);
     try {
-      await fetch("/api/wallet/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: user?.id }) });
-      const wallet = await fetchWalletData();
-      if (wallet?.account_number) await fetchTransactionHistory(wallet.account_number);
-      toast.success("Account Refreshed");
-    } finally { setIsSyncing(false); }
-  };
-
-  const executePaystackFunding = async () => {
-    const amountNum = parseInt(fundAmount);
-    if (!amountNum || amountNum < 100) return toast.error("Minimum ₦100 required.");
-    
-    setIsInitializingPayment(true);
-    try {
-      const res = await fetch("/api/paystack/initialize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user?.email, amount: amountNum, userId: user?.id })
-      });
-      const data = await res.json();
-      
-      if (data?.data?.reference) {
-        setActiveModal("none");
-        const paystack = new PaystackPop();
-        paystack.newTransaction({
-          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-          email: user?.email,
-          amount: amountNum * 100,
-          reference: data.data.reference,
-          onSuccess: async (response: any) => {
-            const toastId = toast.loading("Confirming your deposit..."); 
-            
-            try {
-              const verifyRes = await fetch("/api/paystack/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reference: response.reference, userId: user?.id })
-              });
-
-              const verifyData = await verifyRes.json();
-              
-              toast.dismiss(toastId); 
-
-              if (verifyData.success) {
-                toast.success(`Successfully funded ₦${amountNum}`);
-                fetchWalletData();
-                if (walletData.accountNumber !== "****") {
-                    fetchTransactionHistory(walletData.accountNumber);
-                }
-              } else {
-                toast.error(verifyData.message || "Verification failed but money may have been added. Please refresh.");
-              }
-            } catch (err) {
-              toast.dismiss(toastId);
-              toast.error("Connection lost. Please refresh to see your balance.");
-            }
-          },
-          onCancel: () => { toast.info("Payment cancelled."); setIsInitializingPayment(false); }
-        });
+      if (walletData.accountNumber !== "****") {
+          await fetchTransactionHistory(walletData.accountNumber);
       }
-    } catch (err) { toast.error("Gateway error."); } finally { setIsInitializingPayment(false); }
+      toast.success("Account Refreshed");
+    } finally { 
+      setIsSyncing(false); 
+    }
   };
 
   const onWithdrawSuccess = () => {
-    fetchWalletData().then(wallet => {
-        if (wallet?.account_number) fetchTransactionHistory(wallet.account_number);
-    });
+    if (walletData.accountNumber !== "****") {
+        fetchTransactionHistory(walletData.accountNumber);
+    }
     setActiveModal("success");
   };
 
@@ -193,18 +138,14 @@ export default function GlobalWallet() {
       
       <main className="flex-1 p-4 lg:p-8 space-y-10 max-w-6xl mx-auto">
         
-        {/* 🔥 THE WRAPPER LOGIC STARTS HERE */}
         {isLoadingWallet ? (
-          
           <div className="flex flex-col items-center justify-center py-40">
              <Loader2 className="w-10 h-10 animate-spin text-emerald-500/50 mb-4" />
              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Loading Secure Environment...</p>
           </div>
-
         ) : walletData.walletReady ? (
-          
-          /* --- THE ACTUAL DASHBOARD (IF THEY HAVE A WALLET) --- */
           <>
+            {/* MAIN WALLET CARD */}
             <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
               <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
                   <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
@@ -248,6 +189,7 @@ export default function GlobalWallet() {
               </div>
             </div>
 
+            {/* TRANSACTION HISTORY */}
             <section className="space-y-6">
                 <h3 className="text-xl font-bold text-white tracking-tight">Transaction History</h3>
                 <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
@@ -257,26 +199,26 @@ export default function GlobalWallet() {
                        <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/10 text-center"><Clock size={40} className="mx-auto mb-2 opacity-20" /><p className="text-sm font-medium">No transactions found yet.</p></div>
                     ) : (
                        <div className="divide-y divide-white/5">
-                          {transactions.map((tx) => {
-                              const isLocalInflow = tx.transaction_type === 'INFLOW';
+                          {transactions.map((tx, idx) => {
+                              // 🔥 Matches new backend schema
+                              const isLocalInflow = tx.type === 'INFLOW';
                               const amount = Number(tx.amount || 0);
-                              const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Pending';
-                              const ref = tx.reference || tx.provider_tx_id || 'N/A';
+                              const date = tx.date ? new Date(tx.date).toLocaleDateString() : 'Pending';
+                              const ref = tx.reference || tx.id || 'N/A';
+                              const status = tx.status || 'COMPLETED';
+                              const sourceName = tx.source || 'Supply Smart';
 
                               return (
-                                  <div key={tx.id || tx.provider_tx_id} className="p-5 flex items-center justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0">
+                                  <div key={tx.id || idx} className="p-5 flex items-center justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0">
                                       <div className="flex items-center gap-4">
                                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                                               {isLocalInflow ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                                           </div>
                                           <div>
                                               <p className="text-sm font-bold text-white">
-                                                  {isLocalInflow ? 'Wallet Funding' : 'Withdrawal'}
-                                                  <span className="ml-2 text-[8px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded uppercase">
-                                                      {tx.source || 'WDC'}
-                                                  </span>
+                                                  {sourceName}
                                               </p>
-                                              <p className="text-[10px] text-white/30 font-medium uppercase">{date} • {tx.status || 'COMPLETED'}</p>
+                                              <p className="text-[10px] text-white/30 font-medium uppercase">{date} • {status}</p>
                                           </div>
                                       </div>
                                       <div className="text-right">
@@ -301,13 +243,9 @@ export default function GlobalWallet() {
           </>
 
         ) : (
-
-          /* --- THE EMPTY STATE (IF THEY HAVE NO WALLET) --- */
+          /* EMPTY STATE */
           <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
-             
-             {/* Background glow for styling */}
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
-             
              <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
              <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Setup Your Settlement Account</h2>
              <p className="text-white/50 text-center mb-10 max-w-md text-sm leading-relaxed relative z-10">
@@ -319,29 +257,49 @@ export default function GlobalWallet() {
                </Button>
              </Link>
           </div>
-
         )}
-        {/* 🔥 END OF WRAPPER LOGIC */}
 
       </main>
 
-      {/* Funding Modal */}
+      {/* 🔥 NEW SUPPLY SMART FUNDING MODAL */}
       <Dialog open={activeModal === "fund"} onOpenChange={(v) => !v && setActiveModal("none")}>
         <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase">Top Up Wallet</DialogTitle>
-            <DialogDescription className="text-white/40">Enter amount to fund via Paystack secure gateway.</DialogDescription>
+            <DialogTitle className="text-2xl font-black uppercase">Fund Your Wallet</DialogTitle>
+            <DialogDescription className="text-white/40">
+              Transfer funds directly to your dedicated account below. Your wallet will be credited instantly.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 pt-4">
-            <div className="relative group">
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500 font-bold text-xl">₦</span>
-              <Input 
-                type="number" className="pl-12 h-16 text-3xl font-bold bg-black/20 border-white/10 rounded-2xl focus:border-emerald-500/50 text-white"
-                value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} placeholder="0"
-              />
+            
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+               <div>
+                  <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-1">Bank Name</p>
+                  <p className="text-lg text-white font-medium">{walletData.bankName}</p>
+               </div>
+               <div>
+                  <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-1">Account Number</p>
+                  <div className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/5">
+                    <p className="text-2xl font-mono text-emerald-400 tracking-widest">{walletData.accountNumber}</p>
+                    <button onClick={copyAccountNumber} className="text-white/40 hover:text-white bg-white/5 p-2 rounded-md transition-colors">
+                      <Copy size={20} />
+                    </button>
+                  </div>
+               </div>
+               <div>
+                  <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-1">Account Name</p>
+                  <p className="text-sm text-white font-medium">{walletData.accountName}</p>
+               </div>
             </div>
-            <Button onClick={executePaystackFunding} disabled={isInitializingPayment} className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-xl">
-              {isInitializingPayment ? <Loader2 className="animate-spin" /> : "PROCEED TO PAYMENT"}
+
+            <Button 
+              onClick={() => { 
+                setActiveModal("none"); 
+                manualRefresh(); 
+              }} 
+              className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-xl"
+            >
+              I HAVE MADE THE TRANSFER
             </Button>
           </div>
         </DialogContent>
