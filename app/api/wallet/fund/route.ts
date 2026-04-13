@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { reference, amount } = await req.json();
 
+    // 1. Authenticate the user making the request
     const authHeader = req.headers.get('Authorization');
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    // 2. Prevent Double-Crediting (Crucial FinTech Security)
     const { data: existingTx } = await supabaseAdmin
       .from('wallet_transactions')
       .select('id')
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Transaction already processed" }, { status: 409 });
     }
 
+    // 3. Verify the transaction directly with Paystack's servers
     const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` }
     });
@@ -42,10 +45,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Payment verification failed" }, { status: 400 });
     }
 
-    const verifiedAmount = paystackData.data.amount / 100;
+    // Paystack returns kobo, convert to Naira
+    const verifiedAmount = Number(paystackData.data.amount) / 100;
     const customerEmail = paystackData.data.customer.email;
 
-    // 🔥 Pulling the user's real email from Supabase
+    // 4. Pull the user's real profile and current wallet balance
     const { data: userProfile } = await supabaseAdmin
       .from('users')
       .select('full_name, email')
@@ -56,17 +60,22 @@ export async function POST(req: NextRequest) {
       .from('wallets')
       .select('balance')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     const balanceBefore = Number(wallet?.balance || 0);
     const balanceAfter = balanceBefore + verifiedAmount;
 
+    // 5. Update (or create) the global wallet balance
     await supabaseAdmin
       .from('wallets')
-      .update({ balance: balanceAfter, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
+      .upsert({ 
+        user_id: user.id, 
+        balance: balanceAfter, 
+        updated_at: new Date().toISOString() 
+      }, { onConflict: 'user_id' });
 
-    await supabaseAdmin.from('wallet_transactions').upsert({
+    // 6. Log the official transaction to the Master Ledger
+    await supabaseAdmin.from('wallet_transactions').insert({
       user_id: user.id,
       email: customerEmail,
       amount: verifiedAmount,
@@ -77,15 +86,16 @@ export async function POST(req: NextRequest) {
       status: 'SUCCESS',
       reference: reference,
       provider_tx_id: `PAYSTACK-${reference}`,
-      source: 'PAYSTACK',
+      source: 'PAYSTACK', // The history route will rename this to "Paystack Card Top-up" for the UI
       created_at: paystackData.data.paid_at || new Date().toISOString()
-    }, { onConflict: 'provider_tx_id' });
+    });
 
-    // 🔥 Using the target email (Supabase over Paystack dummy email)
+    // 7. Send the Receipt Email
     const targetEmail = userProfile?.email || customerEmail;
     const firstName = userProfile?.full_name?.split(' ')[0] || "Intern";
     
-    await sendDepositEmail(targetEmail, firstName, verifiedAmount, balanceAfter, reference);
+    // Non-blocking email send
+    sendDepositEmail(targetEmail, firstName, verifiedAmount, balanceAfter, reference).catch(e => console.error("Email error:", e));
 
     return NextResponse.json({ success: true, newBalance: balanceAfter });
 
