@@ -29,7 +29,7 @@ export default function FooterSection() {
             </p>
             <div className="text-xs mb-3">
               <p className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Lagos, Nigeria</p>
-              <p className="mt-1"><a href="mailto:hello@wdc.ng" className="hover:text-white transition-colors">✉️ hello@wdc.ng</a></p>
+              <p className="mt-1"><a href="mailto:labs@wdc.com.ng" className="hover:text-white transition-colors">✉️ labs@wdc.com.ng</a></p>
             </div>
           </div>
           <div>
