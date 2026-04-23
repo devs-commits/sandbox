@@ -143,7 +143,7 @@ const ChatInterface = ({ variant = 'v3', onJoinClick }: ChatInterfaceProps) => {
             <p className="text-base text-[#4a5568] max-w-2xl mx-auto font-inter">Most applicants fail this in under 60 seconds.</p>
           </div>
 
-          <div className="h-64 overflow-y-auto p-4 space-y-4 bg-white">
+          <div className="min-h-96 max-h-96 overflow-y-auto p-4 space-y-4 bg-white">
             <AnimatePresence>
               {messages.map((message) => (
                 <motion.div
