@@ -270,7 +270,7 @@ export default function page() {
 
     const letterType: LetterType = type === "work" ? "12week" : "24week";
 
-    const requiredWeeks = type === "work" ? 1 : 1;
+    const requiredWeeks = type === "work" ? 12 : 24;
 
     
 
