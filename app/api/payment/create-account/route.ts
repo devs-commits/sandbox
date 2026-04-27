@@ -17,10 +17,9 @@ export async function POST(req: Request) {
   try {
     const { fullName, email, track, role, subscriptionPlan } = await req.json();
 
-    let baseUrl = process.env.PAYMENT_BASE_URL?.trim() || "";
-    if (baseUrl && !baseUrl.startsWith('http')) baseUrl = `https://${baseUrl}`;
-    baseUrl = baseUrl.replace(/\/+$/, ""); 
-
+    // The Postman screenshot confirms this base is the one hosting /signupfee
+    const baseUrl = process.env.PAYMENT_BASE_URL?.replace(/\/+$/, ""); 
+    
     if (!baseUrl || !process.env.PAYMENT_API_KEY) {
       return NextResponse.json({ success: false, message: "Server configuration missing" }, { status: 500 });
     }
@@ -32,19 +31,23 @@ export async function POST(req: Request) {
     const firstName = names[0];
     const lastName = names.slice(1).join(" ") || "Intern";
 
-    // 🛑 BLOCK ACTIVE ACCOUNTS BEFORE THEY PAY
-    let dbUserId = null;
+    // 1. ACTIVE ACCOUNT CHECK
     if (email) {
-      const { data: existingUser } = await supabase.from('users').select('auth_id, has_completed_onboarding').eq('email', email).maybeSingle();
-      if (existingUser) {
-        if (existingUser.has_completed_onboarding) {
-           return NextResponse.json({ success: false, message: "This email is already active. Please login to renew." }, { status: 409 });
-        }
-        dbUserId = existingUser.auth_id; // Let abandoned carts try again
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('auth_id, has_completed_onboarding')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser?.has_completed_onboarding) {
+        return NextResponse.json({ 
+          success: false, 
+          message: "Account active. Please login to renew." 
+        }, { status: 409 });
       }
     }
 
-    // REUSE CHECK
+    // 2. REUSE PENDING PAYMENT CHECK
     const { data: existing } = await supabase
       .from("payments")
       .select("*")
@@ -54,60 +57,76 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (existing) {
-      return NextResponse.json({ success: true, accountNumber: existing.account_number, accountName: existing.account_name, transactionId: existing.id, expiry: existing.expiry });
+      return NextResponse.json({ 
+        success: true, 
+        accountNumber: existing.account_number, 
+        accountName: existing.account_name, 
+        transactionId: existing.id, 
+        expiry: existing.expiry 
+      });
     }
 
-    // FETCH FROM SUPPLY SMART
-    const apiPath = baseUrl.includes('/api/v1') ? '/signupfee' : '/api/v1/signupfee';
-    
-    const response = await fetch(`${baseUrl}${apiPath}`, {
+    // 3. TARGET THE WORKING ENDPOINT
+    // Postman: POST https://lab-api.wdc.ng/api/v1/signupfee
+    const response = await fetch(`${baseUrl}/signupfee`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json", 
         "x-api-key": process.env.PAYMENT_API_KEY!, 
         "merchant-id": process.env.PAYMENT_MERCHANT_ID! 
       },
-      // 🔥 THE FIX: Removed 'email' and 'description' to prevent schema rejection
       body: JSON.stringify({ 
         firstName, 
         lastName, 
         amount: String(amount) 
       })
-    }).catch(err => {
-      console.error("🚨 DNS Error:", err.message);
-      return null;
     });
 
-    if (!response) return NextResponse.json({ success: false, message: "Payment gateway unreachable." }, { status: 502 });
-    
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) return NextResponse.json({ success: false, message: "Gateway error" }, { status: 502 });
-
     const resData = await response.json();
+    
+    // Mapping from Postman result: resData.data.accountNumber
     const account = resData?.data;
 
     if (!resData.success || !account?.accountNumber) {
-      return NextResponse.json({ success: false, message: resData.message || "Failed to generate account" }, { status: 400 });
+      return NextResponse.json({ 
+        success: false, 
+        message: resData.message || "Failed to generate payment details" 
+      }, { status: 400 });
     }
 
     const expiryValue = account.expiryDateTime || new Date(Date.now() + 900000).toISOString();
-    const reference = account.reference || `TRF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const reference = account.reference || `TRF-${Date.now()}`;
 
-    // INSERT (userId will be NULL for brand new checkouts, which is correct)
+    // 4. SAVE AND RETURN
     const { data: newPayment, error: insertError } = await supabase
       .from("payments")
       .insert({
-        user_id: dbUserId, email, full_name: fullName, track: role === "student" ? track : "recruiter", role, amount, 
-        account_number: account.accountNumber, account_name: account.accountName, expiry: expiryValue,
-        payment_method: "transfer", payment_status: "pending", reference: reference
+        email, 
+        full_name: fullName, 
+        track: role === "student" ? track : "recruiter", 
+        role, 
+        amount, 
+        account_number: account.accountNumber, 
+        account_name: account.accountName, 
+        expiry: expiryValue,
+        payment_method: "transfer", 
+        payment_status: "pending", 
+        reference: reference
       })
       .select().single();
 
     if (insertError) throw insertError;
 
-    return NextResponse.json({ success: true, accountNumber: account.accountNumber, accountName: account.accountName, transactionId: newPayment.id, expiry: expiryValue });
+    return NextResponse.json({ 
+      success: true, 
+      accountNumber: account.accountNumber, 
+      accountName: account.accountName, 
+      transactionId: newPayment.id, 
+      expiry: expiryValue 
+    });
 
   } catch (error: any) {
+    console.error("Signup Fee Error:", error.message);
     return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
   }
 }

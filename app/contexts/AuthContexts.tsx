@@ -20,7 +20,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string, role: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (data: SignupData) => Promise<{ success: boolean; error?: string }>;
+  // UPDATE: We now indicate that signup can return a user object
+  signup: (data: SignupData) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
   forgotPassword: (email: string, role: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (newPassword: string, token?: string) => Promise<{ success: boolean; error?: string }>;
@@ -57,7 +58,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .eq('auth_id', session.user.id)
             .single();
             
-          console.log("Fetched user profile data:", data);
           if (error) {
             console.error("Error fetching user profile:", error);
             setUser(null);
@@ -119,7 +119,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify({ email, password, role }),
       });
 
-      // Securely parse to avoid crashing on 500 HTML errors
       let data;
       try {
         data = await response.json();
@@ -136,7 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(data.session);
       }
 
-      setIsLoading(false); // 🔥 FIX: Reset loading state on success!
+      setIsLoading(false); 
       return { success: true };
     } catch (err: any) {
       console.error("Login Error:", err);
@@ -145,7 +144,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signup = async (data: SignupData): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (data: SignupData): Promise<{ success: boolean; error?: string; user?: any }> => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/auth/signup', {
@@ -154,7 +153,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify(data),
       });
 
-      // Securely parse to avoid crashing on 500 HTML errors
       let result;
       try {
         result = await response.json();
@@ -171,8 +169,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(result.session);
       }
 
-      setIsLoading(false); // 🔥 FIX: Reset loading state on success!
-      return { success: true };
+      setIsLoading(false); 
+      // 🔥 FIX: We now return the user object containing the ID
+      return { success: true, user: result.user }; 
     } catch (err: any) {
       console.error("Signup Error:", err);
       setIsLoading(false);
