@@ -12,6 +12,9 @@ interface PersistedState {
 }
 
 interface OfficeContextType extends OfficeState {
+  subscription: { daysLeft: number; status: string; expiresAt: string | null } | null;
+  // --- ADDED: activateSubscription interface ---
+  activateSubscription: (planType: string) => Promise<void>; 
   setPhase: (phase: OfficePhase) => void;
   setUserLevel: (level: UserLevel) => void;
   addChatMessage: (message: ChatMessage) => void;
@@ -45,7 +48,6 @@ interface OfficeContextType extends OfficeState {
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
 
-// Default state values
 const defaultState: PersistedState = {
   hasCompletedOnboarding: false,
   hasCompletedTour: false,
@@ -56,12 +58,11 @@ const defaultState: PersistedState = {
 export function OfficeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
-  // State initialized with defaults - will be updated from Supabase
   const [phase, setPhaseState] = useState<OfficePhase>('lobby');
   const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [bounties, setBounties] = useState<Bounty[]>([]); // New state for bounties
+  const [bounties, setBounties] = useState<Bounty[]>([]); 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [hasRestoredChat, setHasRestoredChat] = useState(false);
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
@@ -78,7 +79,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
   const [messageCount, setMessageCount] = useState(0);
 
-  // Get user data from auth context
+  const [subscription, setSubscription] = useState<{ daysLeft: number; status: string; expiresAt: string | null } | null>(null);
+
   const userName = user?.fullName || 'New Intern';
   const trackName = user?.track || 'General';
   const userId = user?.id || null;
@@ -105,7 +107,6 @@ const getDailyChatKey = () => {
   return `office-chat-${userId}-${today}`;
 };
 
-// 🔁 Restore chat history on load (per user, per day)
 useEffect(() => {
   if (typeof window === 'undefined') return;
 
@@ -132,8 +133,6 @@ useEffect(() => {
   setHasRestoredChat(true);
 }, [userId]);
 
-
-// 💾 Persist chat whenever it changes
 useEffect(() => {
   if (typeof window === 'undefined') return;
   if (!hasRestoredChat) return;
@@ -145,7 +144,6 @@ useEffect(() => {
 }, [chatMessages, hasRestoredChat]);
 
 
-  // Fetch bounties when user is available
   useEffect(() => {
     const fetchBounties = async () => {
       if (!userId) return;
@@ -160,7 +158,6 @@ useEffect(() => {
         if (error) {
           console.error("Error fetching bounties:", error);
         } else if (data) {
-          // Parse jsonb fields
           const mappedBounties: Bounty[] = data.map((b: any) => ({
             ...b,
             instructions: typeof b.instructions === 'string' ? JSON.parse(b.instructions) : b.instructions,
@@ -175,6 +172,7 @@ useEffect(() => {
 
     fetchBounties();
   }, [userId]);
+
   useEffect(() => {
     const fetchOnboardingState = async () => {
       if (!userId) {
@@ -185,7 +183,7 @@ useEffect(() => {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task')
+          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at')
           .eq('auth_id', userId)
           .single();
 
@@ -197,6 +195,20 @@ useEffect(() => {
             return;
           }
         } else if (data) {
+          let days = 0;
+          if (data.subscription_expires_at) {
+            const expiryDate = new Date(data.subscription_expires_at);
+            const today = new Date();
+            const diffTime = expiryDate.getTime() - today.getTime();
+            days = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+          }
+
+          setSubscription({
+            daysLeft: days,
+            status: data.subscription_status || 'inactive',
+            expiresAt: data.subscription_expires_at
+          });
+
           setHasCompletedOnboarding(data.has_completed_onboarding || false);
           setHasCompletedTour(data.has_completed_tour || false);
           setUserLevel(data.experience_level || data.user_level || null);
@@ -221,8 +233,6 @@ useEffect(() => {
       }
     };
 
-
-
     const fetchPerformanceMetrics = async () => {
       if (!userId) {
         return;
@@ -238,7 +248,7 @@ useEffect(() => {
           .single();
 
         if (error) {
-          if (error.code !== 'PGRST116') { // Ignore no rows found
+          if (error.code !== 'PGRST116') { 
             console.error('Error fetching performance metrics:', error);
           }
         } else if (data) {
@@ -258,7 +268,6 @@ useEffect(() => {
     fetchPerformanceMetrics();
   }, [userId]);
 
-  // Function to persist state to Supabase
   const persistState = useCallback(async (state: Partial<PersistedState>) => {
     if (!userId) {
       console.warn('persistState: No userId available, skipping update');
@@ -290,6 +299,37 @@ useEffect(() => {
     }
   }, [userId]);
 
+  // --- ADDED: Dynamic Activation Function ---
+  const activateSubscription = useCallback(async (planType: string) => {
+    if (!userId) return;
+
+    const daysToAdd = planType === 'quarterly' ? 90 : 30;
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          subscription_status: 'active',
+          subscription_plan: planType,
+          subscription_expires_at: expiryDate.toISOString(),
+          last_payment_date: new Date().toISOString()
+        })
+        .eq('auth_id', userId);
+
+      if (!error) {
+        setSubscription({
+          daysLeft: daysToAdd,
+          status: 'active',
+          expiresAt: expiryDate.toISOString()
+        });
+      }
+    } catch (err) {
+      console.error("Activation Error:", err);
+    }
+  }, [userId]);
+
   const setPhase = useCallback((newPhase: OfficePhase) => {
     setPhaseState(newPhase);
   }, []);
@@ -299,10 +339,8 @@ useEffect(() => {
   }, []);
 
   const updateTaskStatus = useCallback(async (taskId: string, status: Task['status']) => {
-    // Update local state immediately
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
 
-    // Persist to Supabase
     try {
       const isCompleted = status === 'approved';
       await supabase
@@ -314,25 +352,22 @@ useEffect(() => {
     }
   }, []);
 
-  // Accept a bounty - creates a task and submission record
   const acceptBounty = useCallback(async (bounty: Bounty) => {
     if (!userId) return;
 
     try {
-      // 1. Create bounty submission record (pending)
       const { data: submission, error: subError } = await supabase
         .from('bounty_submissions')
         .insert({
           bounty_id: bounty.id,
           user_id: userId,
-          status: 'pending' // pending approval
+          status: 'pending' 
         })
         .select()
         .single();
 
       if (subError) throw subError;
 
-      // 2. Create a task in 'tasks' table so it appears in "Your Desk"
       const newTaskData = {
         user: userId,
         title: bounty.title,
@@ -351,7 +386,6 @@ useEffect(() => {
 
       if (taskError) throw taskError;
 
-      // Update local task state
         const newTask: Task = {
           id: taskData.id.toString(),
           title: taskData.title,
@@ -366,9 +400,8 @@ useEffect(() => {
 
       setTasks(prev => [newTask, ...prev]);
       setCurrentTask(newTask);
-      setActiveView('desk'); // Switch to desk to see the new task
+      setActiveView('desk'); 
 
-      // Trigger chat message
       addChatMessage({
         id: Date.now().toString(),
         agentName: 'Emem',
@@ -387,14 +420,12 @@ useEffect(() => {
     setPhaseState('tour');
   }, [persistState]);
 
-  // State to trigger team intro after tour completes
   const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
 
   const completeTour = useCallback(() => {
     setHasCompletedTour(true);
     persistState({ hasCompletedTour: true });
     setPhaseState('working');
-    // Trigger team intro and task generation
     setShouldTriggerTeamIntro(true);
   }, [persistState]);
 
@@ -402,7 +433,6 @@ useEffect(() => {
     setPortfolio(prev => [...prev, item]);
   }, []);
 
-  // Fetch tasks from Supabase when user is available
   useEffect(() => {
     const fetchTasks = async () => {
       if (!userId) {
@@ -421,7 +451,6 @@ useEffect(() => {
         if (error) {
           console.error("Error fetching tasks:", error);
         } else if (data && data.length > 0) {
-          // Map Supabase tasks to our Task type
           const mappedTasks: Task[] = data.map((t: any) => ({
             id: t.id.toString(),
             title: t.title,
@@ -438,13 +467,11 @@ useEffect(() => {
           
           console.log("--------------------All is sent MWUAHAHAHAHAHAHHAH--------------------", tasks)
 
-          // Set current task to the active one (pending) or the most recent one
           const activeTask = mappedTasks.find(t => t.status === 'pending') || mappedTasks[mappedTasks.length - 1];
           if (activeTask) {
             setCurrentTask(activeTask);
           }
 
-          // If we have existing tasks, skip first task intro
           if (mappedTasks.length > 0 && isFirstTask) {
             setIsFirstTask(false);
             persistState({ isFirstTask: false });
@@ -460,7 +487,6 @@ useEffect(() => {
     fetchTasks();
   }, [userId, trackName, isFirstTask, persistState]);
 
-  // Ensure currentTask is set if we have tasks but no current selection
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
       const activeTask = tasks.find(t => t.status === 'pending') || tasks[tasks.length - 1];
@@ -471,10 +497,9 @@ useEffect(() => {
     }
   }, [tasks, currentTask]);
 
-  // Generate task with team intro for first task
   const generateTask = useCallback(async () => {
     setIsGeneratingTask(true);
-    setIsExpanded(true); // Auto-expand chat
+    setIsExpanded(true); 
     setMessageCount(0); 
 
     if (isFirstTask) {
@@ -482,18 +507,7 @@ useEffect(() => {
 
       await new Promise(r => setTimeout(r, 1000));
 
-      // // System messages for each agent joining - one by one
-      // const joinMessages = ['Emem', 'Sola', 'Coach Kemi'];
-      // for (const name of joinMessages) {
-      //   await new Promise(r => setTimeout(r, 800));
-      //   addChatMessage({
-      //     id: `join-${Date.now()}-${name}`,
-      //     agentName: null,
-      //     message: `${name} joined the room`,
-      //     timestamp: new Date(),
-      //     isSystemMessage: true,
       try {
-        // Call AI backend for personalized intro messages
         const response = await fetch(`${AI_BACKEND_URL}/onboarding-intro`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -514,7 +528,6 @@ useEffect(() => {
           for (const msg of messages) {
             const typingDelay = msg.typing_delay_ms - lastDelay;
 
-            // Show typing indicator
             const typingId = `typing-${Date.now()}`;
             addChatMessage({
               id: typingId,
@@ -524,10 +537,8 @@ useEffect(() => {
               isTyping: true,
             });
 
-            // Wait for typing simulation (capped at 5s for realism)
             await new Promise(r => setTimeout(r, Math.min(typingDelay, 5000)));
 
-            // Remove typing indicator and add actual message
             setChatMessages(prev => prev.filter(m => m.id !== typingId));
             addChatMessage({
               id: `${Date.now()}-${msg.agent}`,
@@ -544,7 +555,6 @@ useEffect(() => {
         }
       } catch (error) {
         console.error('Onboarding intro failed, using fallback:', error);
-        // Fallback to hardcoded messages with delays
         const fallbackMessages: { agent: AgentName; message: string; delay: number }[] = [
           { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 12000 },
           { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 12000 },
@@ -581,27 +591,20 @@ useEffect(() => {
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    // Generate the task
     addChatMessage({
       id: Date.now().toString(),
       agentName: 'Emem',
       message: isFirstTask
         ? "Here's your first task. Read the brief carefully. Deadline is non‑negotiable."
         : "New task assigned. Check your desk.",
-      timestamp: new Date(),  // required by ChatMessage type
+      timestamp: new Date(),  
     });
 
     try {
-      // Call the real task generation API
       const response = await fetch('/api/tasks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // experienceLevel: userLevel || 'Level 1',
-          // location: {
-          //   city: 'Lagos', // TODO: Get from user profile
-          //   country: 'Nigeria'
-          // },
           user_id: userId,
           user_name: user?.fullName,
           track: trackName,
@@ -625,7 +628,7 @@ useEffect(() => {
             title: generatedTask.title,
             description: generatedTask.brief_content,
             type: trackName,
-            deadline: generatedTask.deadline, // TODO: Calculate from ai_persona_config
+            deadline: generatedTask.deadline, 
             status: 'pending',
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
@@ -653,7 +656,6 @@ useEffect(() => {
 
         }
       } else {
-        // Fallback task should be persisted so it survives refresh
         const fallbackTaskData = {
           user: userId,
           title: 'Data Cleansing: Lagos Tech Hub Sales',
@@ -703,7 +705,6 @@ useEffect(() => {
     } catch (error) {
       console.error('Task generation failed:', error);
 
-      // Persist fallback task so refresh does not clear it
       const fallbackTaskData = {
         user: userId,
         title: 'Offline Task Assignment',
@@ -751,21 +752,18 @@ useEffect(() => {
     setIsGeneratingTask(false);
   }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages]);
 
-  // Auto-trigger team intro and first task when tour completes
   useEffect(() => {
     if (shouldTriggerTeamIntro && !isGeneratingTask && tasks.length === 0) {
       setShouldTriggerTeamIntro(false);
-      setIsExpanded(true); // Open the chat panel
+      setIsExpanded(true); 
       generateTask();
     }
   }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length]);
 
-  // Submit bio/CV - calls AI backend for assessment
   const submitBio = useCallback(async (bio: string, file?: File) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
     let cvUrl: string | null = null;
 
-    // Upload CV file to Supabase Storage if provided
     if (file && userId) {
       try {
         const fileExt = file.name.split('.').pop();
@@ -781,14 +779,12 @@ useEffect(() => {
         if (uploadError) {
           console.error('CV upload error:', uploadError);
         } else if (uploadData) {
-          // Get public URL
           const { data: urlData } = supabase.storage
             .from('cv-uploads')
             .getPublicUrl(uploadData.path);
           cvUrl = urlData?.publicUrl || null;
           console.log('CV uploaded to:', cvUrl);
 
-          // Save CV URL to user's profile
           const { error: updateError } = await supabase
             .from('users')
             .update({ cv_url: cvUrl })
@@ -808,19 +804,17 @@ useEffect(() => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId, // From auth context
+          user_id: userId, 
           bio_text: bio,
           track: trackName,
-          cv_url: cvUrl // Pass CV URL to AI for context
+          cv_url: cvUrl 
         })
       });
 
       if (response.ok) {
         const data = await response.json();
         setUserLevel(data.assessed_level as UserLevel);
-        // Persist the user level to Supabase
         persistState({ userLevel: data.assessed_level });
-        // Store Tolu's response for the welcome popup
         addChatMessage({
           id: Date.now().toString(),
           agentName: 'Tolu',
@@ -828,7 +822,6 @@ useEffect(() => {
           timestamp: new Date(),
         });
       } else {
-        // Fallback if AI backend is down
         setUserLevel('Level 1');
       }
     } catch (error) {
@@ -839,20 +832,17 @@ useEffect(() => {
     setShowToluWelcome(true);
   }, [trackName, addChatMessage, userId, persistState]);
 
-  // Called when Tolu welcome popup is closed
   const handleToluWelcomeClose = useCallback(() => {
     setShowToluWelcome(false);
     completeOnboarding();
   }, [completeOnboarding]);
 
-  // Submit work - calls AI backend for Sola's review
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
     updateTaskStatus(taskId, 'submitted');
     setIsExpanded(true);
 
-    // Show initial "received" message
     addChatMessage({
       id: Date.now().toString(),
       agentName: 'Sola',
@@ -861,7 +851,6 @@ useEffect(() => {
     });
 
     try {
-      // 1. Upload file to Supabase Storage
       let fileUrl: string | null = null;
       if (file && userId) {
         try {
@@ -869,7 +858,7 @@ useEffect(() => {
           const fileName = `${userId}/tasks/${taskId}/${Date.now()}.${fileExt}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('submissions') // Use dedicated bucket
+            .from('submissions') 
             .upload(fileName, file, {
               cacheControl: '3600',
               upsert: true
@@ -888,17 +877,15 @@ useEffect(() => {
         }
       }
 
-      // Get the task details
       const task = tasks.find(t => t.id === taskId);
 
-      // 2. Send to AI Backend for Review
       const response = await fetch(`${AI_BACKEND_URL}/review-submission`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
           task_id: taskId,
-          file_url: fileUrl || file.name, // Pass real URL if upload succeeded, else name
+          file_url: fileUrl || file.name, 
           file_content: notes,
           task_title: task?.title || 'Unknown Task',
           task_brief: task?.description || '',
@@ -929,9 +916,8 @@ useEffect(() => {
               communication: data.communication_score,
               overallRating: userLevel || 'Level 1'
             };
-            setPerformanceMetrics(newMetrics); // Update local state
+            setPerformanceMetrics(newMetrics); 
 
-            // Save to Supabase
             try {
               await supabase.from('performance_reports').insert({
                 user_id: userId,
@@ -946,7 +932,6 @@ useEffect(() => {
             }
           }
 
-          // If passed, Kemi adds the portfolio bullet
           if (data.portfolio_bullet) {
             await new Promise(r => setTimeout(r, 2000));
             addChatMessage({
@@ -956,7 +941,6 @@ useEffect(() => {
               timestamp: new Date(),
             });
 
-            // Add to portfolio
             addPortfolioItem({
               skillTag: task?.type || 'General',
               bulletPoint: data.portfolio_bullet,
@@ -985,15 +969,13 @@ useEffect(() => {
     }
   }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem]);
 
-  // Send message - calls AI backend for agent routing
   const sendMessage = useCallback(async (message: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
-    // Check message limit (5 per task)
     if (messageCount >= 5) {
       addChatMessage({
         id: Date.now().toString(),
-        agentName: null, // System message style
+        agentName: null, 
         message: "SYSTEM: You have reached the question limit (5) for this task. Please submit your work to proceed.",
         timestamp: new Date(),
       });
@@ -1002,7 +984,6 @@ useEffect(() => {
 
     setMessageCount(prev => prev + 1);
 
-    // Add user message immediately
     addChatMessage({
       id: Date.now().toString(),
       agentName: null,
@@ -1011,7 +992,6 @@ useEffect(() => {
     });
 
     try {
-      // Get the current task info for context
       const currentTaskInfo = tasks.find(t => t.status === 'pending' || t.status === 'in-progress');
 
       const response = await fetch(`${AI_BACKEND_URL}/chat`, {
@@ -1045,7 +1025,6 @@ useEffect(() => {
           timestamp: new Date(),
         });
       } else {
-        // Fallback to local routing if AI backend is down
         let responder: AgentName = 'Sola';
         let fallbackResponse = "I'm having trouble connecting. Please try again.";
 
@@ -1067,7 +1046,6 @@ useEffect(() => {
     }
   }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount]);
 
-  // Send mock interview message - only Kemi responds
   const sendInterviewMessage = useCallback(async (message: string, interviewType: string, interviewHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
@@ -1092,7 +1070,6 @@ useEffect(() => {
 
       if (response.ok) {
         const data = await response.json();
-        // Force Kemi to always respond to interview messages
         return {
           agent: 'Kemi' as AgentName,
           message: data.message
@@ -1112,7 +1089,6 @@ useEffect(() => {
     }
   }, [userId, userLevel, trackName]);
 
-  // Send salary negotiation message - only Tolu responds
   const sendSalaryNegotiationMessage = useCallback(async (message: string, negotiationHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
@@ -1136,7 +1112,6 @@ useEffect(() => {
 
       if (response.ok) {
         const data = await response.json();
-        // Force Tolu to always respond to negotiation messages
         return {
           agent: 'Tolu' as AgentName,
           message: data.message
@@ -1163,7 +1138,10 @@ useEffect(() => {
         userLevel,
         currentTask,
         tasks,
-        bounties, // Add bounties
+        subscription, 
+        // --- ADDED: Expose activateSubscription ---
+        activateSubscription, 
+        bounties, 
         chatMessages,
         portfolio,
         tourStep,
@@ -1198,7 +1176,7 @@ useEffect(() => {
         userName,
         trackName,
         typingAgent: null,
-        acceptBounty, // Add acceptBounty
+        acceptBounty, 
       }}
     >
       {children}

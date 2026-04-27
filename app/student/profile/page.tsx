@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint, Calendar, Phone, MapPin, Briefcase } from "lucide-react";
+import { ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint, Calendar, Phone, MapPin, Briefcase, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
@@ -331,20 +331,44 @@ export default function ProfileSetup() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">Set 4-Digit PIN</label>
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Set 4-Digit PIN</label>
+                      {/* Real-time length indicator for the first PIN */}
+                      {pin.length > 0 && pin.length < 4 && (
+                        <span className="text-[9px] font-bold text-amber-400">Needs 4 digits</span>
+                      )}
+                      {pin.length === 4 && (
+                        <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10}/> Valid</span>
+                      )}
+                    </div>
                     <Input 
                       type="password" maxLength={4} placeholder="••••" value={pin}
                       onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                      className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 focus:border-emerald-500/50 text-center"
+                      className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300
+                        ${pin.length === 4 ? 'bg-emerald-500/5 border-emerald-500/50' : 'bg-white/5 border-white/10 focus:border-emerald-500/50'}
+                      `}
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">Confirm PIN</label>
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Confirm PIN</label>
+                      {/* Real-time Match Indicator */}
+                      {confirmPin.length > 0 && pin !== confirmPin && (
+                        <span className="text-[9px] font-bold text-red-400 flex items-center gap-1 animate-in fade-in"><XCircle size={10}/> Mismatch</span>
+                      )}
+                      {confirmPin.length > 0 && pin === confirmPin && pin.length === 4 && (
+                        <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1 animate-in fade-in"><CheckCircle2 size={10}/> Matches</span>
+                      )}
+                    </div>
                     <Input 
                       type="password" maxLength={4} placeholder="••••" value={confirmPin}
                       onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                      className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 focus:border-emerald-500/50 text-center"
+                      className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300
+                        ${confirmPin.length > 0 && pin !== confirmPin ? 'bg-red-500/5 border-red-500/50 focus:border-red-500' : ''}
+                        ${confirmPin.length > 0 && pin === confirmPin && pin.length === 4 ? 'bg-emerald-500/5 border-emerald-500/50 focus:border-emerald-500' : ''}
+                        ${confirmPin.length === 0 || (pin === confirmPin && pin.length < 4) ? 'bg-white/5 border-white/10 focus:border-emerald-500/50' : ''}
+                      `}
                     />
                   </div>
                 </div>

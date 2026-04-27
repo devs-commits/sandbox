@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 export async function POST(req: NextRequest) {
   try {
     const { reference, userId } = await req.json();
-    console.log("💳 Verifying Paystack Ref:", reference);
+    console.log("💳 Verifying Paystack Ref for Direct Subscription:", reference);
 
     // 1. Verify with Paystack
     const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
@@ -22,49 +22,48 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, message: "Paystack verification failed" }, { status: 400 });
     }
 
-    const amountFunded = paystackData.data.amount / 100;
-    const userEmail = paystackData.data.customer.email;
+    // Extract the metadata passed during initialization
+    const metadata = paystackData.data.metadata || {};
 
-    // 2. Get current wallet balance
-    const { data: wallet } = await supabaseAdmin!.from('wallets').select('balance').eq('user_id', userId).single();
-    const oldBalance = wallet?.balance || 0;
-    const newBalance = oldBalance + amountFunded;
-
-    // 3. Update Wallet Balance
-    const { error: balError } = await supabaseAdmin!
-      .from('wallets')
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('user_id', userId);
-
-    if (balError) throw new Error("Balance update failed: " + balError.message);
-
-    // 4. Log the Ledger Entry (Matches your DB Columns exactly)
-    console.log("📝 Attempting to log Ledger entry for Paystack...");
+    // ====================================================
+    // 🌟 ONLY ROUTE: DIRECT SUBSCRIPTION PAYMENT
+    // ====================================================
+    // We now strictly use Paystack for Direct Subscriptions, NOT Wallet Funding.
     
-    const { error: txError } = await supabaseAdmin!.from('wallet_transactions').upsert({
-      user_id: userId,
-      email: userEmail,
-      amount: amountFunded,
-      transaction_type: 'INFLOW', // Must be Uppercase
-      funding_method: 'PAYSTACK_CARD', // Matches the SQL Check Constraint
-      balance_before: oldBalance,
-      balance_after: newBalance,
-      status: 'SUCCESS', // Must be Uppercase
-      reference: reference,
-      provider_tx_id: `PAYSTACK-${reference}`,
-      source: 'PAYSTACK',
-      created_at: paystackData.data.paid_at || new Date().toISOString()
-    }, { onConflict: 'provider_tx_id' });
+    // Default to 'monthly' if for some reason it wasn't passed, though it always should be now
+    const plan = metadata.subscriptionPlan || 'monthly';
+    const daysToAdd = plan === 'quarterly' ? 90 : 30;
+    
+    const today = new Date();
+    const expiryDate = new Date();
+    expiryDate.setDate(today.getDate() + daysToAdd);
 
-    if (txError) {
-      console.error("❌ LEDGER ERROR:", txError.message);
-      // We don't return 500 here because the money is already in the wallet!
-      // We just tell the UI that history might take a second to sync.
-      return NextResponse.json({ success: true, newBalance, warning: "Ledger sync delayed" });
-    }
+    // 2. Update the User's Office Access
+    const { error: userError } = await supabaseAdmin!
+      .from('users')
+      .update({
+        has_completed_onboarding: true,
+        subscription_status: 'active',
+        subscription_expires_at: expiryDate.toISOString(),
+        last_payment_date: today.toISOString(),
+        start_date: today.toISOString(),
+        renewal_status: 'pending',
+        subscription_plan: plan
+      })
+      .eq('auth_id', userId);
 
-    console.log("✅ Paystack funding fully completed and logged.");
-    return NextResponse.json({ success: true, newBalance });
+    if (userError) throw userError;
+
+    // 3. Mark the 'payments' table record as successful
+    await supabaseAdmin!
+      .from('payments')
+      .update({ payment_status: 'success' })
+      .eq('reference', reference);
+
+    console.log(`✅ Paystack Subscription (${plan}) fully completed and logged. Office Unlocked.`);
+    
+    // Notice we DO NOT touch the wallet_transactions table here anymore.
+    return NextResponse.json({ success: true, message: "Subscription activated" });
 
   } catch (err: any) {
     console.error("🔥 Paystack Verify Crash:", err.message);

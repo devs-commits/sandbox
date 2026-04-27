@@ -1,175 +1,145 @@
-import { supabase } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase-admin';
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
+import { supabaseAdmin as importedAdmin } from '@/lib/supabase-admin';
+
+// DEFENSIVE ADMIN CLIENT
+const getAdminClient = () => {
+  if (importedAdmin && typeof importedAdmin.from === 'function') {
+    return importedAdmin;
+  }
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+};
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, fullName, role, country, experienceLevel, track, referralLink } = body;
+    const { 
+      email, password, fullName, role, country, 
+      experienceLevel, track, referralLink, subscriptionPlan 
+    } = body;
 
-    // Server-side validation
+    const dbClient = getAdminClient();
+
     if (role === 'admin') {
-      return NextResponse.json({ success: false, error: "Admin accounts cannot be created via signup" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 });
     }
 
-    if (role === 'student' && (!track || !experienceLevel)) {
-      return NextResponse.json({ success: false, error: "Track and experience level are required for students" }, { status: 400 });
-    }
-
-    const dbClient = supabaseAdmin || supabase;
-
     // ==========================================
-    // 🛑 ABANDONED CART / RETRY LOGIC
+    // SCENARIO 1: RETURNING LEAD (Abandoned Cart)
     // ==========================================
-    
-    // 1. Check if it's a returning Student who hasn't paid
     if (role === 'student') {
-      const { data: existingStudent } = await dbClient
+      const { data: existingLead } = await dbClient
         .from('users')
-        .select('auth_id, email, has_completed_onboarding')
+        .select('auth_id, has_completed_onboarding') 
         .eq('email', email)
         .maybeSingle();
 
-      if (existingStudent) {
-        if (existingStudent.has_completed_onboarding) {
-          return NextResponse.json({ success: false, error: "Account already exists and is active. Please login." }, { status: 409 });
+      if (existingLead) {
+        if (existingLead.has_completed_onboarding) { 
+          return NextResponse.json({ success: false, error: "Account active. Please login." }, { status: 409 });
         } else {
-          // Abandoned Cart! Update their info
           await dbClient.from('users').update({
-            full_name: fullName,
+            full_name: fullName,               
             country: country,
             track: track,
-            experience_level: experienceLevel
-          }).eq('auth_id', existingStudent.auth_id);
+            experience_level: experienceLevel, 
+            subscription_plan: subscriptionPlan || 'monthly',
+            nudge_sent: false                  
+          }).eq('auth_id', existingLead.auth_id);
 
           return NextResponse.json({ 
             success: true, 
-            user: { id: existingStudent.auth_id, email: existingStudent.email }, 
-            session: null 
+            user: { id: existingLead.auth_id, email }
           });
         }
       }
     }
 
-    // 2. Check if it's a returning Recruiter
-    if (role === 'recruiter') {
-      const { data: existingRecruiter } = await dbClient
-        .from('recruiters')
-        .select('auth_id, email') 
-        .eq('email', email)
-        .maybeSingle();
-
-      if (existingRecruiter) {
-        await dbClient.from('recruiters').update({
-          full_name: fullName,
-          country: country
-        }).eq('auth_id', existingRecruiter.auth_id);
-
-        return NextResponse.json({ 
-          success: true, 
-          user: { id: existingRecruiter.auth_id, email: existingRecruiter.email }, 
-          session: null 
-        });
-      }
-    }
-
     // ==========================================
-    // 🟢 BRAND NEW USER CREATION LOGIC
+    // SCENARIO 2: BRAND NEW REGISTRATION
     // ==========================================
-
-    const protocol = request.headers.get("x-forwarded-proto") || "https";
-    const host = request.headers.get("host") || "labs.wdc.ng";
-    const originUrl = `${protocol}://${host}`;
-
-    const { data, error } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${originUrl}/login`, 
-        data: {
-          fullName,
-          role,
-          country,
-          experienceLevel: role === 'student' ? experienceLevel : null,
-          track: role === 'student' ? track : null,
-        },
+        data: { fullName, role, country },
       },
     });
 
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    if (authError) return NextResponse.json({ success: false, error: authError.message }, { status: 400 });
+
+    // --- CAPTURE THE ID DEFENSIVELY ---
+    // Fix: Redundant .data access removed to align with Supabase types
+    const newAuthId = authData?.user?.id;
+
+    if (!newAuthId) {
+      console.error("Auth Error: No user ID returned from Supabase Auth");
+      return NextResponse.json({ success: false, error: "User registration failed" }, { status: 500 });
     }
 
-    if (data.user && data.user.identities && data.user.identities.length === 0) {
-      return NextResponse.json({ success: false, error: "An account with this email already exists" }, { status: 409 });
-    }
+    // --- CREATE THE PENDING LEAD PROFILE ---
+    if (authData.user) {
+      const referralCode = `${fullName.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
 
-    // --- LINKING STEP ---
-    if (data.user) {
-      let dbError;
-
-      const newReferralCode = `${fullName.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
-
-      if (role === 'recruiter') {
-        const { error: recruiterError } = await dbClient
-          .from('recruiters')
-          .insert({
-            auth_id: data.user.id,
-            email: email,
-            full_name: fullName,
-            country: country,
-            role: role,
-          });
-        dbError = recruiterError;
-      } else {
-        const { data: studentData, error: studentError } = await dbClient
-          .from('users')
-          .insert({
-            auth_id: data.user.id,
-            email: email,
-            full_name: fullName,
-            role: role,
-            country: country,
-            experience_level: experienceLevel,
-            wallet_balance: 0, 
-            track: track,
-            referral_code: newReferralCode,
-            has_completed_onboarding: false,
-            has_completed_tour: false,
-            user_level: null,
-            is_first_task: true,
-          })
-          .select()
-          .single();
-
-        dbError = studentError;
-
-        if (!studentError && studentData && referralLink) {
-          const refCode = referralLink.trim();
-          const { data: referrer, error: refError } = await dbClient
-            .from('users')
-            .select('id, wallet_balance')
-            .eq('referral_code', refCode)
-            .single();
-
-          if (referrer && !refError) {
-            const reward = 2000;
-            await dbClient.from('users').update({ wallet_balance: (referrer.wallet_balance || 0) + reward }).eq('id', referrer.id);
-            await dbClient.from('referrals').insert({ referrer_id: referrer.id, referee_id: studentData.id, status: 'completed', reward_amount: reward });
-          }
-        }
-      }
+      const { error: dbError } = await dbClient
+        .from('users')
+        .insert([{
+          auth_id: newAuthId, 
+          email: email,
+          full_name: fullName,               
+          role: role,
+          country: country,
+          experience_level: experienceLevel, 
+          track: track,
+          subscription_plan: subscriptionPlan || 'monthly',
+          referral_code: referralCode,       
+          has_completed_onboarding: false,    
+          subscription_status: 'pending',     
+          nudge_sent: false,                 
+          wallet_balance: 0,                 
+          is_first_task: true,               
+          has_completed_tour: false          
+        }]);
 
       if (dbError) {
-        console.error("Error creating public profile:", dbError);
-        if (supabaseAdmin) await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-        return NextResponse.json({ success: false, error: "Account created but profile failed. Please contact support." }, { status: 500 });
+        console.error("DB Profile Error:", dbError.message);
+        // Clean up the auth user if the profile creation fails
+        await dbClient.auth.admin.deleteUser(newAuthId);
+        
+        if (dbError.message.includes("foreign key constraint")) {
+           return NextResponse.json({ 
+             success: false, 
+             error: "Security Mismatch: Please delete your old account from the dashboard before signing up again." 
+           }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: false, error: "Profile creation failed" }, { status: 500 });
+      }
+
+      // Handle Referral Reward
+      if (referralLink) {
+        const { data: referrer } = await dbClient
+          .from('users')
+          .select('id, wallet_balance')
+          .eq('referral_code', referralLink.trim())
+          .single();
+
+        if (referrer) {
+          await dbClient.from('users').update({ wallet_balance: (referrer.wallet_balance || 0) + 2000 }).eq('id', referrer.id);
+          await dbClient.from('referrals').insert([{ referrer_id: referrer.id, referee_id: newAuthId, status: 'completed', reward_amount: 2000 }]);
+        }
       }
     }
 
-    return NextResponse.json({ success: true, user: data.user, session: data.session });
-  } catch (error) {
-    console.error("Signup Route Error:", error);
+    return NextResponse.json({ success: true, user: authData.user, session: authData.session });
+
+  } catch (error: any) {
+    console.error("Signup Crash:", error.message);
     return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }

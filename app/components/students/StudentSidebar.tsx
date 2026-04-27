@@ -3,7 +3,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import Image from "next/image";
-import { LayoutGrid, Briefcase, FolderOpen, Target, Wallet, Users, DollarSign, Menu, X } from "lucide-react";
+import { LayoutGrid, Briefcase, FolderOpen, Target, Wallet, Users, DollarSign, Menu, X, Lock } from "lucide-react";
 import LogoutButton from "../shared/LogoutButton";
 import { cn } from "../../../lib/utils";
 import { useState, useEffect } from "react";
@@ -14,7 +14,6 @@ const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
-  // { label: "Bounty Hunter", icon: Target, path: "/student/bounty" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
   { label: "Squad", icon: Users, path: "/student/squad" },
 ];
@@ -24,32 +23,50 @@ export const StudentSidebar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
+  
+  // --- ADDED: Subscription Lock State ---
+  const [isOfficeLocked, setIsOfficeLocked] = useState(false);
 
   useEffect(() => {
-    const fetchCompletedTasks = async () => {
+    const fetchSidebarData = async () => {
       if (!user) return;
       
-      const { count, error } = await supabase
+      // 1. Fetch Task Count
+      const { count } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.user_id)
         .eq('completed', true);
         
-      if (!error && count !== null) {
-        setCompletedTasksCount(count);
+      if (count !== null) setCompletedTasksCount(count);
+
+      // 2. Fetch Subscription Status for the Lock
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_status, subscription_expires_at')
+        .eq('auth_id', user.id)
+        .single();
+
+      if (userData) {
+        const expiresAt = new Date(userData.subscription_expires_at);
+        const now = new Date();
+        const isExpired = expiresAt <= now;
+        const isInactive = userData.subscription_status !== 'active';
+        
+        setIsOfficeLocked(isExpired || isInactive);
       }
     };
 
-    fetchCompletedTasks();
+    fetchSidebarData();
     
     const channel = supabase
-      .channel('tasks-changes')
+      .channel('sidebar-updates')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'tasks',
         filter: `user_id=eq.${user?.user_id}`
-      }, fetchCompletedTasks)
+      }, fetchSidebarData)
       .subscribe();
 
     return () => {
@@ -77,6 +94,37 @@ export const StudentSidebar = () => {
           const isActive = pathname === item.path;
           const badgeCount = item.id === "office" ? completedTasksCount : 0;
           
+          // --- ADDED: Logic to visually lock "My Office" ---
+         // ... inside navItems.map loop
+const isItemLocked = item.id === "office" && isOfficeLocked;
+
+if (isItemLocked) {
+  return (
+    <div
+      key={item.path}
+      className="group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed border border-transparent"
+    >
+      <div className="flex items-center gap-3">
+        <item.icon size={18} className="opacity-40" />
+        <span className="text-sm font-medium">{item.label}</span>
+      </div>
+      
+      {/* The Lock Icon */}
+      <Lock size={14} className="text-red-500/30 group-hover:text-red-500/60 transition-colors" />
+
+      {/* 💡 THE HOVER NOTE (Tooltip) */}
+      <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 border border-red-500/20 text-white text-[11px] rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-bold text-red-400">Subscription Expired</span>
+          <span>Fund your wallet to unlock your office.</span>
+        </div>
+        {/* Tooltip Arrow */}
+        <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 border-l border-b border-red-500/20 rotate-45" />
+      </div>
+    </div>
+  );
+}
+
           return (
             <Link
               key={item.path}

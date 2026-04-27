@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader";
+import { SubscriptionLineCounter } from "../../components/dashboard/SubscriptionLineCounter"; // <-- Imported new component
 import { Button } from "../../components/ui/button";
 import {
   FileText,
@@ -195,6 +196,9 @@ export default function page() {
       <StudentHeader title="Headquarters" />
 
       <div className="p-4 lg:p-6 space-y-6">
+
+        {/* NEW: The subtle line counter goes here */}
+        <SubscriptionLineCounter user={user} />
 
         {/* Stats Row */}
 
