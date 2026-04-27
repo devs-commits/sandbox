@@ -8,7 +8,8 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { email, amount, callback_url, userId, fullName, track, role } = await req.json();
+    // --- ADDED: Extract subscriptionPlan ---
+    const { email, amount, callback_url, userId, fullName, track, role, subscriptionPlan } = await req.json();
 
     // 🔥 THE FIX: Abandoned Cart Recovery - Lookup user if frontend sends null
     let dbUserId = userId; 
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         email,
-        amount: amount * 100, // Paystack requires amount in kobo
+        amount: amount * 100, // Paystack requires amount in kobo (e.g., 4500000 for 45k)
         callback_url,
       }),
     });
@@ -44,7 +45,8 @@ export async function POST(req: Request) {
         full_name: fullName,
         track: track,
         role: role,
-        amount: amount,
+        amount: amount, // Logs 15000 or 45000
+        subscription_plan: subscriptionPlan || 'monthly', // --- ADDED: Store the chosen plan
         payment_method: 'paystack',
         payment_status: 'pending', // Matches your existing convention
         reference: data.data.reference, // Paystack's unique ref

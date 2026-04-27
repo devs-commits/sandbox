@@ -3,7 +3,7 @@
 import { useState, useMemo, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Copy, CheckCircle, Clock, AlertCircle, CreditCard, Banknote } from "lucide-react";
+import { Loader2, Copy, Clock, AlertCircle, CreditCard, Banknote } from "lucide-react";
 import { AuthCard } from "../components/auth/AuthCard";
 import { AuthInput } from "../components/auth/AuthInput";
 import { AuthSelect } from "../components/auth/AuthSelect";
@@ -16,17 +16,26 @@ import enLocale from "i18n-iso-countries/langs/en.json";
 import { TermsAgreement } from "../components/auth/TermsAgreement";
 
 countries.registerLocale(enLocale);
-
-// Required for Paystack inline popup
 declare const PaystackPop: any;
 
-const tracks = [
-  { value: "digital-marketing", label: "Digital Marketing", price: "₦ 15,000" },
-  { value: "data-analytics", label: "Data Analytics", price: "₦ 15,000" },
-  { value: "cyber-security", label: "Cyber Security", price: "₦ 15,000" },
-];
+// Define the interface to resolve the TypeScript Build Error
+interface SignupData {
+  fullName: string;
+  email: string;
+  password: string;
+  role: "student" | "recruiter"; // Changed from string to specific union type
+  country: string;
+  track?: string;
+  experienceLevel?: string;
+  referralLink?: string;
+  subscriptionPlan: string;
+}
 
-const RECRUITER_PRICE = "₦ 15,000";
+const tracks = [
+  { value: "digital-marketing", label: "Digital Marketing" },
+  { value: "data-analytics", label: "Data Analytics" },
+  { value: "cyber-security", label: "Cyber Security" },
+];
 
 type PaymentDetails = {
   accountNumber: string;
@@ -41,6 +50,7 @@ const SignUpContent = () => {
   const searchParams = useSearchParams();
 
   const [role, setRole] = useState<"student" | "recruiter">("student");
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"monthly" | "quarterly">("monthly");
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "paystack">("transfer");
   
   const [fullName, setFullName] = useState("");
@@ -67,8 +77,8 @@ const SignUpContent = () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, []);
 
-  const selectedTrack = tracks.find((t) => t.value === track);
-  const subscriptionPrice = role === "recruiter" ? RECRUITER_PRICE : selectedTrack?.price || "₦ 15,000";
+  const numericAmount = subscriptionPlan === "quarterly" ? 45000 : 15000;
+  const subscriptionPrice = `₦ ${numericAmount.toLocaleString()}`;
 
   const experienceLeveloptions = [
     { value: "beginner", label: "Beginner" },
@@ -109,47 +119,36 @@ const SignUpContent = () => {
   };
 
   const handleRegistration = async () => {
-    const result = await signup({
-      fullName, email, password, role, country,
+    const signupPayload: SignupData = {
+      fullName, 
+      email, 
+      password, 
+      role, 
+      country,
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
       referralLink: role === "student" ? referralLink : undefined,
-    });
+      subscriptionPlan, 
+    };
+
+    const result = await signup(signupPayload);
 
     if (!result.success) {
-      const errorStr = (result.error || "").toLowerCase();
-      // If Supabase says the email exists, we intercept it and proceed to payment anyway!
-      if (errorStr.includes("already registered") || errorStr.includes("already exists") || errorStr.includes("duplicate")) {
-         toast.info("Email recognized. Resuming your payment...", { id: "resume-toast" });
-         return { success: true, isExisting: true, userId: null }; 
-      }
       return { success: false, error: result.error };
     }
-    return { success: true, isExisting: false, userId: (result as any).user?.id || (result as any).data?.user?.id };
+    return { success: true, userId: (result as any).user?.id || (result as any).data?.user?.id };
   };
 
   const createPaymentAccount = async () => {
     if (!validateForm()) return;
     setCreatingAccount(true);
-
-    const reg = await handleRegistration();
-    if (!reg.success) {
-      setError(reg.error || "Signup failed");
-      setCreatingAccount(false);
-      return;
-    }
+    setError("");
 
     try {
       const response = await fetch("/api/payment/create-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          fullName, 
-          email, 
-          track: role === "student" ? track : "recruiter", 
-          role,
-          userId: reg.userId 
-        }),
+        body: JSON.stringify({ fullName, email, track: role === "student" ? track : "recruiter", role, subscriptionPlan }),
       });
       
       const data = await response.json();
@@ -161,9 +160,9 @@ const SignUpContent = () => {
         transactionId: data.transactionId,
         localExpiry: Date.now() + 15 * 60 * 1000,
       });
-      toast.success("Payment details generated!");
+      toast.success("Payment details generated");
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate payment details");
+      setError(err.message || "Failed to generate payment details");
     } finally {
       setCreatingAccount(false);
     }
@@ -182,7 +181,7 @@ const SignUpContent = () => {
       
       if (data.success) {
         setPaymentConfirmed(true);
-        toast.success("Payment verified successfully!");
+        toast.success("Payment verified successfully. You can now register.");
       } else {
         toast.error("Payment not yet confirmed. Please wait a minute and try again.");
       }
@@ -193,45 +192,53 @@ const SignUpContent = () => {
     }
   };
 
-  // 🔥 THE FIX: Removed the redundant 2nd handleRegistration call.
-  // Their account was already created in Step 1. We just need to route them!
   const handleSubmit = async () => {
-    toast.success("Payment confirmed! Check your email.");
-    router.push("/auth/verify-email");
+    if (!paymentDetails?.transactionId) return;
+    setCreatingAccount(true);
+
+    try {
+      toast.info("Registering your account...", { id: "reg" });
+      
+      const reg = await handleRegistration();
+      if (!reg.success) throw new Error(reg.error || "Signup failed");
+
+      const res = await fetch("/api/auth/finalize-transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionId: paymentDetails.transactionId, userId: reg.userId }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Registration complete. Check your email.", { id: "reg" });
+        router.push("/auth/verify-email");
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred while finalizing.");
+    } finally {
+      setCreatingAccount(false);
+    }
   };
 
   const handlePaystackCheckout = async () => {
     if (!validateForm()) return;
-
     setInitializingPaystack(true);
     setError("");
 
-    const reg = await handleRegistration();
-    if (!reg.success) {
-      setError(reg.error || "Signup failed");
-      setInitializingPaystack(false);
-      return;
-    }
-
     try {
-      const numericAmount = parseInt(subscriptionPrice.replace(/[^0-9]/g, ""), 10);
-      
       const res = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
-          fullName,
-          track: role === "student" ? track : "recruiter",
-          role,
-          amount: numericAmount,
-          userId: reg.userId, 
+          email, fullName, track: role === "student" ? track : "recruiter", role,
+          amount: numericAmount, subscriptionPlan,
           callback_url: `${window.location.origin}/auth/verify-email` 
         }),
       });
 
       if (!res.ok) throw new Error("Failed to initialize payment API");
-
       const data = await res.json();
 
       if (data?.data?.reference) {
@@ -239,10 +246,23 @@ const SignUpContent = () => {
         paystack.newTransaction({
           key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
           email: email,
-          amount: numericAmount * 100, // Kobo
+          amount: numericAmount * 100,
           reference: data.data.reference,
-          onSuccess: (transaction: any) => {
-            toast.success("Payment successful!");
+          onSuccess: async (transaction: any) => {
+            toast.success("Payment received. Setting up your profile...");
+            
+            const reg = await handleRegistration();
+            if (!reg.success) {
+                toast.error("Profile creation failed, but payment received. Contact support.");
+                return;
+            }
+
+            await fetch("/api/paystack/verify", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ reference: transaction.reference, userId: reg.userId })
+            });
+
             router.push("/auth/verify-email");
           },
           onCancel: () => {
@@ -260,28 +280,16 @@ const SignUpContent = () => {
   };
 
   const handleMainAction = () => {
-    if (paymentMethod === "paystack") {
-      handlePaystackCheckout();
-      return;
-    }
-
-    if (!paymentDetails?.accountNumber || timerExpired) {
-      createPaymentAccount();
-      return;
-    }
-
-    if (paymentConfirmed) {
-      handleSubmit();
-      return;
-    }
-
+    if (paymentMethod === "paystack") return handlePaystackCheckout();
+    if (!paymentDetails?.accountNumber || timerExpired) return createPaymentAccount();
+    if (paymentConfirmed) return handleSubmit();
     toast.error("Please verify your payment first");
   };
 
   const copyAccount = async () => {
     try {
       await navigator.clipboard.writeText(paymentDetails?.accountNumber || "");
-      toast.success("Copied!");
+      toast.success("Copied");
     } catch {
       toast.error("Copy failed");
     }
@@ -306,10 +314,27 @@ const SignUpContent = () => {
                 </>
               )}
             </div>
-            <div className="flex justify-between items-center py-2 px-1 border-b border-border/40 font-semibold">
-              <span className="text-sm text-muted-foreground font-medium">Subscription Fee</span>
+
+            <div className="space-y-2 pt-2">
+              <label className="text-sm font-semibold text-muted-foreground">Subscription Plan</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => { setSubscriptionPlan("monthly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${subscriptionPlan === "monthly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                  <span className="text-sm font-bold">Monthly</span>
+                  <span className="text-xs font-medium">₦ 15,000 / mo</span>
+                </button>
+                <button type="button" onClick={() => { setSubscriptionPlan("quarterly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all relative overflow-hidden ${subscriptionPlan === "quarterly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                  <div className="absolute top-0 right-0 bg-primary text-[9px] text-white px-1.5 font-bold rounded-bl-lg">SAVE</div>
+                  <span className="text-sm font-bold">Quarterly</span>
+                  <span className="text-xs font-medium">₦ 45,000 / 3 mos</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center py-2 px-1 border-b border-border/40 font-semibold mt-4">
+              <span className="text-sm text-muted-foreground font-medium">Total Fee</span>
               <span className="text-lg font-bold text-primary">{subscriptionPrice}</span>
             </div>
+
             <div className="space-y-2 pt-2">
               <label className="text-sm font-semibold text-muted-foreground">Payment Method</label>
               <div className="grid grid-cols-2 gap-3">
@@ -322,6 +347,7 @@ const SignUpContent = () => {
               </div>
             </div>
             <TermsAgreement wdcPrivacy={wdcPrivacy} onWdcPrivacyChange={setWdcPrivacy} />
+            
             {paymentMethod === "transfer" && paymentDetails && (
               <div className="border border-border/60 rounded-xl p-5 bg-muted/20 space-y-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex items-center justify-between">
@@ -352,7 +378,6 @@ const SignUpContent = () => {
               </div>
             )}
             
-            {/* 🔥 THE FIX: Removed the global isLoading from the disabled array so it never state-locks the button */}
             <Button 
               type="button" 
               className="w-full h-12 text-base font-bold transition-all shadow-lg" 
