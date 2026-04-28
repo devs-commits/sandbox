@@ -25,6 +25,7 @@ export async function downloadLetterFromElement(
   await new Promise(resolve => setTimeout(resolve, 0));
   
   const canvas = await html2canvas(element, {
+    // @ts-expect-error: scale is valid in html2canvas but missing in types
     scale: 1.5,
     backgroundColor: "#ffffff",
     useCORS: true,

@@ -6,7 +6,6 @@ import { OfficeDashboard } from '../../components/students/office/OfficeDashboar
 function OfficeContent() {
   const { phase, isLoadingOnboarding, subscription } = useOffice();
 
-  // 1. Loading State - Restored your original spinner to fix the ReferenceError
   if (isLoadingOnboarding) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
@@ -18,12 +17,22 @@ function OfficeContent() {
     );
   }
 
-  // 2. The Strict Lock - Updated Copy
+  // --- REFINED IRONCLAD LOCK ---
   const today = new Date();
-  const isExpired = subscription?.expiresAt && new Date(subscription.expiresAt) <= today;
+  
+  // Strict check: Is the string null, undefined, or empty?
+  const hasNoExpiryDate = !subscription?.expiresAt;
+  
+  // Safe Date parsing: handles null or invalid strings
+  const expiryDate = subscription?.expiresAt ? new Date(subscription.expiresAt) : null;
+  
+  // Check: Is it past expiry OR is the date object invalid (NaN)?
+  const isPastExpiry = !expiryDate || isNaN(expiryDate.getTime()) || expiryDate <= today;
+  
   const isInactive = subscription?.status !== 'active';
 
-  if (!subscription || isExpired || isInactive) {
+  // If any check fails, block the component immediately
+  if (!subscription || isInactive || hasNoExpiryDate || isPastExpiry) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md p-8 text-center">
         <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
@@ -31,12 +40,12 @@ function OfficeContent() {
         </div>
         <h2 className="text-3xl font-bold text-white mb-4">Office Access Restricted</h2>
         <p className="text-gray-400 max-w-md mb-8 text-lg">
-          Your internship subscription has expired. Access to your office is restricted. 
+          Your internship subscription has expired or cannot be verified. Access to your office is restricted. 
           Please <strong className="text-white">fund your wallet</strong> to renew your 
           subscription and regain access to your work and tools.
         </p>
         <button 
-          onClick={() => window.location.href = '/student/wallet'}
+          onClick={() => window.location.href = '/student/wallet'} 
           className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg shadow-red-900/20"
         >
           Fund Wallet & Renew

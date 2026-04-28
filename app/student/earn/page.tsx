@@ -59,7 +59,7 @@ export default function EarnMoney() {
   const [earnData, setEarnData] = useState({ earningsBalance: 0, walletTotal: 0, activeReferrals: 0, referralLink: "Loading...", userPin: "", hasPin: false });
 
   // PIN Management
-  const [pinFlow, setPinFlow] = useState<"idle" | "setup" | "update">("idle");
+  const [pinFlow, setPinFlow] = useState<"idle" | "setup">("idle");
   const [pinStep, setPinStep] = useState(1);
   const [tempPin, setTempPin] = useState("");
 
@@ -83,7 +83,8 @@ export default function EarnMoney() {
           activeReferrals: count || 0,
           referralLink: userData.referral_code ? `${window.location.origin}/signup?code=${userData.referral_code}` : "Setup profile",
           userPin: walletData?.transaction_pin || "",
-          hasPin: !!walletData?.transaction_pin
+          // Ensure it evaluates strictly. If empty string or null, this is false.
+          hasPin: !!walletData?.transaction_pin 
         });
         setIsVerified(userData.id_verified === true);
         setProfile({
@@ -101,30 +102,34 @@ export default function EarnMoney() {
 
   const handlePinAction = async (pin: string) => {
     if (pinFlow === "setup") {
-      if (pinStep === 1) { setTempPin(pin); setPinStep(2); toast.info("Re-enter PIN to verify"); }
-      else { 
-        if (pin === tempPin) savePinToDB(pin); 
-        else { toast.error("Mismatch. Try again."); setPinStep(1); setTempPin(""); } 
-      }
-    } else if (pinFlow === "update") {
-      if (pinStep === 1) {
-        if (pin === earnData.userPin) { setPinStep(2); toast.success("Identity verified. Set New PIN."); }
-        else toast.error("Incorrect current PIN.");
-      } else if (pinStep === 2) {
-        setTempPin(pin); setPinStep(3); toast.info("Re-enter New PIN to verify");
-      } else {
-        if (pin === tempPin) savePinToDB(pin);
-        else { toast.error("Mismatch. Try again."); setPinStep(2); setTempPin(""); }
+      if (pinStep === 1) { 
+        setTempPin(pin); 
+        setPinStep(2); 
+        toast.info("Re-enter PIN to verify"); 
+      } else { 
+        if (pin === tempPin) {
+          savePinToDB(pin); 
+        } else { 
+          toast.error("Mismatch. Try again."); 
+          setPinStep(1); 
+          setTempPin(""); 
+        } 
       }
     }
   };
 
   const savePinToDB = async (finalPin: string) => {
+    // 🔥 Added Error Catcher here in case DB policies are blocking the PIN save
     const { error } = await supabase.from('wallets').update({ transaction_pin: finalPin }).eq('user_id', user?.id);
-    if (!error) {
-      toast.success("Security PIN updated!");
-      setPinFlow("idle"); fetchEarnData();
+    
+    if (error) {
+      toast.error("Failed to save PIN: " + error.message);
+      return;
     }
+    
+    toast.success("Security PIN updated!");
+    setPinFlow("idle"); 
+    fetchEarnData(); // Refreshes the state so the checkmark appears immediately
   };
 
   // 🔥 KYC Enforcement Check
@@ -149,7 +154,6 @@ export default function EarnMoney() {
             <div className="relative z-10 space-y-4">
                <p className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em]">Referral Earnings</p>
                <h2 className="text-5xl font-bold text-white tracking-tighter">₦{earnData.earningsBalance.toLocaleString()}</h2>
-               {/* 🔥 Added Enforcement Check here */}
                <Button onClick={handleCashOutClick} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] h-12 rounded-2xl tracking-widest shadow-xl">
                  CASH OUT EARNINGS <ChevronRight size={14} />
                </Button>
@@ -183,30 +187,50 @@ export default function EarnMoney() {
           <div className="bg-[#0f172a] rounded-[2.5rem] p-8 lg:p-10 border border-white/5 shadow-2xl space-y-10">
               <h3 className="text-xl font-bold text-white flex items-center gap-4"><ShieldCheckIcon className="text-emerald-500" /> Security Hub</h3>
               
+              {/* CLEANED UP PIN SECTION */}
               <div className="p-6 bg-white/[0.02] rounded-2xl border border-white/[0.05] space-y-6">
                 <div className="flex justify-between items-center">
                   <p className="text-sm font-bold text-white">Withdrawal PIN</p>
-                  <Button variant="ghost" onClick={() => { setPinFlow(earnData.hasPin ? "update" : "setup"); setPinStep(1); }} className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">
-                    {earnData.hasPin ? "Update PIN" : "Setup PIN"}
-                  </Button>
+                  
+                  {!earnData.hasPin ? (
+                     // Only show Setup button if they truly have no PIN saved
+                     <Button variant="ghost" onClick={() => { setPinFlow("setup"); setPinStep(1); }} className="text-[10px] font-black uppercase text-indigo-400 tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 h-8 px-4 rounded-lg">
+                       Setup PIN
+                     </Button>
+                  ) : (
+                     // If PIN exists, show the green active badge instead of a lock!
+                     <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5">
+                        <CheckCircle2 size={12} /> Active
+                     </div>
+                  )}
                 </div>
-                {pinFlow !== "idle" ? (
-                  <div className="space-y-6 py-4 animate-in fade-in zoom-in-95">
-                    <p className="text-[10px] text-white/40 uppercase font-black text-center tracking-[0.2em]">
-                      {pinFlow === "update" && pinStep === 1 ? "Enter Current PIN" : "Verify PIN"}
-                    </p>
-                    <PinInput key={pinStep} onComplete={handlePinAction} />
-                    <Button variant="ghost" onClick={() => setPinFlow("idle")} className="w-full text-[9px] text-white/20 font-bold uppercase tracking-widest h-6">Cancel</Button>
-                  </div>
+
+                {!earnData.hasPin ? (
+                   pinFlow === "setup" ? (
+                     <div className="space-y-6 py-4 animate-in fade-in zoom-in-95">
+                       <p className="text-[10px] text-white/40 uppercase font-black text-center tracking-[0.2em]">
+                         {pinStep === 1 ? "Set 4-Digit PIN" : "Verify PIN"}
+                       </p>
+                       <PinInput key={pinStep} onComplete={handlePinAction} />
+                       <Button variant="ghost" onClick={() => setPinFlow("idle")} className="w-full text-[9px] text-white/20 font-bold uppercase tracking-widest h-6">Cancel</Button>
+                     </div>
+                   ) : (
+                     <p className="text-xs text-white/20 leading-relaxed italic">A 4-digit security PIN is required for all cash outs. Please set it up.</p>
+                   )
                 ) : (
-                  <p className="text-xs text-white/20 leading-relaxed italic">A 4-digit security PIN is required for all cash outs. Do not share your PIN.</p>
+                   // The "Contact Support/Update" message you requested for users who already have a PIN
+                   <div className="flex items-start gap-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+                     <Lock size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+                     <p className="text-xs text-white/40 leading-relaxed">
+                       Your security PIN is active and protecting your funds. You can safely update your PIN in your <button onClick={() => router.push('/student/profile')} className="text-indigo-400 font-semibold hover:underline">Profile Settings</button> or by contacting support.
+                     </p>
+                   </div>
                 )}
               </div>
 
               {/* KYC DATA DISPLAY */}
               <div className="space-y-8 pt-4 border-t border-white/5 relative">
                 
-                {/* 🔥 Added Edit Profile Button Header */}
                 <div className="flex justify-between items-center mt-2 mb-6">
                   <p className="text-sm font-bold text-white">KYC Details</p>
                   <Button variant="ghost" onClick={() => router.push("/student/profile")} className="text-[10px] font-black uppercase text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 tracking-widest h-8 px-4 rounded-lg transition-all">
@@ -229,14 +253,6 @@ export default function EarnMoney() {
                 <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
                   <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">BVN (Encrypted)</label><p className={`font-mono text-sm ${!profile.bvn ? 'text-red-400' : 'text-white/40'}`}>{profile.bvn ? "********" + profile.bvn.slice(-4) : "Not Set"}</p></div>
                   <div className="space-y-1"><label className="text-[9px] font-black text-white/20 uppercase tracking-widest">NIN (Encrypted)</label><p className="font-mono text-sm text-white/40">{profile.nin ? "********" + profile.nin.slice(-4) : "Not Set"}</p></div>
-                </div>
-
-                {/* 🔥 Added Fineprint for Locked Data */}
-                <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex gap-3 items-start mt-6">
-                  <Info size={16} className="text-indigo-400 mt-0.5 shrink-0" />
-                  <p className="text-xs text-white/40 leading-relaxed">
-                    To maintain account security and comply with financial regulations, sensitive KYC data (DOB, BVN, NIN) are locked after your wallet is created. To update these details, please <button onClick={() => window.location.href='mailto:hello@wdc.ng'} className="text-indigo-400 font-semibold hover:underline">contact support</button>.
-                  </p>
                 </div>
 
               </div>

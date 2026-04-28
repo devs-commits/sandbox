@@ -15,60 +15,71 @@ export async function POST(req: NextRequest) {
     }
 
     const headers = {
+      "Content-Type": "application/json",
       "x-api-key": process.env.PAYMENT_API_KEY!,
-      "merchant-id": process.env.PAYMENT_MERCHANT_ID!,
-      "Accept": "application/json"
+      "merchant-id": process.env.PAYMENT_MERCHANT_ID!
     };
 
-    // 1. Fetch live balance from Supply Smart (Absolute Truth)
-    const accountsRes = await fetch(`${process.env.PAYMENT_BASE_URL}/partners/virtual/accounts`, { method: "GET", headers });
-    const accountsData = await accountsRes.json();
-    const virtualAccountsList = accountsData?.data?.result || [];
-    const targetAccount = virtualAccountsList.find((acc: any) => String(acc.accountNumber) === String(accountNumber));
+    const wdcBase = "https://lab-api.wdc.ng/api/v1";
+
+    // --- 1. FETCH LIVE BALANCE ---
+    const walletRes = await fetch(`${wdcBase}/get-all-virtual-wallet?limit=1000`, { method: "GET", headers });
+    const walletData = await walletRes.json().catch(() => ({}));
+    const allWallets = Array.isArray(walletData?.data) ? walletData.data : [];
+    const targetAccount = allWallets.find((w: any) => String(w.accountNumber) === String(accountNumber));
     const liveBalance = Number(targetAccount?.balance || 0);
 
     // Sync truth to Supabase wallet table
     await supabaseAdmin.from('wallets').update({ balance: liveBalance, updated_at: new Date().toISOString() }).eq('user_id', userId);
 
-    // 2. Fetch and Sync Transaction History
-    const historyRes = await fetch(`${process.env.PAYMENT_BASE_URL}/partners/transaction/history`, { method: "GET", headers });
-    const historyData = await historyRes.json();
-    const apiTransactions = historyData?.data?.result || [];
+    // --- 2. FETCH AND SYNC TRANSACTIONS ---
+    // Using your exact WDC API endpoint that requires accountNumber in the body
+    const txRes = await fetch(`${wdcBase}/transactions`, {
+      method: "POST", // Adjust to GET if your API strictly requires it, but fetch bodies usually require POST
+      headers,
+      body: JSON.stringify({ accountNumber })
+    });
+    
+    const txData = await txRes.json().catch(() => ({}));
+    const apiTransactions = Array.isArray(txData?.data?.result) ? txData.data.result : [];
 
-    // Filter transactions for this user's account number
-    const userTx = apiTransactions.filter((tx: any) => 
-      String(tx.receiverDetails?.accountNumber).includes(accountNumber) || 
-      String(tx.senderDetails?.originatingAccountNumber).includes(accountNumber) ||
-      String(tx.accountNumber).includes(accountNumber) // Fallback for simple ledgers
-    );
-
-    if (userTx.length > 0) {
-      const dbEntries = userTx.map((tx: any) => {
-        // 🔥 MAP FIX: Based on Postman Screenshot (transactionType: "debit" or "TRANSFER")
-        const typeStr = (tx.transactionType || "").toUpperCase();
-        const isOutflow = typeStr === "DEBIT" || typeStr === "OUTFLOW";
+    if (apiTransactions.length > 0) {
+      const dbEntries = apiTransactions.map((tx: any) => {
+        // Map "debit" to OUTFLOW, "credit" to INFLOW
+        const typeStr = String(tx.transactionType || "").toLowerCase();
+        const isOutflow = typeStr === "debit";
         
-        // 🔥 SOURCE FIX: Try reading from sender details or the nested bankResponse
-        const sourceName = tx.senderDetails?.originatingAccountName 
-          || tx.bankResponse?.beneficiaryAccountName 
-          || "Bank Transfer";
+        // Grab the name from bankResponse if it exists
+        const sourceName = tx.bankResponse?.beneficiaryAccountName || "Wallet Transaction";
+
+        // Map Status correctly
+        const rawStatus = String(tx.status || "completed").toLowerCase();
+        let finalStatus = "PENDING";
+        if (rawStatus === "completed" || rawStatus === "successful") finalStatus = "SUCCESS";
+        if (rawStatus === "failed") finalStatus = "FAILED";
 
         return {
           user_id: userId,
-          amount: Number(tx.amount || tx.totalAmount || 0),
+          amount: Number(tx.amount || 0),
           transaction_type: isOutflow ? 'OUTFLOW' : 'INFLOW',
-          status: (tx.status || tx.finalStatus || "COMPLETED").toUpperCase() === 'SUCCESSFUL' ? 'SUCCESS' : 'PENDING',
-          reference: tx.transactionId || tx.paymentReference || tx._id,
+          status: finalStatus,
+          // CRITICAL FIX: Use tx._id because failed transactions return "N/A" for transactionId
+          reference: tx._id, 
           provider_tx_id: tx._id, 
           source: sourceName,
           created_at: tx.createdAt || new Date().toISOString()
         };
       });
 
-      await supabaseAdmin.from('wallet_transactions').upsert(dbEntries, { onConflict: 'provider_tx_id' });
+      // Upsert into Supabase using provider_tx_id to prevent duplicates
+      const { error: txError } = await supabaseAdmin
+        .from('wallet_transactions')
+        .upsert(dbEntries, { onConflict: 'provider_tx_id' });
+        
+      if (txError) console.error("Transaction upsert error:", txError.message);
     }
 
-    // 3. Return Unified History from DB (Local + Synced)
+    // --- 3. RETURN UNIFIED HISTORY ---
     const { data: finalHistory } = await supabaseAdmin
       .from('wallet_transactions')
       .select('*')
@@ -78,6 +89,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
         success: true, 
         balance: liveBalance,
+        bankName: targetAccount?.bankName || "Parallex Bank",
         transactions: finalHistory 
     });
 

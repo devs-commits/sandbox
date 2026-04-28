@@ -20,7 +20,7 @@ export function WithdrawModal({
   amount, 
   setAmount, 
   onWithdraw, 
-  userPin,
+  userPin, // We can actually stop passing this prop in the future, as validation is server-side now
   userId 
 }: any) {
   
@@ -88,15 +88,10 @@ export function WithdrawModal({
   }, [accountNumber, bankName, userName]);
 
   const handleFinalWithdraw = async () => {
-    if (enteredPin !== userPin) {
-      toast.error("Invalid Transaction PIN");
-      setEnteredPin(""); 
-      return;
-    }
+    if (enteredPin.length < 4) return toast.error("Please enter a 4-digit PIN");
 
     setIsProcessing(true);
     try {
-      // 🔥 Extract actual bank name for the email
       const selectedBank = banks.find(b => b.institutionCode === bankName);
       const actualBankName = selectedBank ? selectedBank.institutionName : bankName;
 
@@ -105,8 +100,9 @@ export function WithdrawModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
+          pin: enteredPin, // 🔥 Pass PIN securely to the backend
           bankCode: bankName, 
-          bankName: actualBankName, // 🔥 Sending real name for the email
+          bankName: actualBankName, 
           accountNumber,
           amount: parseFloat(amount),
           accountName: resolvedName,
@@ -127,6 +123,7 @@ export function WithdrawModal({
       toast.error("Network error during transfer.");
     } finally {
       setIsProcessing(false);
+      setEnteredPin(""); // Always clear the PIN input whether it succeeds or fails
     }
   };
 
@@ -238,9 +235,9 @@ export function WithdrawModal({
                 <Lock className="text-emerald-500" size={28} />
             </div>
             
-                <div className="space-y-2 px-4">
-        <h3 className="font-bold text-xl tracking-tight">Authenticate</h3>
-        <p className="text-xs text-white/40">You are authorizing a withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span></p>
+            <div className="space-y-2 px-4">
+               <h3 className="font-bold text-xl tracking-tight">Authenticate</h3>
+               <p className="text-xs text-white/40">You are authorizing a withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span></p>
             </div>
             
             <PinInput onComplete={(pin) => setEnteredPin(pin)} />

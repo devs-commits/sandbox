@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint, Calendar, Phone, MapPin, Briefcase, XCircle } from "lucide-react";
+import { ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint, Calendar, Phone, MapPin, Briefcase, XCircle, Info } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
@@ -17,7 +18,7 @@ export default function ProfileSetup() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // 🔥 SMART FLAG: Determines if they are generating a wallet, or just editing a profile
+  // State flags
   const [hasWallet, setHasWallet] = useState(false); 
 
   // Form State
@@ -29,10 +30,16 @@ export default function ProfileSetup() {
   const [address, setAddress] = useState("");
   const [occupation, setOccupation] = useState("");
   
+  // Setup PIN State (Only used during initial generation)
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
 
-  // Load existing data if available
+  // Modal PIN State (Used for changing PIN later)
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [modalPin, setModalPin] = useState("");
+  const [modalConfirmPin, setModalConfirmPin] = useState("");
+  const [isUpdatingPin, setIsUpdatingPin] = useState(false);
+
   useEffect(() => {
     if (!user?.id) return;
 
@@ -44,23 +51,25 @@ export default function ProfileSetup() {
           .eq("auth_id", user.id)
           .single();
           
-        if (userData) {
-          // Pull name from DB. If empty, fallback to the name they typed during Auth Signup!
-          setFullName(userData.full_name || (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || "");
+        const { data: walletData } = await supabase
+          .from("wallets")
+          .select("account_number")
+          .eq("user_id", user.id)
+          .maybeSingle();
           
+        if (userData) {
+          setFullName(userData.full_name || (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || "");
           if (userData.bvn) setBvn(userData.bvn);
           if (userData.nin) setNin(userData.nin);
           if (userData.phone) setPhone(userData.phone);
           if (userData.address) setAddress(userData.address);
           if (userData.occupation) setOccupation(userData.occupation);
           
-          // SCHEMA FIX: Pulling from 'date_of_birth'
           if (userData.date_of_birth) {
             setDob(userData.date_of_birth.split('T')[0]);
           }
 
-          // If their profile is complete, switch to "Edit Mode"
-          if (userData.is_complete) {
+          if (userData.is_complete || (walletData?.account_number && walletData.account_number !== "****")) {
             setHasWallet(true);
           }
         }
@@ -75,20 +84,15 @@ export default function ProfileSetup() {
   }, [user]);
 
   const handleAction = async () => {
-    // DATABASE SANITIZATION: Postgres hates empty strings ("") for Timestamps.
-    // We explicitly convert any empty string to a pure 'null' before saving.
     const safeDob = dob ? dob : null;
     const safeAddress = address ? address : null;
     const safeOccupation = occupation ? occupation : null;
     const safePhone = phone ? phone : null;
 
     // ==========================================
-    // 1. EDIT MODE: Save flexible fields
+    // 1. EDIT MODE: Save flexible fields ONLY
     // ==========================================
     if (hasWallet) {
-      if (pin && pin !== confirmPin) return toast.error("PINs do not match.");
-      if (pin && pin.length !== 4 && pin.length > 0) return toast.error("PIN must be 4 digits.");
-
       setIsGenerating(true);
       try {
         const { error: editError } = await supabase.from("users").update({ 
@@ -99,15 +103,8 @@ export default function ProfileSetup() {
 
         if (editError) throw editError;
 
-        if (pin) {
-          const { error: pinError } = await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
-          if (pinError) throw pinError;
-        }
-
         toast.success("Profile updated successfully!");
-        setPin(""); setConfirmPin(""); // Clear pin fields after save
       } catch (error) {
-        console.error("Edit Profile Error:", (error as any).message);
         toast.error("Failed to update profile.");
       } finally {
         setIsGenerating(false);
@@ -118,19 +115,24 @@ export default function ProfileSetup() {
     // ==========================================
     // 2. SETUP MODE: Generating Wallet First Time
     // ==========================================
-    if (!fullName || !phone || !dob || !bvn || !nin || !pin || !confirmPin) {
-      return toast.error("Please fill in all KYC and security details.");
-    }
-
+    if (!fullName) return toast.error("Full Name is required.");
+    if (!phone) return toast.error("Phone Number is required.");
+    if (!dob) return toast.error("Date of Birth is required.");
+    
+    if (!bvn) return toast.error("BVN is required.");
     if (bvn.length !== 11) return toast.error("BVN must be exactly 11 digits.");
+    
+    if (!nin) return toast.error("NIN is required.");
     if (nin.length !== 11) return toast.error("NIN must be exactly 11 digits.");
+    
+    if (!pin) return toast.error("Please set a 4-digit PIN.");
+    if (!confirmPin) return toast.error("Please confirm your PIN.");
     if (pin.length !== 4) return toast.error("Transaction PIN must be exactly 4 digits.");
     if (pin !== confirmPin) return toast.error("PINs do not match.");
 
     setIsGenerating(true);
 
     try {
-      // 🔥 THE RLS FIX: Pure UPDATE command (instead of upsert)
       const { error: userError } = await supabase.from("users").update({ 
           full_name: fullName, 
           phone: safePhone, 
@@ -141,24 +143,18 @@ export default function ProfileSetup() {
           occupation: safeOccupation 
       }).eq("auth_id", user?.id);
 
-      if (userError) {
-        console.error("Supabase Error:", userError);
-        throw new Error("DB Error: " + userError.message);
-      }
+      if (userError) throw new Error("DB Error: " + userError.message);
 
-      // Call Backend to generate Virtual Account
       const res = await fetch("/api/wallet/initialize", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Failed to provision settlement account.");
+      if (!res.ok || !data.success) throw new Error(data.error || "Provider issue. Please contact support.");
 
-      // Secure PIN & Unlock Dashboard
       await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
-      await supabase.from("users").update({ is_complete: true }).eq("auth_id", user?.id);
-
+      
       toast.success("Virtual Account Generated Successfully!", { icon: <ShieldCheck className="text-emerald-500" /> });
       router.push("/student/earn"); 
 
@@ -166,6 +162,29 @@ export default function ProfileSetup() {
       toast.error((error as any).message || "An error occurred while generating your wallet.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // ==========================================
+  // 3. ISOLATED PIN CHANGE LOGIC (Modal)
+  // ==========================================
+  const handleModalPinChange = async () => {
+    if (modalPin.length !== 4) return toast.error("PIN must be exactly 4 digits.");
+    if (modalPin !== modalConfirmPin) return toast.error("PINs do not match.");
+    
+    setIsUpdatingPin(true);
+    try {
+      const { error } = await supabase.from("wallets").update({ transaction_pin: modalPin }).eq("user_id", user?.id);
+      if (error) throw error;
+      
+      toast.success("Transaction PIN updated securely!");
+      setIsPinModalOpen(false);
+      setModalPin("");
+      setModalConfirmPin("");
+    } catch (err) {
+      toast.error("Failed to update PIN.");
+    } finally {
+      setIsUpdatingPin(false);
     }
   };
 
@@ -196,7 +215,7 @@ export default function ProfileSetup() {
                   {hasWallet ? "Account Settings" : "Generate Wallet"}
                 </h2>
                 <p className="text-white/40 text-sm">
-                  {hasWallet ? "Update your contact info or reset your PIN." : "Provide your KYC details to provision your settlement account."}
+                  {hasWallet ? "Update your contact info or security settings." : "Provide your KYC details to provision your settlement account."}
                 </p>
              </div>
            </div>
@@ -210,8 +229,8 @@ export default function ProfileSetup() {
                 </h3>
                 
                 <div>
-                  <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">
-                    Full Legal Name {hasWallet && <span className="text-red-400 ml-2">(Locked)</span>}
+                  <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">
+                    Full Legal Name {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}
                   </label>
                   <Input 
                     type="text" placeholder="e.g. Ademola John Alabi" value={fullName}
@@ -219,6 +238,7 @@ export default function ProfileSetup() {
                     disabled={hasWallet}
                     className="bg-white/5 border-white/10 h-14 rounded-xl font-medium text-white px-4 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
+                  {!hasWallet && <p className="text-[10px] text-emerald-400/70 mt-2">Your name must match your government records (BVN/NIN).</p>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -235,8 +255,8 @@ export default function ProfileSetup() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">
-                      Date of Birth {hasWallet && <span className="text-red-400 ml-2">(Locked)</span>}
+                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">
+                      Date of Birth {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}
                     </label>
                     <div className="relative">
                       <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
@@ -253,16 +273,18 @@ export default function ProfileSetup() {
 
              <div className="h-px w-full bg-white/5"></div>
 
-             {/* SECTION 2: Identity Verification (Locked if Wallet exists) */}
+             {/* SECTION 2: Identity Verification */}
              <div className="space-y-6">
-                <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
-                  <Fingerprint size={16} /> Identity Verification
-                </h3>
+                <div className="flex justify-between items-center">
+                   <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                     <Fingerprint size={16} /> Identity Verification
+                   </h3>
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">
-                      BVN {hasWallet && <span className="text-red-400 ml-2">(Locked)</span>}
+                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">
+                      BVN {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}
                     </label>
                     <Input 
                       type="text" maxLength={11} placeholder="11 Digits" value={bvn}
@@ -273,8 +295,8 @@ export default function ProfileSetup() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">
-                      NIN {hasWallet && <span className="text-red-400 ml-2">(Locked)</span>}
+                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">
+                      NIN {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}
                     </label>
                     <Input 
                       type="text" maxLength={11} placeholder="11 Digits" value={nin}
@@ -284,6 +306,16 @@ export default function ProfileSetup() {
                     />
                   </div>
                 </div>
+
+                {/* 🔥 CONTACT SUPPORT BANNER */}
+                {hasWallet && (
+                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex gap-3 items-start mt-4">
+                    <Info size={16} className="text-emerald-400 mt-0.5 shrink-0" />
+                    <p className="text-xs text-emerald-100/60 leading-relaxed">
+                      Your identity is verified and your settlement wallet is active. To protect your account from fraud, core KYC details are locked. Need to make a correction? <a href="mailto:hello@wdc.ng" className="text-emerald-400 font-bold hover:underline">Contact Support</a>.
+                    </p>
+                  </div>
+                )}
              </div>
 
              <div className="h-px w-full bg-white/5"></div>
@@ -323,55 +355,71 @@ export default function ProfileSetup() {
 
              <div className="h-px w-full bg-white/5"></div>
 
-             {/* SECTION 4: Security */}
+             {/* SECTION 4: Security (Conditional Rendering) */}
              <div className="space-y-6">
                 <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
-                  <Lock size={16} /> Wallet Security {hasWallet && <span className="text-white/40 ml-2 font-medium normal-case">(Leave blank to keep current PIN)</span>}
+                  <Lock size={16} /> Wallet Security
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Set 4-Digit PIN</label>
-                      {/* Real-time length indicator for the first PIN */}
-                      {pin.length > 0 && pin.length < 4 && (
-                        <span className="text-[9px] font-bold text-amber-400">Needs 4 digits</span>
-                      )}
-                      {pin.length === 4 && (
-                        <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10}/> Valid</span>
-                      )}
+                {hasWallet ? (
+                  /* SECURE EDIT MODE: Clean toggle button instead of empty inputs */
+                  <div className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl">
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Transaction PIN</h4>
+                      <p className="text-xs text-white/40 mt-1">Secure your withdrawals and transfers.</p>
                     </div>
-                    <Input 
-                      type="password" maxLength={4} placeholder="••••" value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                      className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300
-                        ${pin.length === 4 ? 'bg-emerald-500/5 border-emerald-500/50' : 'bg-white/5 border-white/10 focus:border-emerald-500/50'}
-                      `}
-                    />
+                    <Button 
+                      onClick={() => setIsPinModalOpen(true)} 
+                      variant="outline" 
+                      className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+                    >
+                      Change PIN
+                    </Button>
                   </div>
+                ) : (
+                  /* SETUP MODE: Show PIN fields required for creation */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Set 4-Digit PIN</label>
+                        {pin.length > 0 && pin.length < 4 && (
+                          <span className="text-[9px] font-bold text-amber-400">Needs 4 digits</span>
+                        )}
+                        {pin.length === 4 && (
+                          <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10}/> Valid</span>
+                        )}
+                      </div>
+                      <Input 
+                        type="password" maxLength={4} placeholder="••••" value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                        className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300
+                          ${pin.length === 4 ? 'bg-emerald-500/5 border-emerald-500/50' : 'bg-white/5 border-white/10 focus:border-emerald-500/50'}
+                        `}
+                      />
+                    </div>
 
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Confirm PIN</label>
-                      {/* Real-time Match Indicator */}
-                      {confirmPin.length > 0 && pin !== confirmPin && (
-                        <span className="text-[9px] font-bold text-red-400 flex items-center gap-1 animate-in fade-in"><XCircle size={10}/> Mismatch</span>
-                      )}
-                      {confirmPin.length > 0 && pin === confirmPin && pin.length === 4 && (
-                        <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1 animate-in fade-in"><CheckCircle2 size={10}/> Matches</span>
-                      )}
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Confirm PIN</label>
+                        {confirmPin.length > 0 && pin !== confirmPin && (
+                          <span className="text-[9px] font-bold text-red-400 flex items-center gap-1 animate-in fade-in"><XCircle size={10}/> Mismatch</span>
+                        )}
+                        {confirmPin.length > 0 && pin === confirmPin && pin.length === 4 && (
+                          <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1 animate-in fade-in"><CheckCircle2 size={10}/> Matches</span>
+                        )}
+                      </div>
+                      <Input 
+                        type="password" maxLength={4} placeholder="••••" value={confirmPin}
+                        onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                        className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300
+                          ${confirmPin.length > 0 && pin !== confirmPin ? 'bg-red-500/5 border-red-500/50 focus:border-red-500' : ''}
+                          ${confirmPin.length > 0 && pin === confirmPin && pin.length === 4 ? 'bg-emerald-500/5 border-emerald-500/50 focus:border-emerald-500' : ''}
+                          ${confirmPin.length === 0 || (pin === confirmPin && pin.length < 4) ? 'bg-white/5 border-white/10 focus:border-emerald-500/50' : ''}
+                        `}
+                      />
                     </div>
-                    <Input 
-                      type="password" maxLength={4} placeholder="••••" value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                      className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300
-                        ${confirmPin.length > 0 && pin !== confirmPin ? 'bg-red-500/5 border-red-500/50 focus:border-red-500' : ''}
-                        ${confirmPin.length > 0 && pin === confirmPin && pin.length === 4 ? 'bg-emerald-500/5 border-emerald-500/50 focus:border-emerald-500' : ''}
-                        ${confirmPin.length === 0 || (pin === confirmPin && pin.length < 4) ? 'bg-white/5 border-white/10 focus:border-emerald-500/50' : ''}
-                      `}
-                    />
                   </div>
-                </div>
+                )}
              </div>
 
              {/* SUBMIT BUTTON */}
@@ -387,6 +435,43 @@ export default function ProfileSetup() {
            </div>
         </div>
       </main>
+
+      {/* ISOLATED PIN CHANGE MODAL */}
+      <Dialog open={isPinModalOpen} onOpenChange={setIsPinModalOpen}>
+        <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase text-emerald-500">Change Security PIN</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Set a new 4-digit PIN for your wallet transactions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div>
+              <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">New PIN</label>
+              <Input 
+                type="password" maxLength={4} placeholder="••••" value={modalPin}
+                onChange={(e) => setModalPin(e.target.value.replace(/\D/g, ''))}
+                className="h-14 bg-white/5 border-white/10 rounded-xl font-mono text-2xl tracking-[0.5em] text-center focus:border-emerald-500/50"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">Confirm New PIN</label>
+              <Input 
+                type="password" maxLength={4} placeholder="••••" value={modalConfirmPin}
+                onChange={(e) => setModalConfirmPin(e.target.value.replace(/\D/g, ''))}
+                className="h-14 bg-white/5 border-white/10 rounded-xl font-mono text-2xl tracking-[0.5em] text-center focus:border-emerald-500/50"
+              />
+            </div>
+            <Button 
+              onClick={handleModalPinChange} 
+              disabled={isUpdatingPin}
+              className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-widest uppercase rounded-xl"
+            >
+              {isUpdatingPin ? <Loader2 className="animate-spin" /> : "Update PIN"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

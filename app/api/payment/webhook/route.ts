@@ -1,82 +1,97 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
-import { sendDepositEmail } from "@/lib/zeptomail"; // 🔥 Added import
+import { createClient } from "@supabase/supabase-js";
+import { sendDepositEmail } from "@/lib/zeptomail";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
-
   try {
     const body = await req.json();
-    console.log("SUPPLY SMART WEBHOOK:", body);
+    console.log("🔥 WDC/SUPPLY SMART WEBHOOK RECEIVED:", body);
 
+    // Adapt to match the exact webhook JSON structure sent by your provider
     const accountNumber = body.accountNumber || body.data?.accountNumber;
-    const amount = body.amount || body.data?.amount;
+    const amount = Number(body.amount || body.data?.amount);
+    const reference = body.transactionId || body.data?.transactionId || `WEBHK-${Date.now()}`;
 
     if (!accountNumber || !amount) {
-      console.log("Invalid webhook payload");
+      console.log("Invalid webhook payload structure.");
       return NextResponse.json({ received: true });
     }
 
     // ==========================================
-    // 1. UPDATE THE PAYMENTS TABLE
-    // This allows the frontend poller and finalize route to see 'confirmed'
+    // 1. CHECK SIGNUP FEE PAYMENTS (Onboarding)
     // ==========================================
-    const { data: paymentRecord, error: paymentError } = await supabase
+    const { data: paymentRecord } = await supabaseAdmin
       .from("payments")
-      .update({ 
-        payment_status: "confirmed", 
-        confirmed_at: new Date().toISOString() 
-      })
+      .update({ payment_status: "confirmed", confirmed_at: new Date().toISOString() })
       .eq("account_number", accountNumber)
-      .eq("payment_status", "pending") // Only update if it was pending
+      .eq("payment_status", "pending")
       .select("user_id, email, full_name")
-      .single();
+      .maybeSingle();
 
-    if (paymentError || !paymentRecord) {
-      console.log("No pending payment found for account:", accountNumber);
-      // We continue anyway to credit the wallet if the user exists
+    if (paymentRecord) {
+        console.log("Signup fee confirmed for account:", accountNumber);
+        // You could optionally update user status here if needed
     }
 
     // ==========================================
-    // 2. FIND USER & UPDATE WALLET
+    // 2. CHECK VIRTUAL WALLET & LOG DEPOSIT
     // ==========================================
-    const { data: user } = await supabase
-      .from("users")
-      .select("wallet_balance, auth_id, email, full_name")
+    const { data: wallet } = await supabaseAdmin
+      .from("wallets")
+      .select("user_id, balance, account_name")
       .eq("account_number", accountNumber)
-      .single();
+      .maybeSingle();
 
-    if (!user) {
-      console.log("User not found for account:", accountNumber);
-      return NextResponse.json({ received: true });
+    if (wallet) {
+      const newBalance = Number(wallet.balance || 0) + amount;
+
+      // Update Live Balance
+      await supabaseAdmin
+        .from("wallets")
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", wallet.user_id);
+
+      // Log to Unified Transactions Table
+      await supabaseAdmin.from("wallet_transactions").upsert({
+        user_id: wallet.user_id,
+        amount: amount,
+        transaction_type: 'INFLOW',
+        status: 'SUCCESS',
+        reference: reference,
+        provider_tx_id: reference,
+        source: 'Bank Transfer', // Or dynamically grab sender name if available in webhook payload
+        created_at: new Date().toISOString()
+      }, { onConflict: 'provider_tx_id' });
+
+      console.log(`✅ Wallet credited: +₦${amount} for user ${wallet.user_id}. New Balance: ₦${newBalance}`);
+
+      // ==========================================
+      // 3. TRIGGER DEPOSIT EMAIL (Zeptomail)
+      // ==========================================
+      const { data: user } = await supabaseAdmin
+        .from("users").select("email").eq("auth_id", wallet.user_id).single();
+
+      if (user?.email) {
+        await sendDepositEmail(
+          user.email, 
+          wallet.account_name, 
+          amount, 
+          newBalance, 
+          reference
+        );
+      }
     }
-
-    const newBalance = (user.wallet_balance || 0) + Number(amount);
-
-    const { error: updateError } = await supabase
-      .from("users")
-      .update({ wallet_balance: newBalance })
-      .eq("auth_id", user.auth_id);
-
-    if (updateError) throw updateError;
-
-    console.log("Wallet credited:", newBalance);
-
-    // ==========================================
-    // 3. TRIGGER DEPOSIT EMAIL (ZEPTOMAIL)
-    // ==========================================
-    // We use the data from the user profile for the email
-    await sendDepositEmail(
-      user.email, 
-      user.full_name, 
-      Number(amount), 
-      newBalance, 
-      `TRF-${accountNumber}-${Date.now().toString().slice(-4)}`
-    );
 
     return NextResponse.json({ success: true });
 
-  } catch (err) {
-    console.error("WEBHOOK ERROR:", err);
-    return NextResponse.json({ error: true }, { status: 500 });
+  } catch (err: any) {
+    console.error("WEBHOOK FATAL ERROR:", err.message);
+    // Always return 200 to webhooks so the provider doesn't keep retrying and spamming your server
+    return NextResponse.json({ received: true, error: "Internal processing error" });
   }
 }
