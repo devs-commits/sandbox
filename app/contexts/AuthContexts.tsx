@@ -1,10 +1,10 @@
-"use client"
+"use client";
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 
 interface AuthUser {
-  id: string;
-  user_id: number;
+  id: string; // The UUID (auth_id)
+  user_id: number; // The numeric DB ID
   fullName: string;
   email: string;
   role: "student" | "recruiter" | "admin" | "enterprise";
@@ -20,7 +20,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string, role: string) => Promise<{ success: boolean; error?: string }>;
-  // UPDATE: We now indicate that signup can return a user object
   signup: (data: SignupData) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
   forgotPassword: (email: string, role: string) => Promise<{ success: boolean; error?: string }>;
@@ -46,7 +45,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
+    // 1. Initial Session Check
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -58,15 +57,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .eq('auth_id', session.user.id)
             .single();
             
-          if (error) {
-            console.error("Error fetching user profile:", error);
-            setUser(null);
-            return;
+          if (!error && data) {
+            setUser({
+              id: session.user.id,
+              user_id: data.id,
+              email: session.user.email!,
+              fullName: user_metadata.fullName,
+              role: user_metadata.role,
+              track: user_metadata.track,
+              experienceLevel: user_metadata.experienceLevel,
+              country: user_metadata.country,
+              referralLink: user_metadata.referralLink,
+              created_at: session.user.created_at,
+            });
           }
+        }
+      } catch (error) {
+        console.error("Session check failed:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-          setUser({
+    checkSession();
+
+    // 2. 🔥 STABILIZED AUTH LISTENER
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const { user_metadata } = session.user;
+        
+        // Use functional update to check if we actually need to change state
+        setUser((prev) => {
+          // If the ID is the same, do NOT update state to prevent re-render loops
+          if (prev?.id === session.user.id) return prev;
+
+          return {
             id: session.user.id,
-            user_id: data.id,
+            user_id: user_metadata.id, 
             email: session.user.email!,
             fullName: user_metadata.fullName,
             role: user_metadata.role,
@@ -75,31 +102,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             country: user_metadata.country,
             referralLink: user_metadata.referralLink,
             created_at: session.user.created_at,
-          });
-        }
-      } catch (error) {
-        console.error("Error checking session:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { user_metadata } = session.user;
-        setUser({
-          id: session.user.id,
-          user_id: user_metadata.id,
-          email: session.user.email!,
-          fullName: user_metadata.fullName,
-          role: user_metadata.role,
-          track: user_metadata.track,
-          experienceLevel: user_metadata.experienceLevel,
-          country: user_metadata.country,
-          referralLink: user_metadata.referralLink,
-          created_at: session.user.created_at,
+          };
         });
       } else {
         setUser(null);
@@ -119,12 +122,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify({ email, password, role }),
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error("Server returned an invalid response.");
-      }
+      const data = await response.json();
 
       if (!data.success) {
         setIsLoading(false);
@@ -135,12 +133,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(data.session);
       }
 
-      setIsLoading(false); 
       return { success: true };
     } catch (err: any) {
-      console.error("Login Error:", err);
       setIsLoading(false);
-      return { success: false, error: err.message || "An unexpected error occurred" };
+      return { success: false, error: "Authentication failed" };
     }
   };
 
@@ -153,12 +149,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify(data),
       });
 
-      let result;
-      try {
-        result = await response.json();
-      } catch (e) {
-        throw new Error("Backend crashed. Check server logs.");
-      }
+      const result = await response.json();
 
       if (!result.success) {
         setIsLoading(false);
@@ -169,13 +160,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(result.session);
       }
 
-      setIsLoading(false); 
-      // 🔥 FIX: We now return the user object containing the ID
       return { success: true, user: result.user }; 
     } catch (err: any) {
-      console.error("Signup Error:", err);
       setIsLoading(false);
-      return { success: false, error: err.message || "An unexpected error occurred" };
+      return { success: false, error: "Signup process failed" };
     }
   };
 
@@ -183,7 +171,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetch('/api/auth/logout', { method: 'POST' });
     await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("wdc_user");
   };
 
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {
@@ -192,7 +179,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/reset-password`,
       });
-
       if (error) throw error;
       return { success: true };
     } catch (error: any) {
@@ -212,16 +198,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
     const { data: { session } } = await supabase.auth.getSession();
-    
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
       'Content-Type': 'application/json',
     };
-
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
-
     return fetch(url, { ...options, headers });
   };
 
