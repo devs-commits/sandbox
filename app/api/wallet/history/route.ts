@@ -10,6 +10,11 @@ const supabaseAdmin = createClient(
 // Helper to mimic Postman GET with Body
 const fetchHistoryFromProvider = (accountNumber: string): Promise<any> => {
   return new Promise((resolve, reject) => {
+    // Check for keys before even trying
+    if (!process.env.PAYMENT_API_KEY || !process.env.PAYMENT_MERCHANT_ID) {
+        return reject(new Error("Server Environment Variables (API Keys) are missing. Check your live host settings."));
+    }
+
     const payload = JSON.stringify({ accountNumber });
     const options = {
       hostname: "lab-api.wdc.ng",
@@ -28,14 +33,16 @@ const fetchHistoryFromProvider = (accountNumber: string): Promise<any> => {
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
         try {
-          resolve(JSON.parse(data));
+          const parsed = JSON.parse(data);
+          resolve(parsed);
         } catch (e) {
+          console.error("Parse Error:", data);
           resolve({ data: { result: [] } }); 
         }
       });
     });
 
-    req.on("error", (error) => { reject(error); });
+    req.on("error", (error) => { reject(new Error(`Network Request Error: ${error.message}`)); });
     req.write(payload);
     req.end();
   });
@@ -43,7 +50,6 @@ const fetchHistoryFromProvider = (accountNumber: string): Promise<any> => {
 
 export async function POST(req: NextRequest) {
   try {
-    // 🔥 userId here MUST be the UUID (auth_id)
     const { userId, accountNumber } = await req.json();
 
     if (!userId || !accountNumber || accountNumber === "****") {
@@ -52,12 +58,14 @@ export async function POST(req: NextRequest) {
 
     let finalBalance = 0;
 
-    // 1. Fetch from Master Ledger (Supply Smart)
-    const txData = await fetchHistoryFromProvider(accountNumber);
+    // --- STEP 1: Sync from Provider ---
+    const txData = await fetchHistoryFromProvider(accountNumber).catch(err => {
+        throw new Error(`Provider Sync Failed: ${err.message}`);
+    });
+    
     const apiTransactions = Array.isArray(txData?.data?.result) ? txData.data.result : [];
 
     if (apiTransactions.length > 0) {
-      // The most recent transaction holds the current true balance
       finalBalance = Number(apiTransactions[0].balanceAfter || 0);
 
       const dbEntries = apiTransactions.map((tx: any) => {
@@ -70,7 +78,7 @@ export async function POST(req: NextRequest) {
             : (meta.originatingAccountName || meta.originatingBankName || "Bank Deposit");
 
         return {
-          user_id: userId, // UUID
+          user_id: userId, 
           amount: Number(tx.amount || meta.amount || 0),
           transaction_type: isOutflow ? 'OUTFLOW' : 'INFLOW',
           status: 'SUCCESS',
@@ -81,13 +89,15 @@ export async function POST(req: NextRequest) {
         };
       });
 
-      // Sync local ledger
-      await supabaseAdmin
+      // --- STEP 2: Database Upsert ---
+      const { error: upsertError } = await supabaseAdmin
         .from('wallet_transactions')
         .upsert(dbEntries, { onConflict: 'provider_tx_id' });
       
+      if (upsertError) throw new Error(`Database Upsert Failed: ${upsertError.message}`);
+      
     } else {
-      // Fallback: Fetch balance only if no transactions exist yet
+      // Fallback balance check
       const walletRes = await fetch(`https://lab-api.wdc.ng/api/v1/get-all-virtual-wallet?limit=1000`, { 
         method: "GET", 
         headers: { "x-api-key": process.env.PAYMENT_API_KEY!, "merchant-id": process.env.PAYMENT_MERCHANT_ID! }
@@ -98,20 +108,22 @@ export async function POST(req: NextRequest) {
       finalBalance = Number(targetAccount?.balance || 0);
     }
 
-    // 2. Update Local Wallet Table (Source for Sidebar/Header)
-    await supabaseAdmin
+    // --- STEP 3: Update Local Wallet Table ---
+    const { error: walletError } = await supabaseAdmin
         .from('wallets')
         .update({ balance: finalBalance, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
+    
+    if (walletError) throw new Error(`Wallet Update Failed: ${walletError.message}`);
 
-    // 3. Return the unified history directly from our local synced DB
+    // --- STEP 4: Final Fetch ---
     const { data: finalHistory, error: fetchError } = await supabaseAdmin
       .from('wallet_transactions')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (fetchError) throw fetchError;
+    if (fetchError) throw new Error(`Final History Fetch Failed: ${fetchError.message}`);
 
     return NextResponse.json({ 
         success: true, 
@@ -120,7 +132,11 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error("🔥 History Sync Error:", err.message);
-    return NextResponse.json({ success: false, error: "History sync failed" }, { status: 500 });
+    // 🔥 This will now show the SPECIFIC failure in your Network tab
+    console.error("🔥 Detailed Crash:", err.message);
+    return NextResponse.json({ 
+        success: false, 
+        error: err.message || "Unknown error occurred" 
+    }, { status: 500 });
   }
 }
