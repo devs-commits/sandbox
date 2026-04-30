@@ -29,8 +29,10 @@ const getBankName = (codeOrName: string) => {
 export default function GlobalWallet() {
   const { user } = useAuth();
   
-  const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
+  // 🔥 FIX: Ensure we safely grab the ID regardless of how the Auth Context formats it
+  const currentUserId = user?.id || user?.user_id;
   
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
   const [walletData, setWalletData] = useState({
     balance: 0, bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
   });
@@ -47,22 +49,20 @@ export default function GlobalWallet() {
   const [wAmt, setWAmt] = useState("");
 
   const fetchTransactionHistory = useCallback(async (accNum: string) => {
-    if (!accNum || accNum === "****") return;
+    if (!accNum || accNum === "****" || !currentUserId) return;
     setIsLoadingHistory(true);
     try {
       const res = await fetch("/api/wallet/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, accountNumber: accNum }) 
+        body: JSON.stringify({ userId: currentUserId, accountNumber: accNum }) 
       });
       const data = await res.json();
       if (data.success) {
         setTransactions(data.transactions || []);
-        // 🔥 Update the balance with the Absolute Truth from Supply Smart
         setWalletData(prev => ({ 
            ...prev, 
-           balance: data.balance,
-           bankName: data.bankName || prev.bankName
+           balance: data.balance
         }));
       }
     } catch (err) {
@@ -70,10 +70,12 @@ export default function GlobalWallet() {
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [user?.id]);
+  }, [currentUserId]);
 
   const fetchWalletData = useCallback(async () => {
-    const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', user?.id).maybeSingle();
+    if (!currentUserId) return null;
+    const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', currentUserId).maybeSingle();
+    
     if (wallet) {
       const formattedData = {
         balance: wallet.balance || 0,
@@ -89,30 +91,31 @@ export default function GlobalWallet() {
     }
     setIsLoadingWallet(false);
     return null;
-  }, [user?.id, user?.fullName]);
+  }, [currentUserId, user?.fullName]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!currentUserId) return;
+    
     const init = async () => {
         const wallet = await fetchWalletData();
         if (wallet?.account_number) fetchTransactionHistory(wallet.account_number);
     };
     init();
 
-    // Supabase subscription just keeps local state fresh if something updates DB
     const channel = supabase.channel('wallet-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` }, 
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${currentUserId}` }, 
       () => fetchWalletData()).subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, fetchWalletData, fetchTransactionHistory]);
+  }, [currentUserId, fetchWalletData, fetchTransactionHistory]);
 
-  // 🔥 Now directly calls the history route to sync with Supply Smart, bypassing the deleted sync route
   const manualRefresh = async () => {
     setIsSyncing(true);
     try {
       if (walletData.accountNumber !== "****") {
           await fetchTransactionHistory(walletData.accountNumber);
+          // Force a local DB sync just to be completely safe
+          await fetchWalletData();
       }
       toast.success("Account Refreshed");
     } finally { 
@@ -200,11 +203,11 @@ export default function GlobalWallet() {
                     ) : (
                        <div className="divide-y divide-white/5">
                           {transactions.map((tx, idx) => {
-                              // 🔥 Matches new backend schema
-                              const isLocalInflow = tx.type === 'INFLOW';
+                              // 🔥 FIXED: Mapped exactly to Supabase Columns (transaction_type, created_at, reference)
+                              const isLocalInflow = tx.transaction_type === 'INFLOW';
                               const amount = Number(tx.amount || 0);
-                              const date = tx.date ? new Date(tx.date).toLocaleDateString() : 'Pending';
-                              const ref = tx.reference || tx.id || 'N/A';
+                              const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Pending';
+                              const ref = tx.reference || tx.provider_tx_id || 'N/A';
                               const status = tx.status || 'COMPLETED';
                               const sourceName = tx.source || 'Supply Smart';
 
@@ -305,7 +308,7 @@ export default function GlobalWallet() {
         </DialogContent>
       </Dialog>
 
-      <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={walletData.balance} userName={walletData.accountName} userPin={walletData.userPin} userId={user?.id} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={onWithdrawSuccess} />
+      <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={walletData.balance} userName={walletData.accountName} userPin={walletData.userPin} userId={currentUserId} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={onWithdrawSuccess} />
       <WithdrawSuccessModal open={activeModal === "success"} onClose={() => setActiveModal("none")} amount={wAmt} />
     </>
   );

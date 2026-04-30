@@ -42,6 +42,7 @@ export async function POST(req: Request) {
         // 👉 SCENARIO A: WALLET FUNDING (REMAINING UNTOUCHED)
         // ====================================================
         if (updatedPayment.track === 'wallet_funding') {
+          // ... (Keep your exact wallet funding logic here) ...
           const { data: wallet } = await supabaseAdmin
             .from('wallets')
             .select('balance, account_name, account_number')
@@ -79,28 +80,54 @@ export async function POST(req: Request) {
             }, { onConflict: 'provider_tx_id' });
         } 
         // ====================================================
-        // 👉 SCENARIO B: STANDARD REGISTRATION & DAY 0 ACTIVATION
+        // 👉 SCENARIO B: SUBSCRIPTION ACTIVATION (FIXED)
         // ====================================================
         else {
-          const today = new Date();
-          const expiryDate = new Date();
-          expiryDate.setDate(today.getDate() + 30);
+          // 1. Determine Monthly vs Quarterly
+          let daysToAdd = 30; // Default Monthly
+          const trackString = String(updatedPayment.track || "").toLowerCase();
+          
+          // 🔥 Change this amount to match whatever your actual Quarterly price is (e.g., > 10000)
+          if (trackString.includes('quarterly') || updatedPayment.amount >= 10000) {
+             daysToAdd = 90;
+          }
 
+          // 2. Fetch User's current expiry to stack dates safely
+          const { data: currentUser } = await supabaseAdmin
+            .from('users')
+            .select('subscription_expires_at')
+            .eq('auth_id', updatedPayment.user_id)
+            .maybeSingle();
+
+          let baseDate = new Date();
+          
+          if (currentUser?.subscription_expires_at) {
+             const currentExpiry = new Date(currentUser.subscription_expires_at);
+             // If they are renewing before it expires, add the new days on top of their remaining time!
+             if (currentExpiry > baseDate) {
+                 baseDate = currentExpiry; 
+             }
+          }
+
+          const expiryDate = new Date(baseDate);
+          expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+          // 3. Activate User Profile
           await supabaseAdmin
             .from('users')
             .update({ 
               has_completed_onboarding: true,
               subscription_status: 'active',
               subscription_expires_at: expiryDate.toISOString(),
-              last_payment_date: today.toISOString(),
-              start_date: today.toISOString(),
+              last_payment_date: new Date().toISOString(),
+              start_date: currentUser?.subscription_expires_at ? undefined : new Date().toISOString(), // Only set start date if brand new
               renewal_status: 'pending'
             }) 
-            .eq('auth_id', updatedPayment.user_id); // Using auth_id as per your schema
+            .eq('auth_id', updatedPayment.user_id);
           
           await sendWelcomeSubscriptionEmail(customerEmail, updatedPayment.full_name);
             
-          console.log(`Subscription Engine: Day 0 Activated for ${customerEmail}`);
+          console.log(`✅ Subscription Engine: Added ${daysToAdd} days for ${customerEmail}. Expires: ${expiryDate.toISOString()}`);
         }
       }
     }

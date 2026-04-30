@@ -1,12 +1,22 @@
+// Keep your existing imports and constants at the top
 const ZEPTO_API_URL = "https://api.zeptomail.com/v1.1/email";
 const ZEPTO_API_KEY = process.env.ZEPTOMAIL_API_KEY!;
 const SENDER_ADDRESS = "noreply@wdc.ng"; 
 const SENDER_NAME = "WDC Labs"; 
-
 const LOGO_URL = "https://labs.wdc.ng/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fwdc_labs_logo.e1d65ac3.png&w=256&q=75";
 
+// 🔥 UPDATED: Yahoo-Proof ZeptoMail Sender
 async function sendZeptoMail(toEmail: string, toName: string, subject: string, htmlBody: string) {
   try {
+    // 1. Generate a basic Plain Text fallback (Crucial for Yahoo Spam Filters)
+    // This strips HTML tags and replaces common block elements with newlines.
+    const plainTextFallback = htmlBody
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>|<\/div>|<\/h[1-6]>/gi, '\n\n')
+      .replace(/<[^>]*>?/gm, '')
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+
     const response = await fetch(ZEPTO_API_URL, {
       method: "POST",
       headers: {
@@ -15,14 +25,30 @@ async function sendZeptoMail(toEmail: string, toName: string, subject: string, h
         "Authorization": `Zoho-enczapikey ${ZEPTO_API_KEY}`,
       },
       body: JSON.stringify({
-        from: { address: SENDER_ADDRESS, name: SENDER_NAME },
-        to: [{ email_address: { address: toEmail, name: toName } }],
+        // The bounce_address must match the domain you verified in ZeptoMail
+        bounce_address: `bounce@wdc.ng`, 
+        from: { 
+            address: SENDER_ADDRESS, 
+            name: SENDER_NAME 
+        },
+        to: [{ 
+            email_address: { address: toEmail, name: toName } 
+        }],
+        reply_to: [{ 
+            address: "support@wdc.ng", 
+            name: "WDC Support" 
+        }],
         subject: subject,
         htmlbody: htmlBody,
+        // 🔥 The missing piece for Yahoo:
+        textbody: plainTextFallback,
       }),
     });
+    
     const data = await response.json();
-    if (!response.ok) console.error("ZeptoMail Error:", data);
+    if (!response.ok) {
+        console.error("ZeptoMail Rejection:", JSON.stringify(data, null, 2));
+    }
     return data;
   } catch (error) {
     console.error("Failed to send email:", error);

@@ -24,18 +24,18 @@ export const StudentSidebar = () => {
   const { user } = useAuth();
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
   
-  // --- ADDED: Subscription Lock State ---
   const [isOfficeLocked, setIsOfficeLocked] = useState(false);
 
   useEffect(() => {
+    // 🔥 Guard clause: Do nothing until user is fully loaded
+    if (!user?.id) return;
+
     const fetchSidebarData = async () => {
-      if (!user) return;
-      
       // 1. Fetch Task Count
       const { count } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.user_id)
+        .eq('user_id', user.user_id || user.id) // Safe fallback
         .eq('completed', true);
         
       if (count !== null) setCompletedTasksCount(count);
@@ -65,14 +65,15 @@ export const StudentSidebar = () => {
         event: '*', 
         schema: 'public', 
         table: 'tasks',
-        filter: `user_id=eq.${user?.user_id}`
+        filter: `user_id=eq.${user.user_id || user.id}`
       }, fetchSidebarData)
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  // 🔥 CRITICAL FIX: Changed from [user] to primitive strings to prevent infinite rendering loop
+  }, [user?.id, user?.user_id]); 
 
   const SidebarContent = () => (
     <>
@@ -93,37 +94,32 @@ export const StudentSidebar = () => {
         {navItems.map((item) => {
           const isActive = pathname === item.path;
           const badgeCount = item.id === "office" ? completedTasksCount : 0;
-          
-          // --- ADDED: Logic to visually lock "My Office" ---
-         // ... inside navItems.map loop
-const isItemLocked = item.id === "office" && isOfficeLocked;
+          const isItemLocked = item.id === "office" && isOfficeLocked;
 
-if (isItemLocked) {
-  return (
-    <div
-      key={item.path}
-      className="group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed border border-transparent"
-    >
-      <div className="flex items-center gap-3">
-        <item.icon size={18} className="opacity-40" />
-        <span className="text-sm font-medium">{item.label}</span>
-      </div>
-      
-      {/* The Lock Icon */}
-      <Lock size={14} className="text-red-500/30 group-hover:text-red-500/60 transition-colors" />
+          // Lock UI for expired subscriptions
+          if (isItemLocked) {
+            return (
+              <div
+                key={item.path}
+                className="group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed border border-transparent"
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon size={18} className="opacity-40" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </div>
+                
+                <Lock size={14} className="text-red-500/30 group-hover:text-red-500/60 transition-colors" />
 
-      {/* 💡 THE HOVER NOTE (Tooltip) */}
-      <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 border border-red-500/20 text-white text-[11px] rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-bold text-red-400">Subscription Expired</span>
-          <span>Fund your wallet to unlock your office.</span>
-        </div>
-        {/* Tooltip Arrow */}
-        <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 border-l border-b border-red-500/20 rotate-45" />
-      </div>
-    </div>
-  );
-}
+                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 border border-red-500/20 text-white text-[11px] rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-bold text-red-400">Subscription Expired</span>
+                    <span>Fund your wallet to unlock your office.</span>
+                  </div>
+                  <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 border-l border-b border-red-500/20 rotate-45" />
+                </div>
+              </div>
+            );
+          }
 
           return (
             <Link

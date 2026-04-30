@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Loader2, CheckCircle2, XCircle, Lock, ArrowLeft, Landmark } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Lock, ArrowLeft } from "lucide-react";
+import { SearchableBankSelect } from "@/app/components/ui/SearchableBankSelect";
 import { PinInput } from "../../auth/PinInput";
 import { toast } from "sonner";
 
@@ -13,14 +14,13 @@ export function WithdrawModal({
   onClose, 
   totalEarnings, 
   userName, 
-  bankName, 
+  bankName, // This state holds the bankCode (e.g., "000013")
   setBankName, 
   accountNumber, 
   setAccountNumber, 
   amount, 
   setAmount, 
   onWithdraw, 
-  userPin, // We can actually stop passing this prop in the future, as validation is server-side now
   userId 
 }: any) {
   
@@ -32,6 +32,12 @@ export function WithdrawModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [nameMatchError, setNameMatchError] = useState(false);
   const [enteredPin, setEnteredPin] = useState("");
+
+  // Helper to get the display name of the selected bank
+  const selectedBankObject = useMemo(() => 
+    banks.find(b => b.institutionCode === bankName), 
+    [banks, bankName]
+  );
 
   useEffect(() => {
     if (open) {
@@ -65,17 +71,19 @@ export function WithdrawModal({
           const data = await res.json();
 
           if (res.ok && data.success) {
-            const fetchedBankName = (data.accountName || data.data?.accountName || "").toUpperCase();
-            setResolvedName(fetchedBankName);
+            const fetchedAccountName = (data.accountName || data.data?.accountName || "").toUpperCase();
+            setResolvedName(fetchedAccountName);
             
             const safeRef = data.nameEnquiryRef || data.sessionId || data.data?.sessionId || data.data?.nameEnquiryRef || `SS-${Date.now()}`;
             setNameEnquiryRef(safeRef); 
 
+            // Name Match Logic: Ensure at least one part of the registered name is in the bank name
             const userParts = userName.toUpperCase().split(" ").filter((p: string) => p.length > 2);
-            const isMatch = userParts.every((part: string) => fetchedBankName.includes(part));
+            const isMatch = userParts.some((part: string) => fetchedAccountName.includes(part));
             if (!isMatch) setNameMatchError(true);
           } else {
-            toast.error(data.error || "Verification failed");
+            // Silently fail or show minimal error for name resolution
+            console.warn("Name resolution failed");
           }
         } catch (error) {
           console.error("Verification error");
@@ -88,21 +96,18 @@ export function WithdrawModal({
   }, [accountNumber, bankName, userName]);
 
   const handleFinalWithdraw = async () => {
-    if (enteredPin.length < 4) return toast.error("Please enter a 4-digit PIN");
+    if (enteredPin.length < 4) return toast.error("Please enter your 4-digit PIN");
 
     setIsProcessing(true);
     try {
-      const selectedBank = banks.find(b => b.institutionCode === bankName);
-      const actualBankName = selectedBank ? selectedBank.institutionName : bankName;
-
       const res = await fetch("/api/wallet/transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          pin: enteredPin, // 🔥 Pass PIN securely to the backend
+          pin: enteredPin,
           bankCode: bankName, 
-          bankName: actualBankName, 
+          bankName: selectedBankObject?.institutionName || bankName, 
           accountNumber,
           amount: parseFloat(amount),
           accountName: resolvedName,
@@ -117,13 +122,13 @@ export function WithdrawModal({
         setStep(1);
         setEnteredPin("");
       } else {
-        toast.error(data.error || "Transfer failed. Please try again.");
+        toast.error(data.error || "Transfer failed. Please check your PIN.");
       }
     } catch (err) {
       toast.error("Network error during transfer.");
     } finally {
       setIsProcessing(false);
-      setEnteredPin(""); // Always clear the PIN input whether it succeeds or fails
+      setEnteredPin(""); 
     }
   };
 
@@ -131,15 +136,9 @@ export function WithdrawModal({
   const isInsufficient = numericAmount > totalEarnings;
   const canProceedToPin = resolvedName && nameEnquiryRef && !isResolving && numericAmount > 0 && !isInsufficient && !nameMatchError;
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/[^0-9.]/g, '');
-    if ((val.match(/\./g) || []).length > 1) return;
-    setAmount(val);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(val) => { if(!val) setStep(1); onClose(); }}>
-      <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-[2rem] shadow-2xl">
+    <Dialog open={open} onOpenChange={(val) => { if(!val) { setStep(1); onClose(); } }}>
+      <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-[2rem] shadow-2xl overflow-visible">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
             {step === 1 ? "Withdraw Funds" : "Authorize Transfer"}
@@ -148,31 +147,27 @@ export function WithdrawModal({
 
         {step === 1 ? (
           <div className="space-y-5 py-2">
+            {/* Balance Card */}
             <div className="rounded-2xl p-4 border flex flex-col items-center bg-white/[0.02] border-white/5">
               <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Available Balance</p>
               <h2 className="text-3xl font-bold">₦{totalEarnings?.toLocaleString() || 0}</h2>
             </div>
 
             <div className="space-y-4">
+              {/* Destination Bank: Searchable */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Destination Bank</label>
-                <div className="relative">
-                  <select 
-                    className="w-full bg-white/5 border border-white/10 h-12 rounded-xl px-3 text-sm focus:ring-1 focus:ring-emerald-500 outline-none appearance-none"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                  >
-                    <option value="">Select bank</option>
-                    {banks.map((bank) => (
-                      <option key={bank.institutionCode} value={bank.institutionCode} className="bg-[#1a1f2e]">
-                        {bank.institutionName}
-                      </option>
-                    ))}
-                  </select>
-                  <Landmark size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
-                </div>
+                <SearchableBankSelect 
+                  banks={banks} 
+                  selectedBank={selectedBankObject?.institutionName || ""} 
+                  onSelect={(name) => {
+                    const code = banks.find(b => b.institutionName === name)?.institutionCode;
+                    setBankName(code || "");
+                  }} 
+                />
               </div>
 
+              {/* Account Number */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Account Number</label>
                 <Input 
@@ -181,17 +176,18 @@ export function WithdrawModal({
                   placeholder="10 Digits"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
-                  className="bg-white/5 border-white/10 h-12 rounded-xl font-mono tracking-widest"
+                  className="bg-white/5 border-white/10 h-12 rounded-xl font-mono tracking-widest focus:ring-emerald-500"
                 />
               </div>
 
+              {/* Verified Name */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Verified Beneficiary</label>
                 <div className="relative">
                   <Input 
                     type="text" 
                     readOnly
-                    placeholder="Name will appear automatically"
+                    placeholder="Auto-verifying name..."
                     value={resolvedName}
                     className={`bg-white/5 h-12 rounded-xl font-semibold pr-10 border-white/10 ${nameMatchError ? 'text-red-400' : resolvedName ? 'text-emerald-400' : 'text-white/20 italic'}`} 
                   />
@@ -201,11 +197,12 @@ export function WithdrawModal({
                       {!isResolving && (nameMatchError) && <XCircle className="w-5 h-5 text-red-500" />}
                   </div>
                 </div>
-                {nameMatchError && <p className="text-[10px] text-red-400 mt-1.5 font-bold">Name mismatch: Please use your own account.</p>}
+                {nameMatchError && <p className="text-[10px] text-red-400 mt-1.5 font-bold italic text-center">Identity mismatch. You can only withdraw to your own bank account.</p>}
               </div>
 
+              {/* Amount */}
               <div>
-                <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Amount (₦)</label>
+                <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Withdrawal Amount (₦)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">₦</span>
                   <Input 
@@ -213,11 +210,11 @@ export function WithdrawModal({
                     inputMode="decimal"
                     placeholder="0.00"
                     value={amount}
-                    onChange={handleAmountChange}
-                    className={`bg-white/5 h-12 pl-10 rounded-xl font-bold text-lg border-white/10 ${isInsufficient ? 'border-red-500/50 text-red-400' : ''}`}
+                    onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                    className={`bg-white/5 h-12 pl-10 rounded-xl font-bold text-lg border-white/10 focus:ring-emerald-500 ${isInsufficient ? 'border-red-500/50 text-red-400' : ''}`}
                   />
                 </div>
-                {isInsufficient && <p className="text-[10px] text-red-400 mt-1.5 font-bold uppercase">Amount exceeds balance</p>}
+                {isInsufficient && <p className="text-[10px] text-red-400 mt-1.5 font-bold uppercase tracking-tighter">Amount exceeds your available balance</p>}
               </div>
             </div>
 
@@ -226,21 +223,24 @@ export function WithdrawModal({
               onClick={() => setStep(2)}
               className={`w-full h-14 font-black rounded-2xl transition-all shadow-xl mt-2 ${canProceedToPin ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
             >
-              CONTINUE TO PIN
+              PROCEED TO AUTHORIZATION
             </Button>
           </div>
         ) : (
+          /* STEP 2: PIN AUTHENTICATION */
           <div className="space-y-8 py-8 text-center">
             <div className="mx-auto w-16 h-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">
                 <Lock className="text-emerald-500" size={28} />
             </div>
             
             <div className="space-y-2 px-4">
-               <h3 className="font-bold text-xl tracking-tight">Authenticate</h3>
-               <p className="text-xs text-white/40">You are authorizing a withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span></p>
+               <h3 className="font-bold text-xl tracking-tight">Enter Transaction PIN</h3>
+               <p className="text-xs text-white/40">Confirm withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span> to {selectedBankObject?.institutionName}</p>
             </div>
             
-            <PinInput onComplete={(pin) => setEnteredPin(pin)} />
+            <div className="flex justify-center">
+               <PinInput onComplete={(pin) => setEnteredPin(pin)} />
+            </div>
 
             <div className="space-y-4 px-4">
               <Button 
@@ -252,10 +252,10 @@ export function WithdrawModal({
               </Button>
               
               <button 
-                onClick={() => setStep(1)} 
+                onClick={() => { setStep(1); setEnteredPin(""); }} 
                 className="flex items-center justify-center gap-2 w-full text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-white transition-colors"
               >
-                <ArrowLeft size={12} /> Go Back
+                <ArrowLeft size={12} /> Change details
               </button>
             </div>
           </div>

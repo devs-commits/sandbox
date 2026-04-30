@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendDepositEmail } from "@/lib/zeptomail";
+import { sendDepositEmail, sendWelcomeSubscriptionEmail } from "@/lib/zeptomail";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,7 +12,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log("🔥 WDC/SUPPLY SMART WEBHOOK RECEIVED:", body);
 
-    // Adapt to match the exact webhook JSON structure sent by your provider
     const accountNumber = body.accountNumber || body.data?.accountNumber;
     const amount = Number(body.amount || body.data?.amount);
     const reference = body.transactionId || body.data?.transactionId || `WEBHK-${Date.now()}`;
@@ -23,19 +22,47 @@ export async function POST(req: NextRequest) {
     }
 
     // ==========================================
-    // 1. CHECK SIGNUP FEE PAYMENTS (Onboarding)
+    // 1. CHECK SIGNUP FEE PAYMENTS (Now Auto-Activates!)
     // ==========================================
     const { data: paymentRecord } = await supabaseAdmin
       .from("payments")
       .update({ payment_status: "confirmed", confirmed_at: new Date().toISOString() })
       .eq("account_number", accountNumber)
       .eq("payment_status", "pending")
-      .select("user_id, email, full_name")
+      .select("user_id, email, full_name, track")
       .maybeSingle();
 
     if (paymentRecord) {
         console.log("Signup fee confirmed for account:", accountNumber);
-        // You could optionally update user status here if needed
+        
+        // 🔥 FIX: Automatically activate their account!
+        let daysToAdd = 30; 
+        const trackString = String(paymentRecord.track || "").toLowerCase();
+        if (trackString.includes('quarterly') || amount >= 10000) {
+             daysToAdd = 90;
+        }
+
+        const today = new Date();
+        const expiryDate = new Date();
+        expiryDate.setDate(today.getDate() + daysToAdd);
+
+        await supabaseAdmin
+            .from('users')
+            .update({ 
+                has_completed_onboarding: true,
+                subscription_status: 'active',
+                subscription_expires_at: expiryDate.toISOString(),
+                last_payment_date: today.toISOString(),
+                start_date: today.toISOString(),
+                renewal_status: 'pending'
+            }) 
+            .eq('auth_id', paymentRecord.user_id);
+            
+        if (paymentRecord.email) {
+            await sendWelcomeSubscriptionEmail(paymentRecord.email, paymentRecord.full_name);
+        }
+        
+        console.log(`✅ Subscription Engine: Day 0 Activated for ${paymentRecord.email} via Bank Transfer`);
     }
 
     // ==========================================
@@ -50,13 +77,11 @@ export async function POST(req: NextRequest) {
     if (wallet) {
       const newBalance = Number(wallet.balance || 0) + amount;
 
-      // Update Live Balance
       await supabaseAdmin
         .from("wallets")
         .update({ balance: newBalance, updated_at: new Date().toISOString() })
         .eq("user_id", wallet.user_id);
 
-      // Log to Unified Transactions Table
       await supabaseAdmin.from("wallet_transactions").upsert({
         user_id: wallet.user_id,
         amount: amount,
@@ -64,7 +89,7 @@ export async function POST(req: NextRequest) {
         status: 'SUCCESS',
         reference: reference,
         provider_tx_id: reference,
-        source: 'Bank Transfer', // Or dynamically grab sender name if available in webhook payload
+        source: 'Bank Transfer', 
         created_at: new Date().toISOString()
       }, { onConflict: 'provider_tx_id' });
 
@@ -91,7 +116,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error("WEBHOOK FATAL ERROR:", err.message);
-    // Always return 200 to webhooks so the provider doesn't keep retrying and spamming your server
     return NextResponse.json({ received: true, error: "Internal processing error" });
   }
 }
