@@ -6,10 +6,12 @@ import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint, Calendar, Phone, MapPin, Briefcase, XCircle, Info } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
+
+// 🔥 Import the unified SetPinModal instead of using the custom Dialog
+import { SetPinModal } from "../../components/auth/SetPinModal";
 
 export default function ProfileSetup() {
   const { user } = useAuth();
@@ -20,6 +22,7 @@ export default function ProfileSetup() {
   
   // State flags
   const [hasWallet, setHasWallet] = useState(false); 
+  const [hasPin, setHasPin] = useState(false);
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -36,9 +39,6 @@ export default function ProfileSetup() {
 
   // Modal PIN State (Used for changing PIN later)
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-  const [modalPin, setModalPin] = useState("");
-  const [modalConfirmPin, setModalConfirmPin] = useState("");
-  const [isUpdatingPin, setIsUpdatingPin] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -53,7 +53,7 @@ export default function ProfileSetup() {
           
         const { data: walletData } = await supabase
           .from("wallets")
-          .select("account_number")
+          .select("account_number, transaction_pin") // 🔥 Add transaction_pin here!
           .eq("user_id", user.id)
           .maybeSingle();
           
@@ -71,6 +71,11 @@ export default function ProfileSetup() {
 
           if (userData.is_complete || (walletData?.account_number && walletData.account_number !== "****")) {
             setHasWallet(true);
+          }
+
+          // 🔥 CHANGED: Now correctly checks the wallets table for the PIN
+          if (walletData?.transaction_pin) {
+            setHasPin(true);
           }
         }
       } catch (error) {
@@ -140,7 +145,8 @@ export default function ProfileSetup() {
           nin: nin, 
           date_of_birth: safeDob, 
           address: safeAddress, 
-          occupation: safeOccupation 
+          occupation: safeOccupation,
+          transaction_pin: pin // 🔥 Ensure it saves to users table
       }).eq("auth_id", user?.id);
 
       if (userError) throw new Error("DB Error: " + userError.message);
@@ -153,6 +159,7 @@ export default function ProfileSetup() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Provider issue. Please contact support.");
 
+      // Also sync it to wallets table just in case your old queries rely on it
       await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
       
       toast.success("Virtual Account Generated Successfully!", { icon: <ShieldCheck className="text-emerald-500" /> });
@@ -162,29 +169,6 @@ export default function ProfileSetup() {
       toast.error((error as any).message || "An error occurred while generating your wallet.");
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  // ==========================================
-  // 3. ISOLATED PIN CHANGE LOGIC (Modal)
-  // ==========================================
-  const handleModalPinChange = async () => {
-    if (modalPin.length !== 4) return toast.error("PIN must be exactly 4 digits.");
-    if (modalPin !== modalConfirmPin) return toast.error("PINs do not match.");
-    
-    setIsUpdatingPin(true);
-    try {
-      const { error } = await supabase.from("wallets").update({ transaction_pin: modalPin }).eq("user_id", user?.id);
-      if (error) throw error;
-      
-      toast.success("Transaction PIN updated securely!");
-      setIsPinModalOpen(false);
-      setModalPin("");
-      setModalConfirmPin("");
-    } catch (err) {
-      toast.error("Failed to update PIN.");
-    } finally {
-      setIsUpdatingPin(false);
     }
   };
 
@@ -307,7 +291,6 @@ export default function ProfileSetup() {
                   </div>
                 </div>
 
-                {/* 🔥 CONTACT SUPPORT BANNER */}
                 {hasWallet && (
                   <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex gap-3 items-start mt-4">
                     <Info size={16} className="text-emerald-400 mt-0.5 shrink-0" />
@@ -373,7 +356,7 @@ export default function ProfileSetup() {
                       variant="outline" 
                       className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
                     >
-                      Change PIN
+                      {hasPin ? "Change PIN" : "Setup PIN"}
                     </Button>
                   </div>
                 ) : (
@@ -436,42 +419,20 @@ export default function ProfileSetup() {
         </div>
       </main>
 
-      {/* ISOLATED PIN CHANGE MODAL */}
-      <Dialog open={isPinModalOpen} onOpenChange={setIsPinModalOpen}>
-        <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase text-emerald-500">Change Security PIN</DialogTitle>
-            <DialogDescription className="text-white/50">
-              Set a new 4-digit PIN for your wallet transactions.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 pt-4">
-            <div>
-              <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">New PIN</label>
-              <Input 
-                type="password" maxLength={4} placeholder="••••" value={modalPin}
-                onChange={(e) => setModalPin(e.target.value.replace(/\D/g, ''))}
-                className="h-14 bg-white/5 border-white/10 rounded-xl font-mono text-2xl tracking-[0.5em] text-center focus:border-emerald-500/50"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-2">Confirm New PIN</label>
-              <Input 
-                type="password" maxLength={4} placeholder="••••" value={modalConfirmPin}
-                onChange={(e) => setModalConfirmPin(e.target.value.replace(/\D/g, ''))}
-                className="h-14 bg-white/5 border-white/10 rounded-xl font-mono text-2xl tracking-[0.5em] text-center focus:border-emerald-500/50"
-              />
-            </div>
-            <Button 
-              onClick={handleModalPinChange} 
-              disabled={isUpdatingPin}
-              className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-widest uppercase rounded-xl"
-            >
-              {isUpdatingPin ? <Loader2 className="animate-spin" /> : "Update PIN"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* 🔥 The only PIN UI component we need! Replaces the old custom Dialog */}
+      <SetPinModal 
+        open={isPinModalOpen} 
+        onClose={() => setIsPinModalOpen(false)} 
+        userId={user?.id} 
+        onSuccess={(newPin: string) => {
+          // Instantly update the local state
+          setHasPin(true);
+          setIsPinModalOpen(false);
+          if (!hasWallet) {
+             router.push("/student/earn"); 
+          }
+        }}
+      />
     </div>
   );
 }
