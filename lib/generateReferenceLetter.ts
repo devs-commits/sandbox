@@ -29,7 +29,7 @@ export async function downloadLetterFromElement(
     backgroundColor: "#ffffff",
     useCORS: true,
     logging: false,
-  });
+  } as any);
 
   const imgData = canvas.toDataURL("image/jpeg", 0.95);
   const pdf = new jsPDF({
