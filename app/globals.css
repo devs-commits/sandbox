@@ -374,3 +374,12 @@
   .animate-marquee-logos {
     animation: marquee-logos 25s linear infinite;
   }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
