@@ -82,8 +82,10 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<{ daysLeft: number; status: string; expiresAt: string | null } | null>(null);
 
   const userName = user?.fullName || 'New Intern';
-  const trackName = user?.track || 'General';
   const userId = user?.id || null;
+  
+  // Track name will be set from database in useEffect
+  const [trackName, setTrackName] = useState<string>('General');
   
   const mapResources = (resources?: string): ArchiveItem[] => {
   if (!resources || typeof resources !== 'string') return [];
@@ -183,18 +185,20 @@ useEffect(() => {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at')
+          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at, track')
           .eq('auth_id', userId)
           .single();
 
         if (error) {
           console.error('Error fetching onboarding state:', error);
           if (error.code === 'PGRST116') {
-            console.log('User not found in public table for auth_id:', userId);
             window.location.href = '/login';
             return;
           }
         } else if (data) {
+          // Use database track instead of auth track
+          const databaseTrack = data.track || 'General';
+          
           let days = 0;
           if (data.subscription_expires_at) {
             const expiryDate = new Date(data.subscription_expires_at);
@@ -213,6 +217,9 @@ useEffect(() => {
           setHasCompletedTour(data.has_completed_tour || false);
           setUserLevel(data.experience_level || data.user_level || null);
           setIsFirstTask(data.is_first_task !== false);
+          
+          // Set track name from database
+          setTrackName(databaseTrack);
 
           if (data.has_completed_onboarding && data.has_completed_tour) {
             setPhaseState('working');
