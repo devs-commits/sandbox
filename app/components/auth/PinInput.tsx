@@ -1,6 +1,5 @@
 "use client";
-import React, { useRef, useState } from "react";
-import { Input } from "../ui/input";
+import React, { useRef, useState, useEffect } from "react";
 
 export function PinInput({ length = 4, onComplete }: { length?: number; onComplete: (pin: string) => void }) {
   const [pin, setPin] = useState(new Array(length).fill(""));
@@ -34,6 +33,7 @@ export function PinInput({ length = 4, onComplete }: { length?: number; onComple
           type="password"
           maxLength={1}
           value={digit}
+          autoFocus={index === 0} // 🔥 Automatically focuses the first input box
           ref={(el) => { inputRefs.current[index] = el!; }}
           onChange={(e) => handleChange(e.target.value, index)}
           onKeyDown={(e) => handleKeyDown(e, index)}

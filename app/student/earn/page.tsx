@@ -14,7 +14,7 @@ import {
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
 import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
 import { SocialIcon } from "../../components/students/earn/SocialIcon";
-import { PinInput } from "../../components/auth/PinInput";
+import { SetPinModal } from "../../components/auth/SetPinModal"; // 🔥 Added our new Unified PIN Modal
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
 import { toast } from "sonner";
@@ -53,15 +53,11 @@ export default function EarnMoney() {
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<any>("none");
   const [isVerified, setIsVerified] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false); // 🔥 State to open our new PIN modal
 
   // Profile Data
   const [profile, setProfile] = useState({ fullName: "", address: "", dob: "", occupation: "", nationality: "", bvn: "", nin: "" });
   const [earnData, setEarnData] = useState({ earningsBalance: 0, walletTotal: 0, activeReferrals: 0, referralLink: "Loading...", userPin: "", hasPin: false });
-
-  // PIN Management
-  const [pinFlow, setPinFlow] = useState<"idle" | "setup">("idle");
-  const [pinStep, setPinStep] = useState(1);
-  const [tempPin, setTempPin] = useState("");
 
   // Withdrawal form state for Modal
   const [wBank, setWBank] = useState("");
@@ -82,9 +78,9 @@ export default function EarnMoney() {
           walletTotal: walletData?.balance || 0,
           activeReferrals: count || 0,
           referralLink: userData.referral_code ? `${window.location.origin}/signup?code=${userData.referral_code}` : "Setup profile",
-          userPin: walletData?.transaction_pin || "",
-          // Ensure it evaluates strictly. If empty string or null, this is false.
-          hasPin: !!walletData?.transaction_pin 
+          // 🔥 CHANGED: Look at walletData, not userData!
+          userPin: walletData?.transaction_pin || "", 
+          hasPin: !!walletData?.transaction_pin
         });
         setIsVerified(userData.id_verified === true);
         setProfile({
@@ -98,38 +94,6 @@ export default function EarnMoney() {
         });
       }
     } catch (err) { console.error(err); }
-  };
-
-  const handlePinAction = async (pin: string) => {
-    if (pinFlow === "setup") {
-      if (pinStep === 1) { 
-        setTempPin(pin); 
-        setPinStep(2); 
-        toast.info("Re-enter PIN to verify"); 
-      } else { 
-        if (pin === tempPin) {
-          savePinToDB(pin); 
-        } else { 
-          toast.error("Mismatch. Try again."); 
-          setPinStep(1); 
-          setTempPin(""); 
-        } 
-      }
-    }
-  };
-
-  const savePinToDB = async (finalPin: string) => {
-    // 🔥 Added Error Catcher here in case DB policies are blocking the PIN save
-    const { error } = await supabase.from('wallets').update({ transaction_pin: finalPin }).eq('user_id', user?.id);
-    
-    if (error) {
-      toast.error("Failed to save PIN: " + error.message);
-      return;
-    }
-    
-    toast.success("Security PIN updated!");
-    setPinFlow("idle"); 
-    fetchEarnData(); // Refreshes the state so the checkmark appears immediately
   };
 
   // 🔥 KYC Enforcement Check
@@ -193,12 +157,11 @@ export default function EarnMoney() {
                   <p className="text-sm font-bold text-white">Withdrawal PIN</p>
                   
                   {!earnData.hasPin ? (
-                     // Only show Setup button if they truly have no PIN saved
-                     <Button variant="ghost" onClick={() => { setPinFlow("setup"); setPinStep(1); }} className="text-[10px] font-black uppercase text-indigo-400 tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 h-8 px-4 rounded-lg">
+                     // 🔥 Opens the new secure modal
+                     <Button variant="ghost" onClick={() => setIsPinModalOpen(true)} className="text-[10px] font-black uppercase text-indigo-400 tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 h-8 px-4 rounded-lg">
                        Setup PIN
                      </Button>
                   ) : (
-                     // If PIN exists, show the green active badge instead of a lock!
                      <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5">
                         <CheckCircle2 size={12} /> Active
                      </div>
@@ -206,19 +169,8 @@ export default function EarnMoney() {
                 </div>
 
                 {!earnData.hasPin ? (
-                   pinFlow === "setup" ? (
-                     <div className="space-y-6 py-4 animate-in fade-in zoom-in-95">
-                       <p className="text-[10px] text-white/40 uppercase font-black text-center tracking-[0.2em]">
-                         {pinStep === 1 ? "Set 4-Digit PIN" : "Verify PIN"}
-                       </p>
-                       <PinInput key={pinStep} onComplete={handlePinAction} />
-                       <Button variant="ghost" onClick={() => setPinFlow("idle")} className="w-full text-[9px] text-white/20 font-bold uppercase tracking-widest h-6">Cancel</Button>
-                     </div>
-                   ) : (
                      <p className="text-xs text-white/20 leading-relaxed italic">A 4-digit security PIN is required for all cash outs. Please set it up.</p>
-                   )
                 ) : (
-                   // The "Contact Support/Update" message you requested for users who already have a PIN
                    <div className="flex items-start gap-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
                      <Lock size={16} className="text-indigo-400 mt-0.5 shrink-0" />
                      <p className="text-xs text-white/40 leading-relaxed">
@@ -283,6 +235,19 @@ export default function EarnMoney() {
         </div>
       </main>
 
+      {/* MODALS */}
+      <SetPinModal 
+        open={isPinModalOpen} 
+        onClose={() => setIsPinModalOpen(false)} 
+        userId={user?.id} // Make sure this is the right ID type!
+        onSuccess={(newPin: string) => {
+          // 1. Instantly update the local state so the UI changes to "Active"
+          setEarnData(prev => ({ ...prev, userPin: newPin, hasPin: true }));
+          setIsPinModalOpen(false);
+          // 2. Re-fetch from the database to ensure everything is synced
+          fetchEarnData(); 
+        }}
+      />
       <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={earnData.walletTotal} userName={profile.fullName} userPin={earnData.userPin} userId={user?.id} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={() => { fetchEarnData(); setActiveModal("success"); }} />
       <WithdrawSuccessModal open={activeModal === "success"} onClose={() => setActiveModal("none")} amount={wAmt} />
     </>

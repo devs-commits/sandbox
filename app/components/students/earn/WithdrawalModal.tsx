@@ -7,6 +7,7 @@ import { Input } from "../../ui/input";
 import { Loader2, CheckCircle2, XCircle, Lock, ArrowLeft } from "lucide-react";
 import { SearchableBankSelect } from "@/app/components/ui/SearchableBankSelect";
 import { PinInput } from "../../auth/PinInput";
+import { SetPinModal } from "../../auth/SetPinModal"; // 🔥 Imported the new setup modal
 import { toast } from "sonner";
 
 export function WithdrawModal({ 
@@ -14,14 +15,15 @@ export function WithdrawModal({
   onClose, 
   totalEarnings, 
   userName, 
-  bankName, // This state holds the bankCode (e.g., "000013")
+  bankName, 
   setBankName, 
   accountNumber, 
   setAccountNumber, 
   amount, 
   setAmount, 
   onWithdraw, 
-  userId 
+  userId,
+  userPin // 🔥 Re-added this prop to check if they have a PIN
 }: any) {
   
   const [step, setStep] = useState(1); 
@@ -32,6 +34,24 @@ export function WithdrawModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [nameMatchError, setNameMatchError] = useState(false);
   const [enteredPin, setEnteredPin] = useState("");
+
+  // 🔥 PIN GATEKEEPER STATE
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [currentPin, setCurrentPin] = useState(userPin);
+
+  // Keep local pin state in sync if parent updates it
+  useEffect(() => {
+    setCurrentPin(userPin);
+  }, [userPin]);
+
+  // Intercept the open event if no PIN exists
+  useEffect(() => {
+    if (open && !currentPin) {
+      setShowPinSetup(true);
+    } else {
+      setShowPinSetup(false);
+    }
+  }, [open, currentPin]);
 
   // Helper to get the display name of the selected bank
   const selectedBankObject = useMemo(() => 
@@ -77,12 +97,11 @@ export function WithdrawModal({
             const safeRef = data.nameEnquiryRef || data.sessionId || data.data?.sessionId || data.data?.nameEnquiryRef || `SS-${Date.now()}`;
             setNameEnquiryRef(safeRef); 
 
-            // Name Match Logic: Ensure at least one part of the registered name is in the bank name
+            // Name Match Logic
             const userParts = userName.toUpperCase().split(" ").filter((p: string) => p.length > 2);
             const isMatch = userParts.some((part: string) => fetchedAccountName.includes(part));
             if (!isMatch) setNameMatchError(true);
           } else {
-            // Silently fail or show minimal error for name resolution
             console.warn("Name resolution failed");
           }
         } catch (error) {
@@ -136,6 +155,22 @@ export function WithdrawModal({
   const isInsufficient = numericAmount > totalEarnings;
   const canProceedToPin = resolvedName && nameEnquiryRef && !isResolving && numericAmount > 0 && !isInsufficient && !nameMatchError;
 
+  // 🔥 THE INTERCEPTOR: Show setup modal if no PIN exists
+  if (showPinSetup) {
+    return (
+      <SetPinModal 
+        open={open} 
+        userId={userId} 
+        onClose={onClose} 
+        onSuccess={(newPin: string) => {
+          setCurrentPin(newPin); // Instantly update local state to unblock the flow
+          setShowPinSetup(false); // Hide setup modal, revealing the normal withdraw modal
+        }} 
+      />
+    );
+  }
+
+  // --- STANDARD WITHDRAWAL MODAL JSX ---
   return (
     <Dialog open={open} onOpenChange={(val) => { if(!val) { setStep(1); onClose(); } }}>
       <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-[2rem] shadow-2xl overflow-visible">
@@ -147,14 +182,12 @@ export function WithdrawModal({
 
         {step === 1 ? (
           <div className="space-y-5 py-2">
-            {/* Balance Card */}
             <div className="rounded-2xl p-4 border flex flex-col items-center bg-white/[0.02] border-white/5">
               <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Available Balance</p>
               <h2 className="text-3xl font-bold">₦{totalEarnings?.toLocaleString() || 0}</h2>
             </div>
 
             <div className="space-y-4">
-              {/* Destination Bank: Searchable */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Destination Bank</label>
                 <SearchableBankSelect 
@@ -167,7 +200,6 @@ export function WithdrawModal({
                 />
               </div>
 
-              {/* Account Number */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Account Number</label>
                 <Input 
@@ -180,7 +212,6 @@ export function WithdrawModal({
                 />
               </div>
 
-              {/* Verified Name */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Verified Beneficiary</label>
                 <div className="relative">
@@ -200,7 +231,6 @@ export function WithdrawModal({
                 {nameMatchError && <p className="text-[10px] text-red-400 mt-1.5 font-bold italic text-center">Identity mismatch. You can only withdraw to your own bank account.</p>}
               </div>
 
-              {/* Amount */}
               <div>
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Withdrawal Amount (₦)</label>
                 <div className="relative">
@@ -227,7 +257,6 @@ export function WithdrawModal({
             </Button>
           </div>
         ) : (
-          /* STEP 2: PIN AUTHENTICATION */
           <div className="space-y-8 py-8 text-center">
             <div className="mx-auto w-16 h-16 rounded-3xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">
                 <Lock className="text-emerald-500" size={28} />
