@@ -630,12 +630,16 @@ useEffect(() => {
         const data = await response.json();
         if (data.success && data.tasks && data.tasks.length > 0) {
           const generatedTask = data.tasks[0];
+          
+          // --- FIX: Extract display deadline safely so it doesn't return undefined ---
+          const displayDeadline = generatedTask.ai_persona_config?.deadline_display || generatedTask.deadline_display || generatedTask.deadline || "Flexible";
+
           const newTask: Task = {
             id: generatedTask.id?.toString() || Date.now().toString(),
             title: generatedTask.title,
             description: generatedTask.brief_content,
             type: trackName,
-            deadline: generatedTask.deadline, 
+            deadline: displayDeadline, 
             status: 'pending',
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
@@ -644,21 +648,11 @@ useEffect(() => {
 
           setTasks(prev => [...prev, newTask]);
 
-          const formattedResources =
-            newTask.resources && newTask.resources.length > 0
-              ? newTask.resources
-                  .map((res: any, index: number) => `${index + 1}. ${res.link}`)
-                  .join('\n')
-              : 'No resources provided.';
-
           addChatMessage({
             id: (Date.now() + 1).toString(),
             agentName: 'Emem',
-            message: `Task: "${newTask.title}"
-            Deadline: ${newTask.deadline}
-            Ensure to submit on or before the deadine elapses.
-            There are some reference materials that could assist you during this task, they are given below your task brief in desk.`,
-              timestamp: new Date(),
+            message: `Task: "${newTask.title}"\nDeadline: ${displayDeadline}\nEnsure to submit on or before the deadline elapses.\nThere are some reference materials that could assist you during this task, they are given below your task brief in desk.`,
+            timestamp: new Date(),
           });
 
         }
