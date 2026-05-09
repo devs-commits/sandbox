@@ -419,7 +419,7 @@ useEffect(() => {
     } catch (error) {
       console.error("Error accepting bounty:", error);
     }
-  }, [userId, addChatMessage]);
+  }, [userId, addChatMessage, trackName]);
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
@@ -521,7 +521,7 @@ useEffect(() => {
           body: JSON.stringify({
             user_id: userId,
             user_name: userName,
-            track: trackName,
+            track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
             user_level: userLevel,
             bio_summary: null 
           })
@@ -614,11 +614,11 @@ useEffect(() => {
         body: JSON.stringify({
           user_id: userId,
           user_name: user?.fullName,
-          track: trackName,
+          track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
           deadline_display: "", 
           experience_level: "",
           difficulty: "intermediate",
-          task_number: 1,
+          task_number: tasks.length + 1, // Dynamic task number progression
           user_city: "Lagos",
           include_ethical_trap: false,
           model: "",
@@ -757,7 +757,7 @@ useEffect(() => {
     }
 
     setIsGeneratingTask(false);
-  }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages]);
+  }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages, tasks.length]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && !isGeneratingTask && tasks.length === 0) {
@@ -765,7 +765,7 @@ useEffect(() => {
       setIsExpanded(true); 
       generateTask();
     }
-  }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length]);
+  }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length, generateTask]);
 
   const submitBio = useCallback(async (bio: string, file?: File) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -813,7 +813,7 @@ useEffect(() => {
         body: JSON.stringify({
           user_id: userId, 
           bio_text: bio,
-          track: trackName,
+          track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
           cv_url: cvUrl 
         })
       });
@@ -974,7 +974,7 @@ useEffect(() => {
         timestamp: new Date(),
       });
     }
-  }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem]);
+  }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel]);
 
   const sendMessage = useCallback(async (message: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1012,7 +1012,7 @@ useEffect(() => {
             is_submission: false,
             is_first_login: false,
             user_level: userLevel,
-            track: trackName,
+            track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
             task_brief: currentTaskInfo?.description,
             deadline: currentTaskInfo?.deadline
           },
@@ -1051,7 +1051,7 @@ useEffect(() => {
         timestamp: new Date(),
       });
     }
-  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount]);
+  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount, userId]);
 
   const sendInterviewMessage = useCallback(async (message: string, interviewType: string, interviewHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1067,7 +1067,7 @@ useEffect(() => {
             is_mock_interview: true,
             interview_type: interviewType,
             user_level: userLevel,
-            track: trackName,
+            track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
             is_submission: false,
             is_first_login: false
           },
@@ -1109,7 +1109,7 @@ useEffect(() => {
           context: {
             is_salary_negotiation: true,
             user_level: userLevel,
-            track: trackName,
+            track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
             is_submission: false,
             is_first_login: false
           },
