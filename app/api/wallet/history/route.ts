@@ -1,142 +1,149 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import https from "https"; 
+import https from "https"; // Raw Node.js module
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Helper to mimic Postman GET with Body
-const fetchHistoryFromProvider = (accountNumber: string): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    // Check for keys before even trying
-    if (!process.env.PAYMENT_API_KEY || !process.env.PAYMENT_MERCHANT_ID) {
-        return reject(new Error("Server Environment Variables (API Keys) are missing. Check your live host settings."));
-    }
+// Standard fetch for the balance check
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') throw new Error("Provider timeout");
+    throw error;
+  }
+}
 
-    const payload = JSON.stringify({ accountNumber });
-    const options = {
-      hostname: "lab-api.wdc.ng",
-      path: "/api/v1/wallet-history",
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.PAYMENT_API_KEY!,
-        "merchant-id": process.env.PAYMENT_MERCHANT_ID!,
-        "Content-Length": Buffer.byteLength(payload)
-      }
-    };
+// 🔥 THE FIX: A raw HTTP client that forces a GET request to accept a JSON body
+function forceGetWithBody(urlStr: string, headers: any, bodyData: any, timeoutMs = 15000): Promise<any> {
+    return new Promise((resolve, reject) => {
+        const url = new URL(urlStr);
+        const payload = JSON.stringify(bodyData);
 
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => { data += chunk; });
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed);
-        } catch (e) {
-          console.error("Parse Error:", data);
-          resolve({ data: { result: [] } }); 
-        }
-      });
+        const options = {
+            hostname: url.hostname,
+            path: url.pathname + url.search,
+            method: 'GET', // Forcing GET
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            },
+            timeout: timeoutMs
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, text: data });
+                }
+            });
+        });
+
+        req.on('error', (e) => reject(e));
+        req.on('timeout', () => { req.destroy(); reject(new Error('Provider timeout')); });
+        
+        // Write the body to the GET request!
+        req.write(payload);
+        req.end();
     });
-
-    req.on("error", (error) => { reject(new Error(`Network Request Error: ${error.message}`)); });
-    req.write(payload);
-    req.end();
-  });
-};
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, accountNumber } = await req.json();
+    const { userId, accountNumber, page = 1, limit = 15 } = await req.json();
 
-    if (!userId || !accountNumber || accountNumber === "****") {
-      return NextResponse.json({ success: false, error: "Missing account credentials" }, { status: 400 });
+    if (!userId || !accountNumber) {
+      return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    let finalBalance = 0;
+    const apiKey = process.env.PAYMENT_API_KEY!;
+    const merchantId = process.env.PAYMENT_MERCHANT_ID!;
+    const baseUrl = process.env.PAYMENT_BASE_URL;
 
-    // --- STEP 1: Sync from Provider ---
-    const txData = await fetchHistoryFromProvider(accountNumber).catch(err => {
-        throw new Error(`Provider Sync Failed: ${err.message}`);
-    });
-    
-    const apiTransactions = Array.isArray(txData?.data?.result) ? txData.data.result : [];
+    let liveBalance = undefined;
+    let providerTransactions = [];
+    let paginationData = { hasNext: false, totalPages: 1 };
 
-    if (apiTransactions.length > 0) {
-      finalBalance = Number(apiTransactions[0].balanceAfter || 0);
+    try {
+      // 1. FETCH LIVE BALANCE
+      if (page === 1) {
+          const balanceRes = await fetchWithTimeout(`${baseUrl}/virtual-wallet?accountNumber=${accountNumber}`, {
+            method: "GET",
+            headers: { "x-api-key": apiKey, "merchant-id": merchantId },
+          }, 8000);
 
-      const dbEntries = apiTransactions.map((tx: any) => {
-        const typeStr = String(tx.transactionType || "").toUpperCase();
-        const isOutflow = typeStr === "OUTFLOW" || typeStr === "DEBIT";
-        const meta = tx.metadata || {};
-        
-        const sourceName = isOutflow 
-            ? (meta.beneficiaryAccountName || tx.publishers || "Bank Transfer")
-            : (meta.originatingAccountName || meta.originatingBankName || "Bank Deposit");
+          if (balanceRes.ok) {
+            const balanceData = await balanceRes.json();
+            if (balanceData?.data?.result?.[0]?.availableBalance !== undefined) {
+              liveBalance = Number(balanceData.data.result[0].availableBalance);
+              await supabaseAdmin.from('wallets').update({ balance: liveBalance }).eq('user_id', userId);
+            }
+          }
+      }
 
-        return {
-          user_id: userId, 
-          amount: Number(tx.amount || meta.amount || 0),
-          transaction_type: isOutflow ? 'OUTFLOW' : 'INFLOW',
-          status: 'SUCCESS',
-          reference: tx.transactionId || meta.referenceID || tx._id, 
-          provider_tx_id: tx._id, 
-          source: sourceName,
-          created_at: tx.createdAt || meta.transactionDate || new Date().toISOString()
-        };
-      });
-
-      // --- STEP 2: Database Upsert ---
-      const { error: upsertError } = await supabaseAdmin
-        .from('wallet_transactions')
-        .upsert(dbEntries, { onConflict: 'provider_tx_id' });
+      // 2. FETCH LIVE TRANSACTIONS (Using the Force Method)
+      console.log(`\n🔵 [API] Forcing GET with Body to: ${baseUrl}/transactions`);
       
-      if (upsertError) throw new Error(`Database Upsert Failed: ${upsertError.message}`);
-      
-    } else {
-      // Fallback balance check
-      const walletRes = await fetch(`https://lab-api.wdc.ng/api/v1/get-all-virtual-wallet?limit=1000`, { 
-        method: "GET", 
-        headers: { "x-api-key": process.env.PAYMENT_API_KEY!, "merchant-id": process.env.PAYMENT_MERCHANT_ID! }
-      });
-      const walletData = await walletRes.json().catch(() => ({}));
-      const allWallets = Array.isArray(walletData?.data) ? walletData.data : [];
-      const targetAccount = allWallets.find((w: any) => String(w.accountNumber) === String(accountNumber));
-      finalBalance = Number(targetAccount?.balance || 0);
+      const txRes = await forceGetWithBody(
+          `${baseUrl}/transactions`, 
+          { "x-api-key": apiKey, "merchant-id": merchantId },
+          { accountNumber: String(accountNumber), page, limit } // Sending the exact body Postman used
+      );
+
+      if (txRes.status === 200 && txRes.data?.success && txRes.data?.data?.result) {
+          console.log(`🟢 [API] Success! Found ${txRes.data.data.result.length} transactions.`);
+          providerTransactions = txRes.data.data.result;
+          const pagedInfo = txRes.data.data.pagedInfo || {};
+          paginationData = { hasNext: pagedInfo.hasNext || false, totalPages: pagedInfo.totalPages || 1 };
+      } else {
+          console.error(`🔴 [API] Provider Failure (${txRes.status}):`, txRes.data || txRes.text);
+      }
+
+    } catch (providerError: any) {
+       console.error("🔴 [API] Provider Sync Error:", providerError.message);
     }
 
-    // --- STEP 3: Update Local Wallet Table ---
-    const { error: walletError } = await supabaseAdmin
-        .from('wallets')
-        .update({ balance: finalBalance, updated_at: new Date().toISOString() })
-        .eq('user_id', userId);
-    
-    if (walletError) throw new Error(`Wallet Update Failed: ${walletError.message}`);
-
-    // --- STEP 4: Final Fetch ---
-    const { data: finalHistory, error: fetchError } = await supabaseAdmin
-      .from('wallet_transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (fetchError) throw new Error(`Final History Fetch Failed: ${fetchError.message}`);
+    // 3. FALLBACK
+    if (providerTransactions.length === 0 && page === 1) {
+        console.log("🟠 [API] Activating Local Database Fallback...");
+        const { data: localTx } = await supabaseAdmin
+            .from('wallet_transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+            
+        return NextResponse.json({ 
+            success: true, 
+            transactions: localTx || [], 
+            balance: liveBalance,
+            pagination: { hasNext: false, totalPages: 1 },
+            isLocalFallback: true
+        });
+    }
 
     return NextResponse.json({ 
-        success: true, 
-        balance: finalBalance,
-        transactions: finalHistory || [] 
+      success: true, 
+      transactions: providerTransactions,
+      balance: liveBalance,
+      pagination: paginationData,
+      isLocalFallback: false
     });
 
-  } catch (err: any) {
-    // 🔥 This will now show the SPECIFIC failure in your Network tab
-    console.error("🔥 Detailed Crash:", err.message);
-    return NextResponse.json({ 
-        success: false, 
-        error: err.message || "Unknown error occurred" 
-    }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

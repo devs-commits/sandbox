@@ -9,33 +9,65 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: NextRequest) {
   try {
+    // ==========================================
+    // 0. SECURITY: VERIFY WEBHOOK ORIGIN
+    // ==========================================
+    // Ask Supply Smart how they secure webhooks (e.g., a specific header or IP address).
+    // For now, we enforce a secret token check.
+    const authHeader = req.headers.get("x-webhook-secret") || req.headers.get("authorization");
+    if (authHeader !== process.env.SUPPLY_SMART_WEBHOOK_SECRET) {
+        console.error("🚨 WEBHOOK REJECTED: Invalid or missing security token.");
+        // Always return 200 to hackers so they don't know the URL is valid, 
+        // or 401 if the provider specifically requires it for retries.
+        return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 }); 
+    }
+
     const body = await req.json();
     console.log("🔥 WDC/SUPPLY SMART WEBHOOK RECEIVED:", body);
 
     const accountNumber = body.accountNumber || body.data?.accountNumber;
     const amount = Number(body.amount || body.data?.amount);
-    const reference = body.transactionId || body.data?.transactionId || `WEBHK-${Date.now()}`;
+    const reference = body.transactionId || body.data?.transactionId;
 
-    if (!accountNumber || !amount) {
-      console.log("Invalid webhook payload structure.");
-      return NextResponse.json({ received: true });
+    // If there is no reference, we can't safely prevent double-crediting
+    if (!accountNumber || !amount || !reference) {
+      console.error("🚨 WEBHOOK ERROR: Missing account, amount, or reference.");
+      return NextResponse.json({ received: true }); 
     }
 
     // ==========================================
-    // 1. CHECK SIGNUP FEE PAYMENTS (Now Auto-Activates!)
+    // 1. IDEMPOTENCY: PREVENT DOUBLE CREDITING
+    // ==========================================
+    // Check if we have ALREADY processed this exact transaction reference
+    const { data: existingTx } = await supabaseAdmin
+        .from("wallet_transactions")
+        .select("id")
+        .eq("provider_tx_id", reference)
+        .maybeSingle();
+
+    if (existingTx) {
+        console.log(`⚠️ WEBHOOK IGNORED: Transaction ${reference} already processed.`);
+        return NextResponse.json({ success: true, message: "Already processed" });
+    }
+
+    // ==========================================
+    // 2. CHECK SIGNUP FEE PAYMENTS
     // ==========================================
     const { data: paymentRecord } = await supabaseAdmin
       .from("payments")
-      .update({ payment_status: "confirmed", confirmed_at: new Date().toISOString() })
+      .select("user_id, email, full_name, track")
       .eq("account_number", accountNumber)
       .eq("payment_status", "pending")
-      .select("user_id, email, full_name, track")
       .maybeSingle();
 
     if (paymentRecord) {
         console.log("Signup fee confirmed for account:", accountNumber);
         
-        // 🔥 FIX: Automatically activate their account!
+        await supabaseAdmin
+            .from("payments")
+            .update({ payment_status: "confirmed", confirmed_at: new Date().toISOString() })
+            .eq("account_number", accountNumber);
+            
         let daysToAdd = 30; 
         const trackString = String(paymentRecord.track || "").toLowerCase();
         if (trackString.includes('quarterly') || amount >= 10000) {
@@ -66,7 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ==========================================
-    // 2. CHECK VIRTUAL WALLET & LOG DEPOSIT
+    // 3. CHECK VIRTUAL WALLET & LOG DEPOSIT
     // ==========================================
     const { data: wallet } = await supabaseAdmin
       .from("wallets")
@@ -77,38 +109,34 @@ export async function POST(req: NextRequest) {
     if (wallet) {
       const newBalance = Number(wallet.balance || 0) + amount;
 
-      await supabaseAdmin
-        .from("wallets")
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq("user_id", wallet.user_id);
-
-      await supabaseAdmin.from("wallet_transactions").upsert({
-        user_id: wallet.user_id,
-        amount: amount,
-        transaction_type: 'INFLOW',
-        status: 'SUCCESS',
-        reference: reference,
-        provider_tx_id: reference,
-        source: 'Bank Transfer', 
-        created_at: new Date().toISOString()
-      }, { onConflict: 'provider_tx_id' });
+      // Wrap in a Promise.all to execute both DB updates simultaneously for speed
+      await Promise.all([
+          supabaseAdmin
+            .from("wallets")
+            .update({ balance: newBalance, updated_at: new Date().toISOString() })
+            .eq("user_id", wallet.user_id),
+            
+          supabaseAdmin.from("wallet_transactions").insert({
+            user_id: wallet.user_id,
+            amount: amount,
+            transaction_type: 'INFLOW',
+            status: 'SUCCESS',
+            reference: reference,
+            provider_tx_id: reference,
+            source: 'Bank Transfer', 
+            created_at: new Date().toISOString()
+          })
+      ]);
 
       console.log(`✅ Wallet credited: +₦${amount} for user ${wallet.user_id}. New Balance: ₦${newBalance}`);
 
-      // ==========================================
-      // 3. TRIGGER DEPOSIT EMAIL (Zeptomail)
-      // ==========================================
-      const { data: user } = await supabaseAdmin
-        .from("users").select("email").eq("auth_id", wallet.user_id).single();
+      if (wallet.user_id) {
+        const { data: user } = await supabaseAdmin
+          .from("users").select("email").eq("auth_id", wallet.user_id).single();
 
-      if (user?.email) {
-        await sendDepositEmail(
-          user.email, 
-          wallet.account_name, 
-          amount, 
-          newBalance, 
-          reference
-        );
+        if (user?.email) {
+          await sendDepositEmail(user.email, wallet.account_name, amount, newBalance, reference);
+        }
       }
     }
 

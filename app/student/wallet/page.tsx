@@ -28,8 +28,6 @@ const getBankName = (codeOrName: string) => {
 
 export default function GlobalWallet() {
   const { user } = useAuth();
-  
-  // 🔥 FIX: Ensure we safely grab the ID regardless of how the Auth Context formats it
   const currentUserId = user?.id || user?.user_id;
   
   const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
@@ -37,38 +35,55 @@ export default function GlobalWallet() {
     balance: 0, bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
   });
   
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showSensitive, setShowSensitive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // 🔥 Pagination States
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
-  // Modal States
   const [activeModal, setActiveModal] = useState<"none" | "withdraw" | "success" | "fund">("none");
   const [wBank, setWBank] = useState("");
   const [wAcc, setWAcc] = useState("");
   const [wAmt, setWAmt] = useState("");
 
-  const fetchTransactionHistory = useCallback(async (accNum: string) => {
+  const fetchTransactionHistory = useCallback(async (accNum: string, pageToLoad = 1) => {
     if (!accNum || accNum === "****" || !currentUserId) return;
-    setIsLoadingHistory(true);
+    
+    if (pageToLoad === 1) setIsLoadingHistory(true);
+    else setIsLoadingMore(true);
+
     try {
       const res = await fetch("/api/wallet/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, accountNumber: accNum }) 
+        body: JSON.stringify({ userId: currentUserId, accountNumber: accNum, page: pageToLoad, limit: 15 }) 
       });
       const data = await res.json();
+      
       if (data.success) {
-        setTransactions(data.transactions || []);
-        setWalletData(prev => ({ 
-           ...prev, 
-           balance: data.balance
-        }));
+        if (pageToLoad === 1) {
+            setTransactions(data.transactions || []);
+        } else {
+            setTransactions(prev => [...prev, ...(data.transactions || [])]);
+        }
+
+        if (data.balance !== undefined && pageToLoad === 1) {
+           setLiveBalance(data.balance); 
+        }
+
+        setHasMore(data.pagination?.hasNext || false);
+        setCurrentPage(pageToLoad);
       }
     } catch (err) {
       console.error("History fetch error:", err);
     } finally {
       setIsLoadingHistory(false);
+      setIsLoadingMore(false);
     }
   }, [currentUserId]);
 
@@ -77,15 +92,14 @@ export default function GlobalWallet() {
     const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', currentUserId).maybeSingle();
     
     if (wallet) {
-      const formattedData = {
+      setWalletData({
         balance: wallet.balance || 0,
         bankName: getBankName(wallet.bank_name || "Parallex Bank"),
         accountNumber: wallet.account_number || "****",
         accountName: wallet.account_name || user?.fullName || "User",
         walletReady: !!(wallet.account_number && wallet.account_number !== "****"),
         userPin: wallet.transaction_pin || ""
-      };
-      setWalletData(formattedData);
+      });
       setIsLoadingWallet(false);
       return wallet;
     }
@@ -98,7 +112,7 @@ export default function GlobalWallet() {
     
     const init = async () => {
         const wallet = await fetchWalletData();
-        if (wallet?.account_number) fetchTransactionHistory(wallet.account_number);
+        if (wallet?.account_number) fetchTransactionHistory(wallet.account_number, 1);
     };
     init();
 
@@ -113,9 +127,7 @@ export default function GlobalWallet() {
     setIsSyncing(true);
     try {
       if (walletData.accountNumber !== "****") {
-          await fetchTransactionHistory(walletData.accountNumber);
-          // Force a local DB sync just to be completely safe
-          await fetchWalletData();
+          await fetchTransactionHistory(walletData.accountNumber, 1);
       }
       toast.success("Account Refreshed");
     } finally { 
@@ -123,10 +135,14 @@ export default function GlobalWallet() {
     }
   };
 
+  const handleLoadMore = () => {
+      if (hasMore && !isLoadingMore) {
+          fetchTransactionHistory(walletData.accountNumber, currentPage + 1);
+      }
+  };
+
   const onWithdrawSuccess = () => {
-    if (walletData.accountNumber !== "****") {
-        fetchTransactionHistory(walletData.accountNumber);
-    }
+    if (walletData.accountNumber !== "****") fetchTransactionHistory(walletData.accountNumber, 1);
     setActiveModal("success");
   };
 
@@ -160,7 +176,7 @@ export default function GlobalWallet() {
                           <p className="text-white/40 text-sm font-medium">Available Balance</p>
                           <div className="flex items-center gap-6">
                               <h2 className="text-6xl font-bold text-white tracking-tighter">
-                                  {showSensitive ? `₦${walletData.balance.toLocaleString()}` : "₦****"}
+                                  {showSensitive ? `₦${(liveBalance !== null ? liveBalance : walletData.balance).toLocaleString()}` : "₦****"}
                               </h2>
                               <div className="flex items-center gap-2">
                                   <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
@@ -203,36 +219,69 @@ export default function GlobalWallet() {
                     ) : (
                        <div className="divide-y divide-white/5">
                           {transactions.map((tx, idx) => {
-                              // 🔥 FIXED: Mapped exactly to Supabase Columns (transaction_type, created_at, reference)
-                              const isLocalInflow = tx.transaction_type === 'INFLOW';
+                              // 🔥 Maps to the exact structure from the Provider's Payload
+                              const isLocalInflow = tx.transactionType ? tx.transactionType.toLowerCase() === 'credit' : tx.transaction_type === 'INFLOW';
                               const amount = Number(tx.amount || 0);
-                              const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'Pending';
-                              const ref = tx.reference || tx.provider_tx_id || 'N/A';
-                              const status = tx.status || 'COMPLETED';
-                              const sourceName = tx.source || 'Supply Smart';
+                              const fee = Number(tx.fee || 0);
+                              const totalAmount = Number(tx.totalAmount || tx.amount || 0);
+                              
+                              const rawDate = tx.createdAt || tx.created_at;
+                              const date = rawDate ? new Date(rawDate).toLocaleDateString() : 'Pending';
+                              
+                              const ref = tx.referenceTransactionId || tx.transactionId || tx.reference || 'N/A';
+                              const status = (tx.status || 'COMPLETED').toUpperCase();
+                              const sourceName = tx.description || tx.fundingMethod || tx.source || 'Supply Smart';
 
                               return (
-                                  <div key={tx.id || idx} className="p-5 flex items-center justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0">
-                                      <div className="flex items-center gap-4">
-                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                  <div key={tx._id || tx.id || idx} className="p-5 flex items-start justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-colors">
+                                      <div className="flex items-start gap-4">
+                                          <div className={`mt-1 w-10 h-10 rounded-full flex shrink-0 items-center justify-center ${
+                                            status === 'FAILED' ? 'bg-zinc-500/10 text-zinc-500' :
+                                            isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-400'
+                                          }`}>
                                               {isLocalInflow ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                                           </div>
                                           <div>
-                                              <p className="text-sm font-bold text-white">
+                                              <p className={`text-sm font-bold ${status === 'FAILED' ? 'text-white/40 line-through' : 'text-white'}`}>
                                                   {sourceName}
                                               </p>
-                                              <p className="text-[10px] text-white/30 font-medium uppercase">{date} • {status}</p>
+                                              <p className="text-[10px] text-white/40 font-medium uppercase mt-1">
+                                                {date} • <span className={status === 'FAILED' ? 'text-red-400' : status === 'PENDING' ? 'text-amber-400' : 'text-emerald-400'}>{status}</span>
+                                              </p>
                                           </div>
                                       </div>
                                       <div className="text-right">
-                                          <p className={`text-lg font-bold ${isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
+                                          <p className={`text-lg font-bold ${status === 'FAILED' ? 'text-white/20' : isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
                                               {isLocalInflow ? '+' : '-'} ₦{amount.toLocaleString()}
                                           </p>
-                                          <p className="text-[9px] text-white/20 font-mono">Ref: {ref.slice(-10)}</p>
+                                          
+                                          {/* 🔥 DISPLAY FEES IF THEY EXIST */}
+                                          {!isLocalInflow && fee > 0 && status !== 'FAILED' && (
+                                             <p className="text-[10px] text-white/40 font-medium mt-1">
+                                                Fee: ₦{fee} <span className="mx-1">•</span> Total: ₦{totalAmount.toLocaleString()}
+                                             </p>
+                                          )}
+                                          
+                                          <p className="text-[9px] text-white/20 font-mono mt-1">Ref: {ref !== 'N/A' ? ref.slice(-10) : 'N/A'}</p>
                                       </div>
                                   </div>
                               );
                           })}
+                          
+                          {/* 🔥 LOAD MORE BUTTON */}
+                          {hasMore && (
+                              <div className="p-6 flex justify-center bg-black/10">
+                                  <Button 
+                                      onClick={handleLoadMore} 
+                                      disabled={isLoadingMore}
+                                      variant="outline" 
+                                      className="bg-transparent border-white/10 text-white/60 hover:text-white hover:bg-white/5 rounded-full px-8"
+                                  >
+                                      {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                      {isLoadingMore ? "Loading Ledger..." : "View Older Transactions"}
+                                  </Button>
+                              </div>
+                          )}
                        </div>
                     )}
                 </div>
@@ -246,7 +295,6 @@ export default function GlobalWallet() {
           </>
 
         ) : (
-          /* EMPTY STATE */
           <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
              <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
@@ -261,10 +309,8 @@ export default function GlobalWallet() {
              </Link>
           </div>
         )}
-
       </main>
 
-      {/* 🔥 NEW SUPPLY SMART FUNDING MODAL */}
       <Dialog open={activeModal === "fund"} onOpenChange={(v) => !v && setActiveModal("none")}>
         <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
           <DialogHeader>
@@ -296,10 +342,7 @@ export default function GlobalWallet() {
             </div>
 
             <Button 
-              onClick={() => { 
-                setActiveModal("none"); 
-                manualRefresh(); 
-              }} 
+              onClick={() => { setActiveModal("none"); manualRefresh(); }} 
               className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-2xl shadow-xl"
             >
               I HAVE MADE THE TRANSFER
