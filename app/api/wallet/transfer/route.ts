@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.PAYMENT_API_KEY!;
     const merchantId = process.env.PAYMENT_MERCHANT_ID!;
-    const wdcBase = "https://lab-api.wdc.ng/api/v1";
+    const wdcBase = process.env.PAYMENT_BASE_URL;
+    const supplySmart = process.env.STANDALONE_PAYMENT_BASE_URL;
 
     // ==========================================
     // 2. ENCRYPT PAYLOAD
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     };
 
     // 🔥 FIX: Correct URL path based on your Postman screenshot
-    const encryptRes = await fetch(`${wdcBase}/transfer/partners/encrypt`, {
+    const encryptRes = await fetch(`${supplySmart}/partners/encrypt`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey, "merchant-id": merchantId },
       body: JSON.stringify(rawPayload)
