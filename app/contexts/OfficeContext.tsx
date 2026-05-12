@@ -87,22 +87,36 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   // Track name will be set from database in useEffect
   const [trackName, setTrackName] = useState<string>('General');
   
-  const mapResources = (resources?: string): ArchiveItem[] => {
-  if (!resources || typeof resources !== 'string') return [];
+  const mapResources = (resources?: any): ArchiveItem[] => {
+    if (!resources) return [];
+    
+    // If backend returns the rich JSON array directly
+    if (Array.isArray(resources)) {
+      return resources.map((r, i) => ({
+        id: `res-${i}`,
+        title: r.title || `Learning Resource ${i + 1}`,
+        url: r.url || r.link,
+        type: (r.url || r.link || "").includes("youtube") ? "video" : "web",
+        category: "Reference Links",
+        description: r.description || "Supporting material for this task",
+      }));
+    }
+    
+    // Fallback for old comma-separated strings just in case
+    if (typeof resources === 'string') {
+      return resources.split(',').map((r, i) => ({
+        id: `res-${i}`,
+        title: `Learning Resource ${i + 1}`,
+        url: r.trim(),
+        type: r.includes("youtube") ? "video" : "web",
+        category: "Reference Links",
+        description: "Supporting material",
+      }));
+    }
 
-  return resources
-    .split(',')
-    .map((r, i) => ({
-      id: `res-${i}`,
-      title: `Learning Resource ${i + 1}`,
-      url: r.trim(),
-      type: r.includes("youtube") ? "video" : "web",
-      category: r.includes("youtube")
-        ? "Video Resources"
-        : "Reference Links",
-      description: "Supporting material for this task",
-    }));
-};
+    return [];
+  };
+
 const getDailyChatKey = () => {
   if (!userId) return null;
   const today = new Date().toISOString().split('T')[0];
@@ -841,13 +855,33 @@ useEffect(() => {
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
+    // --- NEW: DAILY ATTEMPT TRACKING LOGIC ---
+    const today = new Date().toISOString().split('T')[0];
+    const attemptKey = `wdc-task-attempts-${userId}-${taskId}-${today}`;
+    const currentAttempts = parseInt(localStorage.getItem(attemptKey) || '0', 10);
+
+    if (currentAttempts >= 3) {
+      addChatMessage({
+        id: Date.now().toString(),
+        agentName: 'Sola',
+        message: "You have exhausted your 3 submission attempts for today. Review my final evaluation carefully, study the assigned learning materials, and try again tomorrow. Your limit will reset at midnight.",
+        timestamp: new Date(),
+      });
+      setIsExpanded(true);
+      return; // Block the API call completely (Saves API money!)
+    }
+
+    const nextAttempt = currentAttempts + 1;
+    localStorage.setItem(attemptKey, nextAttempt.toString());
+    // -----------------------------------------
+
     updateTaskStatus(taskId, 'submitted');
     setIsExpanded(true);
 
     addChatMessage({
       id: Date.now().toString(),
       agentName: 'Sola',
-      message: "I've received your submission. Let me review it carefully...",
+      message: `I've received your submission (Attempt ${nextAttempt} of 3 for today). Let me review it carefully...`,
       timestamp: new Date(),
     });
 
@@ -893,7 +927,8 @@ useEffect(() => {
           chat_history: chatMessages.slice(-5).map(m => ({
             role: m.agentName ? 'assistant' : 'user',
             content: m.message
-          }))
+          })),
+          attempt_number: nextAttempt // <-- PASSING THE DAILY ATTEMPT NUMBER TO THE BACKEND
         })
       });
 
@@ -968,7 +1003,7 @@ useEffect(() => {
         timestamp: new Date(),
       });
     }
-  }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel]);
+  }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel, setIsExpanded]);
 
   const sendMessage = useCallback(async (message: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
