@@ -37,6 +37,7 @@ interface OfficeContextType extends OfficeState {
   sendSalaryNegotiationMessage: (message: string, negotiationHistory?: Array<{role: string, content: string}>) => Promise<{agent: AgentName, message: string}>;
   showToluWelcome: boolean;
   setShowToluWelcome: (show: boolean) => void;
+  isBioProcessing: boolean;
   isExpanded: boolean;
   setIsExpanded: (expanded: boolean) => void;
   isFirstTask: boolean;
@@ -74,6 +75,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives' | 'bounty'>('desk');
   const [showToluWelcome, setShowToluWelcome] = useState(false);
+  const [isBioProcessing, setIsBioProcessing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFirstTask, setIsFirstTask] = useState(true);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
@@ -777,6 +779,7 @@ useEffect(() => {
 
   const submitBio = useCallback(async (bio: string, file?: File) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+    setIsBioProcessing(true);
     let cvUrl: string | null = null;
 
     if (file && userId) {
@@ -842,6 +845,8 @@ useEffect(() => {
     } catch (error) {
       console.error('Bio assessment failed:', error);
       setUserLevel('Level 1');
+    } finally {
+      setIsBioProcessing(false);
     }
 
     setShowToluWelcome(true);
@@ -1206,6 +1211,7 @@ useEffect(() => {
         showToluWelcome,
         performanceMetrics,
         setShowToluWelcome,
+        isBioProcessing,
         isExpanded,
         setIsExpanded,
         isFirstTask,

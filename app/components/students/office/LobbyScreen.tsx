@@ -5,7 +5,7 @@ import { CVUploadModal } from '../../../components/students/office/modals/CvUplo
 import { ToluWelcomePopup } from '../../../components/students/office/modals/ToluWelcomePopup';
 
 export function LobbyScreen() {
-  const { phase, showToluWelcome, setShowToluWelcome, completeOnboarding, userName, chatMessages } = useOffice();
+  const { phase, showToluWelcome, setShowToluWelcome, completeOnboarding, userName, chatMessages, isBioProcessing } = useOffice();
   const showCVModal = phase === 'lobby' && !showToluWelcome;
 
   // Get the first Tolu message (AI response from bio assessment)
@@ -50,6 +50,7 @@ export function LobbyScreen() {
         onClose={handleToluWelcomeClose}
         userName={userName}
         aiResponse={aiResponse}
+        isBioProcessing={isBioProcessing}
       />
     </div>
   );

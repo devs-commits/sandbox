@@ -11,11 +11,12 @@ interface ToluWelcomePopupProps {
   onClose: () => void;
   userName?: string;
   aiResponse?: string;
+  isBioProcessing?: boolean;
 }
 
 type MessageStep = 'initial' | 'processing' | 'final';
 
-export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern', aiResponse }: ToluWelcomePopupProps) {
+export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern', aiResponse, isBioProcessing = false }: ToluWelcomePopupProps) {
   const [step, setStep] = useState<MessageStep>('initial');
   const [canClose, setCanClose] = useState(false);
 
@@ -31,17 +32,26 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern', aiRespo
       setStep('processing');
     }, 2000);
 
-    // Step 2: Processing for 3s, then final message
+    // Step 2: Wait for actual bio processing OR 30s timeout (whichever comes first)
     const timer2 = setTimeout(() => {
+      if (!isBioProcessing) {
+        setStep('final');
+        setCanClose(true);
+      }
+    }, 3000);
+
+    // Fallback: Force final step after 30s max (handles edge cases)
+    const timer3 = setTimeout(() => {
       setStep('final');
       setCanClose(true);
-    }, 15000);
+    }, 30000);
 
     return () => {
       clearTimeout(timer1);
       clearTimeout(timer2);
+      clearTimeout(timer3);
     };
-  }, [isOpen]);
+  }, [isOpen, isBioProcessing]);
 
   const handleClose = () => {
     if (canClose) {
@@ -116,23 +126,23 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern', aiRespo
                       <div className="flex gap-1">
                         <motion.div
                           animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ repeat: step === 'processing' ? Infinity : 0, duration: 0.6, delay: 0 }}
+                          transition={{ repeat: isBioProcessing ? Infinity : 0, duration: 0.6, delay: 0 }}
                           className="w-2 h-2 rounded-full bg-primary/60"
                         />
                         <motion.div
                           animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ repeat: step === 'processing' ? Infinity : 0, duration: 0.6, delay: 0.2 }}
+                          transition={{ repeat: isBioProcessing ? Infinity : 0, duration: 0.6, delay: 0.2 }}
                           className="w-2 h-2 rounded-full bg-primary/60"
                         />
                         <motion.div
                           animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ repeat: step === 'processing' ? Infinity : 0, duration: 0.6, delay: 0.4 }}
+                          transition={{ repeat: isBioProcessing ? Infinity : 0, duration: 0.6, delay: 0.4 }}
                           className="w-2 h-2 rounded-full bg-primary/60"
                         />
                       </div>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {step === 'processing' ? 'Processing document...' : 'Document processed'}
+                      {isBioProcessing ? 'Processing document... (depends on your connection speed)' : 'Document processed'}
                     </span>
                   </div>
                 </motion.div>
@@ -163,7 +173,7 @@ export function ToluWelcomePopup({ isOpen, onClose, userName = 'Intern', aiRespo
                 className="p-4 border-t border-border/50 bg-secondary/20"
               >
                 <Button onClick={handleClose} className="w-full">
-                  Continue to Office Tour
+                  Let's get started
                 </Button>
               </motion.div>
             )}

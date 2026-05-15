@@ -55,8 +55,8 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
                 <User className="text-primary" size={28} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-foreground">Who are you?</h2>
-                <p className="text-sm text-muted-foreground">Tell us about yourself to get started</p>
+                <h2 className="text-2xl font-bold text-foreground">Let's get to know you</h2>
+                <p className="text-sm text-muted-foreground">Your story or your CV</p>
               </div>
             </div>
 
@@ -109,7 +109,7 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
             </div>
 
             <Textarea
-              placeholder="Tell us about yourself: your background, skills, what you want to learn... (minimum 20 characters)"
+              placeholder="Your background, skills, what you're learning. Keep it real. (min 20 chars)"
               value={bioText}
               onChange={(e) => setBioText(e.target.value)}
               className="min-h-[140px] resize-none rounded-2xl bg-secondary/30 border-border/50 focus:border-primary/50"
@@ -127,12 +127,12 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
                   Processing...
                 </>
               ) : (
-                'Submit & Enter Office'
+                'Let\'s go'
               )}
             </Button>
             
             <p className="text-xs text-muted-foreground text-center mt-4">
-              No formal CV? No problem. We accept everyone who is ready to put in the effort.
+              No fancy CV? That's cool. We care about effort and growth, not credentials.
             </p>
           </motion.div>
         </motion.div>
