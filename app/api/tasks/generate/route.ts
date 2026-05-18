@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 interface TaskDefinition {
   title: string;
@@ -22,7 +21,6 @@ interface TaskDefinition {
   }; 
 }
 
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -38,37 +36,25 @@ export async function POST(request: Request) {
       include_ethical_trap,
       model,
       include_video_brief } = body;
-    // console.log("Generating tasks for user:", user_id, "track:", track, "user_city:", user_city);
 
     if (!user_id) {
-      return NextResponse.json(
-        { success: false, error: 'User ID is missing' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'User ID is missing' }, { status: 400 });
     }
 
     if (!track) {
-      return NextResponse.json(
-        { success: false, error: 'user track is missing' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'user track is missing' }, { status: 400 });
     }
 
+    const DEFAULT_AI_PERSONA_CONFIG = {
+       "role": "Supervisor",
+       "tone": "professional",
+       "expertise": track,
+       "instruction": "Review submission thoroughly",
+       "deadline_display": deadline_display
+    };
 
-// Default AI persona configuration
-const DEFAULT_AI_PERSONA_CONFIG = {
-   "role": "Supervisor",
-            "tone": "professional",
-            "expertise": track,
-            "instruction": "Review submission thoroughly",
-            "deadline_display": deadline_display
-};
-
-    // 1. Get Task Count and Previous Performance
     const dbClient = supabaseAdmin || supabase;
-    const storageClient = supabaseAdmin ?? supabase;
 
-    // Get task count for task_number
     const { count } = await dbClient
       .from('tasks')
       .select('*', { count: 'exact', head: true })
@@ -76,10 +62,7 @@ const DEFAULT_AI_PERSONA_CONFIG = {
 
     const taskNumber = (count || 0) + 1;
 
-    // Get previous task performance
     let previousPerformance = "N/A";
-
-    // Find the last completed task
     const { data: lastTask } = await dbClient
       .from('tasks')
       .select('id')
@@ -90,7 +73,6 @@ const DEFAULT_AI_PERSONA_CONFIG = {
       .single();
 
     if (lastTask) {
-      // Get the last assistant message (feedback) for this task
       const { data: lastMsg } = await dbClient
         .from('chat_history')
         .select('content')
@@ -105,26 +87,13 @@ const DEFAULT_AI_PERSONA_CONFIG = {
       }
     }
 
-    // 2. Call Python Backend for Task Generation
     const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://127.0.0.1:8001';
 
     const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        user_id,
-        user_name: user_name,
-        track,
-        deadline_display,
-        experience_level,
-        difficulty,
-        task_number,
-        user_city,
-        include_ethical_trap,
-        model,
-        include_video_brief
+        user_id, user_name, track, deadline_display, experience_level, difficulty, task_number, user_city, include_ethical_trap, model, include_video_brief
       })
     });
 
@@ -134,155 +103,99 @@ const DEFAULT_AI_PERSONA_CONFIG = {
     }
 
     const responseData = await backendResponse.json();
-    // console.log("FULL BACKEND RESPONSE:", responseData);
-    // console.log("AI Response Data:", JSON.stringify(responseData, null, 2));
-
     let generatedTasks: any[] = [];
 
     if (responseData && Array.isArray(responseData.tasks)) {
       generatedTasks = responseData.tasks;
     } else {
-      console.warn("Unexpected response structure, trying fallback parsing");
-      // ... (keep fallback logic if needed, or simplify)
       generatedTasks = Array.isArray(responseData) ? responseData : [responseData];
     }
 
-const tasksToInsert = [];
+    // ==========================================
+    // FETCH RELEVANT CACHED VIDEOS ONLY
+    // ==========================================
+    const trackKeyword = track.split(' ')[0]; 
+    
+    const { data: cacheData } = await dbClient
+      .from('search_cache')
+      .select('results')
+      .ilike('query', `%${trackKeyword}%`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-for (let index = 0; index < generatedTasks.length; index++) {
-  const task = generatedTasks[index];
+    let preloadedVideos: any[] = [];
+    if (cacheData && Array.isArray(cacheData.results)) {
+      preloadedVideos = cacheData.results.map((res: any, index: number) => {
+        const link = res.link || res.url;
+        return {
+          id: `cache-vid-${Date.now()}-${index}`,
+          title: res.title || `Video Guide ${index + 1}`,
+          type: link && (link.includes("youtube") || link.includes("youtu.be")) ? "video" : "web",
+          category: "Video Resources",
+          description: res.snippet || "Reference video material for your task.",
+          url: link
+        };
+      }).filter((vid: any) => vid.url); 
+    }
+    // ==========================================
 
-  let resourceArray: any[] = [];
+    const tasksToInsert = [];
 
-  // ========================
-  // 1️⃣ GENERATE PDF
-  // ========================
+    for (let index = 0; index < generatedTasks.length; index++) {
+      const task = generatedTasks[index];
+      let resourceArray: any[] = [];
 
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595, 842]);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      // 1. EXTERNAL EDUCATIONAL LINKS (From Python AI)
+      if (typeof task.educational_resources === 'string') {
+        const links = task.educational_resources.split(",");
+        links.forEach((rawLink: string, i: number) => {
+          const cleanLink = rawLink.trim();
+          if (cleanLink) {
+            resourceArray.push({
+              id: `res-${index}-${i}`,
+              title: `Learning Resource ${i + 1}`,
+              type: cleanLink.includes("youtube") ? "video" : (cleanLink.toLowerCase().endsWith(".pdf") ? "pdf" : "web"),
+              category: cleanLink.includes("youtube") ? "Video Resources" : "Reference Links",
+              description: cleanLink.includes("youtube") ? "Video tutorial supporting this task" : "Helpful article or PDF for completing this task",
+              url: cleanLink,
+            });
+          }
+        });
+      }
 
-  const { height } = page.getSize();
-  let y = height - 60;
+      // 2. INJECT RELEVANT PRELOADED VIDEOS (From Cache)
+      resourceArray = [...resourceArray, ...preloadedVideos];
 
-  page.drawText("WDC Labs", { x: 50, y, size: 18, font: fontBold });
-
-  y -= 30;
-
-  page.drawText(task.title, { x: 50, y, size: 14, font: fontBold });
-
-  y -= 30;
-
-  page.drawText(task.brief_content, {
-    x: 50,
-    y,
-    size: 11,
-    font,
-    maxWidth: 495,
-    lineHeight: 15,
-  });
-
-  const pdfBytes = await pdfDoc.save();
-
-  const safeTitle = task.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  const fileName = `${user_id}/${safeTitle}.pdf`;
-
-  const storageClient = supabaseAdmin ?? supabase;
-  const { error: uploadError } = await storageClient.storage
-    .from('archives')
-    .upload(fileName, pdfBytes, {
-      contentType: 'application/pdf',
-      upsert: true
-    });
-
-  if (!uploadError) {
-    const { data: publicUrl } = storageClient.storage
-      .from('archives')
-      .getPublicUrl(fileName);
-
-    resourceArray.push({
-      id: `pdf-${index}`,
-      title: task.title,
-      type: "pdf",
-      category: "Task Guide",
-      description: "Official assignment brief document",
-      url: publicUrl.publicUrl,
-    });
-  }
-
-  // ========================
-  // 2️⃣ EDUCATIONAL LINKS
-  // ========================
-
-  if (typeof task.educational_resources === 'string') {
-    const links = task.educational_resources.split(",");
-
-    links.forEach((rawLink: string, i: number) => {
-      const cleanLink = rawLink.trim();
-
-      resourceArray.push({
-        id: `res-${index}-${i}`,
-        title: `Learning Resource ${i + 1}`,
-        type: cleanLink.includes("youtube") ? "video" : "web",
-        category: cleanLink.includes("youtube")
-          ? "Video Resources"
-          : "Reference Links",
-        description: cleanLink.includes("youtube")
-          ? "Video tutorial supporting this task"
-          : "Helpful article for completing this task",
-        url: cleanLink,
+      // 3. INSERT TASK
+      tasksToInsert.push({
+        user: user_id,
+        title: task.title,
+        brief_content: task.brief_content,
+        difficulty: task.difficulty,
+        task_track: track,
+        ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
+        completed: false,
+        task_number: taskNumber + index,
+        resources: resourceArray,
+        video_brief: task.video_brief
       });
-    });
-  }
+    }
 
-  // ========================
-  // 3️⃣ INSERT TASK
-  // ========================
-
-  tasksToInsert.push({
-    user: user_id,
-    title: task.title,
-    brief_content: task.brief_content,
-    difficulty: task.difficulty,
-    task_track: track,
-    ai_persona_config: task.ai_persona_config || DEFAULT_AI_PERSONA_CONFIG,
-    completed: false,
-    task_number: taskNumber + index,
-    resources: resourceArray,
-    video_brief: task.video_brief
-  });
-}
-    // Use admin client to bypass RLS, or fall back to regular client
-    // dbClient is already defined above
-
-    // Insert tasks into the database
     const { data, error } = await dbClient
       .from('tasks')
       .insert(tasksToInsert)
       .select();
 
-  //  console.log("INSERTED TASK DATA:", data);
-  
-
     if (error) {
       console.error('Error inserting tasks:', error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `${data.length} tasks generated successfully`,
-      tasks: data
-    });
+    return NextResponse.json({ success: true, message: `${data.length} tasks generated successfully`, tasks: data });
+
   } catch (error: any) {
     console.error('Error generating tasks:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

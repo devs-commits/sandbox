@@ -20,11 +20,16 @@ const roles = [
 const Login = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { login, isLoading } = useAuth();
+  // Removed global isLoading to prevent the auto-spinning bug
+  const { login } = useAuth(); 
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("student");
   const [error, setError] = useState("");
+  
+  // Added a local state to strictly control the button
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const searchParam = useSearchParams();
   const from = searchParam.get("from");
@@ -38,6 +43,9 @@ const Login = () => {
       return;
     }
 
+    // Trigger the spinner only when they actually click submit
+    setIsSubmitting(true);
+    
     const result = await login(email, password, role);
 
     if (result.success) {
@@ -57,6 +65,8 @@ const Login = () => {
     } else {
       setError(result.error || "Login failed");
       toast.error(result.error || "Login failed");
+      // Turn the spinner off if the login fails so they can try again
+      setIsSubmitting(false); 
     }
   };
 
@@ -84,8 +94,9 @@ const Login = () => {
             
             <AuthSelect label="Roles" value={role} onChange={setRole} options={roles} placeholder="Select Role" />
             
-            <Button type="submit" className="w-full mt-4" size="lg" disabled={isLoading}>
-              {isLoading ? (
+            {/* Bound the button to our local isSubmitting state */}
+            <Button type="submit" className="w-full mt-4" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Logging in...

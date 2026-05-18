@@ -38,7 +38,7 @@ export default function RootLayout({
             new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
             j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','GTM-K3W9SPXR');
+            })(window,document,'script','dataLayer','GTM-5PH5LGH3');
           `}
         </Script>
       </head>
@@ -47,15 +47,15 @@ export default function RootLayout({
         {/* Google Tag Manager (noscript) - Placed immediately after the opening body tag */}
         <noscript>
           <iframe 
-            src="https://www.googletagmanager.com/ns.html?id=GTM-K3W9SPXR"
+            src="https://www.googletagmanager.com/ns.html?id=GTM-5PH5LGH3"
             height="0" 
             width="0" 
             style={{ display: "none", visibility: "hidden" }}
           />
         </noscript>
 
-        {/* Paystack */}
-        <script src="https://js.paystack.co/v2/inline.js"></script>
+        {/* Paystack - Optimized using Next.js Script component */}
+        <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" />
 
         {/* Microsoft Clarity */}
         <Script id="microsoft-clarity" strategy="afterInteractive">
