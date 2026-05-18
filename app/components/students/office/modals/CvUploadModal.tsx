@@ -55,8 +55,8 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
                 <User className="text-primary" size={28} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-foreground">Who are you?</h2>
-                <p className="text-sm text-muted-foreground">Tell us about yourself to get started</p>
+                <h2 className="text-2xl font-bold text-foreground">Let's get to know you</h2>
+                <p className="text-sm text-muted-foreground">tell us About yourself to get started</p>
               </div>
             </div>
 
@@ -124,7 +124,10 @@ export function CVUploadModal({ isOpen }: CVUploadModalProps) {
               {isSubmitting ? (
                 <>
                   <Loader2 className="animate-spin mr-2" size={20} />
-                  Processing...
+                  <span className="flex flex-col items-start">
+                    <span>Processing your profile...</span>
+                    <span className="text-xs font-normal opacity-90">This may take 1-2 minutes</span>
+                  </span>
                 </>
               ) : (
                 'Submit & Enter Office'

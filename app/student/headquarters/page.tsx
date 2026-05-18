@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { SubscriptionLineCounter } from "../../components/dashboard/SubscriptionLineCounter";
 import { Button } from "../../components/ui/button";
-import { FileText, Clock, Eye, User, ArrowRight, Download, Flame, Loader2, Sparkles, CheckCircle } from "lucide-react";
+import { FileText, Clock, Eye, User, Download, Flame, Loader2, CheckCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContexts";
 import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
@@ -12,24 +12,17 @@ import { WhatsAppSupport } from "@/app/components/students/whatAppSupport";
 import { buildLetterFileName, downloadLetterFromElement, type LetterType } from "../../../lib/generateReferenceLetter";
 import { ReferenceLetterTemplate, type LetterData } from "../../components/letters/ReferenceLetterTemplate";
 
-interface Task {
-  id: number;
-  title: string;
-  brief_content: string;
-  difficulty: string;
-  task_track: string;
-  completed: boolean;
-}
-
 export default function page() {
   const { user } = useAuth();
   const router = useRouter();
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [streak, setStreak] = useState(0);
   const [weeksCompleted, setWeeksCompleted] = useState(0);
+  const [tasksCompleted, setTasksCompleted] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const [letterData, setLetterData] = useState<LetterData | null>(null);
+  const [shouldDownload, setShouldDownload] = useState(false);
+  const [downloadFileName, setDownloadFileName] = useState<string>("");
   const letterRef = useRef<HTMLDivElement>(null);
   const weeksRemaining12 = Math.max(12 - weeksCompleted, 0);
   const weeksRemaining24 = Math.max(24 - weeksCompleted, 0);
@@ -37,16 +30,26 @@ export default function page() {
   const fetchUserData = async () => {
     if (!user) return;
     try {
-      const [tasksResponse, userResponse] = await Promise.all([
-        supabase.from("tasks").select("*").eq("user", user.id).order("id", { ascending: true }),
-        supabase.from("users").select("created_at").eq("auth_id", user.id).single()
-      ]);
-      if (tasksResponse.error) console.error("Error fetching tasks:", tasksResponse.error);
-      else setTasks(tasksResponse.data || []);
-      if (userResponse.error) console.error("Error fetching user data:", userResponse.error);
-      else if (userResponse.data?.created_at) {
-        const weeksSinceJoining = Math.floor((new Date().getTime() - new Date(userResponse.data.created_at).getTime()) / (1000 * 60 * 60 * 24 * 7));
+      const { data: userData, error } = await supabase
+        .from("users")
+        .select("created_at, tasks_completed")
+        .eq("auth_id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user data:", error);
+        return;
+      }
+
+      if (userData?.created_at) {
+        const weeksSinceJoining = Math.floor(
+          (new Date().getTime() - new Date(userData.created_at).getTime()) / (1000 * 60 * 60 * 24 * 7)
+        );
         setWeeksCompleted(weeksSinceJoining);
+      }
+
+      if (userData?.tasks_completed !== undefined) {
+        setTasksCompleted(userData.tasks_completed);
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -74,28 +77,30 @@ export default function page() {
     }
   };
 
+  // Handle download after letterData is set and component is rendered
+  useEffect(() => {
+    const performDownload = async () => {
+      if (shouldDownload && letterRef.current && downloadFileName) {
+        try {
+          await downloadLetterFromElement(letterRef.current, downloadFileName);
+          toast.success("Letter downloaded successfully!");
+        } catch (error) {
+          console.error("Error downloading letter:", error);
+          toast.error("Failed to generate letter");
+        } finally {
+          setDownloading(false);
+          setShouldDownload(false);
+          setDownloadFileName("");
+        }
+      }
+    };
+    performDownload();
+  }, [shouldDownload, letterRef, downloadFileName]);
+
   useEffect(() => {
     fetchUserData();
     updateStreak();
   }, [user]);
-
-  const getDifficultyColor = (difficulty: string) => {
-    if (!difficulty) return "bg-purple-500/20 text-purple-500";
-    switch (difficulty.toLowerCase()) {
-      case "beginner":
-        return "bg-green-500/20 text-green-500";
-      case "intermediate":
-        return "bg-yellow-500/20 text-yellow-500";
-      case "advanced":
-        return "bg-red-500/20 text-red-500";
-      default:
-        return "bg-purple-500/20 text-purple-500";
-    }
-  };
-
-  const handleTaskClick = (taskId: number) => {
-    router.push(`/student/office?taskId=${taskId}`);
-  };
 
   const handleDownloadLetter = async (type: "work" | "visa") => {
     const letterType: LetterType = type === "work" ? "12week" : "24week";
@@ -104,8 +109,8 @@ export default function page() {
       toast.error("Requirements not met", { description: `You need ${requiredWeeks} weeks to unlock the ${type === "work" ? "Work" : "Visa"} letter.` });
       return;
     }
-    if (!user || !letterRef.current) {
-      toast.error("Unable to generate letter");
+    if (!user) {
+      toast.error("User not authenticated");
       return;
     }
     try {
@@ -113,25 +118,24 @@ export default function page() {
       const { data: userData } = await supabase.from("users").select("full_name, track").eq("auth_id", user.id).single();
       if (!userData?.full_name) {
         toast.error("User data not found");
+        setDownloading(false);
         return;
       }
       const newLetterData: LetterData = {
         fullName: userData.full_name,
         track: userData.track || "digital-marketing",
         type: letterType,
-        candidateId: undefined, // Will be auto-generated
-        jobTitle: undefined, // Will be auto-generated
-        projects: undefined, // Will use defaults
+        candidateId: undefined,
+        jobTitle: undefined,
+        projects: undefined,
       };
-      setLetterData(newLetterData);
       const fileName = buildLetterFileName(newLetterData.fullName, newLetterData.track || "digital-marketing", letterType);
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await downloadLetterFromElement(letterRef.current, fileName);
-      toast.success("Letter downloaded successfully!");
+      setLetterData(newLetterData);
+      setDownloadFileName(fileName);
+      setShouldDownload(true);
     } catch (error) {
       console.error("Error generating letter:", error);
       toast.error("Failed to generate letter");
-    } finally {
       setDownloading(false);
     }
   };
@@ -145,8 +149,8 @@ export default function page() {
           <div className="bg-muted-foreground/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <FileText size={18} />
             <div>
-              <span className="text-sm">Tasks Done: </span>
-              <span className="text-sm font-semibold">{tasks.filter(t => t.completed).length}/{tasks.length}</span>
+              <span className="text-sm">Task completed: </span>
+              <span className="text-sm font-semibold">{tasksCompleted}</span>
             </div>
           </div>
           <div className="bg-green-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">

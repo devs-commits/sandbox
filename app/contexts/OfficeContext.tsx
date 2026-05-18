@@ -36,6 +36,7 @@ interface OfficeContextType extends OfficeState {
   sendSalaryNegotiationMessage: (message: string, negotiationHistory?: Array<{role: string, content: string}>) => Promise<{agent: AgentName, message: string}>;
   showToluWelcome: boolean;
   setShowToluWelcome: (show: boolean) => void;
+  isBioProcessing: boolean;
   isExpanded: boolean;
   setIsExpanded: (expanded: boolean) => void;
   isFirstTask: boolean;
@@ -73,6 +74,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives' | 'bounty'>('desk');
   const [showToluWelcome, setShowToluWelcome] = useState(false);
+  const [isBioProcessing, setIsBioProcessing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFirstTask, setIsFirstTask] = useState(true);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
@@ -787,6 +789,81 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
   }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length, generateTask]);
 
+  const submitBio = useCallback(async (bio: string, file?: File) => {
+    const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+    setIsBioProcessing(true);
+    let cvUrl: string | null = null;
+
+    if (file && userId) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('cv-uploads')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('CV upload error:', uploadError);
+        } else if (uploadData) {
+          const { data: urlData } = supabase.storage
+            .from('cv-uploads')
+            .getPublicUrl(uploadData.path);
+          cvUrl = urlData?.publicUrl || null;
+          console.log('CV uploaded to:', cvUrl);
+
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ cv_url: cvUrl })
+            .eq('auth_id', userId);
+
+          if (updateError) {
+            console.error('Error saving CV URL to user:', updateError);
+          }
+        }
+      } catch (uploadErr) {
+        console.error('CV upload exception:', uploadErr);
+      }
+    }
+
+    try {
+      const response = await fetch(`${AI_BACKEND_URL}/assess-bio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId, 
+          bio_text: bio,
+          track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
+          cv_url: cvUrl 
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserLevel(data.assessed_level as UserLevel);
+        persistState({ userLevel: data.assessed_level });
+        addChatMessage({
+          id: Date.now().toString(),
+          agentName: 'Tolu',
+          message: data.response_text,
+          timestamp: new Date(),
+        });
+      } else {
+        setUserLevel('Level 1');
+      }
+    } catch (error) {
+      console.error('Bio assessment failed:', error);
+      setUserLevel('Level 1');
+    } finally {
+      setIsBioProcessing(false);
+    }
+
+    setShowToluWelcome(true);
+  }, [trackName, addChatMessage, userId, persistState]);
+
   const handleToluWelcomeClose = useCallback(() => {
     setShowToluWelcome(false);
     completeOnboarding();
@@ -1087,6 +1164,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         showToluWelcome,
         performanceMetrics,
         setShowToluWelcome,
+        isBioProcessing,
         isExpanded,
         setIsExpanded,
         isFirstTask,
