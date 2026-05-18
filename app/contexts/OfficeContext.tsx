@@ -88,7 +88,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   
   const [trackName, setTrackName] = useState<string>('General');
   
- // ==========================================
+  // ==========================================
   // RESOURCE MAPPER (Bulletproof JSON parser)
   // ==========================================
   const mapResources = useCallback((resources?: any): ArchiveItem[] => {
@@ -96,12 +96,10 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
     let parsedResources = resources;
 
-    // If the DB returns a string, try to parse it as JSON first
     if (typeof resources === 'string') {
       try {
         parsedResources = JSON.parse(resources);
       } catch (e) {
-        // If it's not JSON, assume it's just a comma-separated list of URLs
         return resources.split(',').filter(r => r.trim().length > 0).map((r, i) => ({
           id: `res-str-${i}`,
           title: `Learning Resource ${i + 1}`,
@@ -113,7 +111,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Now map the actual array
     if (Array.isArray(parsedResources)) {
       return parsedResources.map((r, i) => {
         const normalizedUrl = r.url || r.link || '';
@@ -121,7 +118,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           id: r.id || `res-${i}`,
           title: r.title || `Learning Resource ${i + 1}`,
           url: normalizedUrl,
-          // Use the type from DB if available, otherwise guess based on URL
           type: r.type ? r.type : (normalizedUrl.includes("youtube") || normalizedUrl.includes("youtu.be") ? "video" : "web"),
           category: r.category || "Reference Links",
           description: r.description || "Supporting material",
@@ -252,7 +248,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [userId, trackName, isFirstTask, mapResources]);
 
   // ==========================================
-  // REALTIME TASK SYNC (Fixes Stale Resources)
+  // REALTIME TASK SYNC
   // ==========================================
   useEffect(() => {
     if (!userId) return;
@@ -378,7 +374,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     const fetchPortfolio = async () => {
       if (!userId) return;
       try {
-        // Adjust table/column names if they differ in your database schema
         const { data, error } = await supabase
           .from('portfolio_items')
           .select('*')
@@ -400,7 +395,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
     fetchOnboardingState();
     fetchPerformanceMetrics();
-    fetchPortfolio(); // Fixes the empty portfolio on refresh
+    fetchPortfolio(); 
   }, [userId]);
 
   // ==========================================
@@ -457,7 +452,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
     try {
       const isCompleted = status === 'approved';
-      // FIX: Removed parseInt() to support UUIDs
       await supabase.from('tasks').update({ completed: isCompleted }).eq('id', taskId);
     } catch (error) {
       console.error('Error updating task status in database:', error);
@@ -543,6 +537,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   // ==========================================
   const submitBio = useCallback(async (bio: string, file?: File) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
+    setIsBioProcessing(true);
     let cvUrl: string | null = null;
 
     if (file && userId) {
@@ -552,14 +547,28 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('cv-uploads')
-          .upload(fileName, file, { cacheControl: '3600', upsert: true });
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
 
         if (uploadError) {
           console.error('CV upload error:', uploadError);
         } else if (uploadData) {
-          const { data: urlData } = supabase.storage.from('cv-uploads').getPublicUrl(uploadData.path);
+          const { data: urlData } = supabase.storage
+            .from('cv-uploads')
+            .getPublicUrl(uploadData.path);
           cvUrl = urlData?.publicUrl || null;
-          await supabase.from('users').update({ cv_url: cvUrl }).eq('auth_id', userId);
+          console.log('CV uploaded to:', cvUrl);
+
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ cv_url: cvUrl })
+            .eq('auth_id', userId);
+
+          if (updateError) {
+            console.error('Error saving CV URL to user:', updateError);
+          }
         }
       } catch (uploadErr) {
         console.error('CV upload exception:', uploadErr);
@@ -594,6 +603,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Bio assessment failed:', error);
       setUserLevel('Level 1');
+    } finally {
+      setIsBioProcessing(false);
     }
 
     setShowToluWelcome(true);
@@ -789,81 +800,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
   }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length, generateTask]);
 
-  const submitBio = useCallback(async (bio: string, file?: File) => {
-    const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
-    setIsBioProcessing(true);
-    let cvUrl: string | null = null;
-
-    if (file && userId) {
-      try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${Date.now()}.${fileExt}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('cv-uploads')
-          .upload(fileName, file, {
-            cacheControl: '3600',
-            upsert: true
-          });
-
-        if (uploadError) {
-          console.error('CV upload error:', uploadError);
-        } else if (uploadData) {
-          const { data: urlData } = supabase.storage
-            .from('cv-uploads')
-            .getPublicUrl(uploadData.path);
-          cvUrl = urlData?.publicUrl || null;
-          console.log('CV uploaded to:', cvUrl);
-
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ cv_url: cvUrl })
-            .eq('auth_id', userId);
-
-          if (updateError) {
-            console.error('Error saving CV URL to user:', updateError);
-          }
-        }
-      } catch (uploadErr) {
-        console.error('CV upload exception:', uploadErr);
-      }
-    }
-
-    try {
-      const response = await fetch(`${AI_BACKEND_URL}/assess-bio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId, 
-          bio_text: bio,
-          track: trackName.toLowerCase().replace(/[- ]/g, "_"), // Normalized track
-          cv_url: cvUrl 
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUserLevel(data.assessed_level as UserLevel);
-        persistState({ userLevel: data.assessed_level });
-        addChatMessage({
-          id: Date.now().toString(),
-          agentName: 'Tolu',
-          message: data.response_text,
-          timestamp: new Date(),
-        });
-      } else {
-        setUserLevel('Level 1');
-      }
-    } catch (error) {
-      console.error('Bio assessment failed:', error);
-      setUserLevel('Level 1');
-    } finally {
-      setIsBioProcessing(false);
-    }
-
-    setShowToluWelcome(true);
-  }, [trackName, addChatMessage, userId, persistState]);
-
   const handleToluWelcomeClose = useCallback(() => {
     setShowToluWelcome(false);
     completeOnboarding();
@@ -958,7 +894,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         if (data.passed) {
           updateTaskStatus(taskId, 'approved');
 
-          // --- NEW: Update User Tasks Completed & Average Score ---
           try {
             const { data: userData } = await supabase
               .from('users')
@@ -979,7 +914,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           } catch (dbErr) {
             console.error("Failed to update user progress stats:", dbErr);
           }
-          // --------------------------------------------------------
 
           if (data.technical_accuracy !== undefined) {
             setPerformanceMetrics({
