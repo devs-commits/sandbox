@@ -233,10 +233,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           if (activeTask) {
             setCurrentTask(activeTask);
           }
-          if (mappedTasks.length > 0 && isFirstTask) {
-            setIsFirstTask(false);
-            persistState({ isFirstTask: false });
-          }
         }
       } catch (error) {
         console.error("Error fetching tasks:", error);
@@ -619,79 +615,40 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setMessageCount(0); 
 
     if (isFirstTask) {
-      const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
       await new Promise(r => setTimeout(r, 1000));
 
-      try {
-        const response = await fetch(`${AI_BACKEND_URL}/onboarding-intro`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: userId,
-            user_name: userName,
-            track: trackName.toLowerCase().replace(/[- ]/g, "_"),
-            user_level: userLevel,
-            bio_summary: null 
-          })
+      const introductionMessages: { agent: AgentName; message: string; delay: number }[] = [
+        { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 12000 },
+        { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 12000 },
+        { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 18000 },
+        { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 16000 },
+        { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 14000 },
+        { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 12000 },
+      ];
+
+      for (const msg of introductionMessages) {
+        const typingId = `typing-${Date.now()}`;
+        addChatMessage({
+          id: typingId,
+          agentName: msg.agent,
+          message: '',
+          timestamp: new Date(),
+          isTyping: true,
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          const messages = data.messages || [];
-          let lastDelay = 0;
-          for (const msg of messages) {
-            const typingDelay = msg.typing_delay_ms - lastDelay;
-            const typingId = `typing-${Date.now()}`;
-            addChatMessage({
-              id: typingId,
-              agentName: msg.agent as AgentName,
-              message: '',
-              timestamp: new Date(),
-              isTyping: true,
-            });
+        await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
 
-            await new Promise(r => setTimeout(r, Math.min(typingDelay, 5000)));
+        setChatMessages(prev => prev.filter(m => m.id !== typingId));
+        addChatMessage({
+          id: `${Date.now()}-${msg.agent}`,
+          agentName: msg.agent,
+          message: msg.message,
+          timestamp: new Date(),
+        });
 
-            setChatMessages(prev => prev.filter(m => m.id !== typingId));
-            addChatMessage({
-              id: `${Date.now()}-${msg.agent}`,
-              agentName: msg.agent as AgentName,
-              message: msg.message,
-              timestamp: new Date(),
-            });
-
-            await new Promise(r => setTimeout(r, 1000 + Math.random() * 1500));
-            lastDelay = msg.typing_delay_ms;
-          }
-        } else {
-          throw new Error('AI response not ok');
-        }
-      } catch (error) {
-        console.error('Onboarding intro failed, using fallback:', error);
-        const fallbackMessages: { agent: AgentName; message: string; delay: number }[] = [
-          { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 12000 },
-          { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 12000 },
-          { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 18000 },
-          { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 16000 },
-          { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 14000 },
-          { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 12000 },
-        ];
-
-        for (const msg of fallbackMessages) {
-          const typingId = `typing-${Date.now()}`;
-          addChatMessage({
-            id: typingId, agentName: msg.agent, message: '', timestamp: new Date(), isTyping: true,
-          });
-
-          await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
-          setChatMessages(prev => prev.filter(m => m.id !== typingId));
-          addChatMessage({
-            id: `${Date.now()}-${msg.agent}`, agentName: msg.agent, message: msg.message, timestamp: new Date(),
-          });
-
-          await new Promise(r => setTimeout(r, 400));
-        }
+        await new Promise(r => setTimeout(r, 400));
       }
+
       await new Promise(r => setTimeout(r, 2000));
     }
 
@@ -699,7 +656,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       id: Date.now().toString(),
       agentName: 'Emem',
       message: isFirstTask
-        ? "Here's your first task. Read the brief carefully. Deadline is non‑negotiable."
+        ? "Your first task is on the way. Read the brief carefully. Deadline is non‑negotiable."
         : "New task assigned. Check your desk.",
       timestamp: new Date(),  
     });
@@ -793,12 +750,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages, tasks.length, user?.fullName, mapResources]);
 
   useEffect(() => {
-    if (shouldTriggerTeamIntro && !isGeneratingTask && tasks.length === 0) {
+    if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
       setShouldTriggerTeamIntro(false);
       setIsExpanded(true); 
       generateTask();
     }
-  }, [shouldTriggerTeamIntro, isGeneratingTask, tasks.length, generateTask]);
+  }, [shouldTriggerTeamIntro, phase, isGeneratingTask, tasks.length, generateTask]);
 
   const handleToluWelcomeClose = useCallback(() => {
     setShowToluWelcome(false);
