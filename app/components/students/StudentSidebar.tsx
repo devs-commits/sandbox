@@ -30,6 +30,19 @@ export const StudentSidebar = () => {
   const lastFetchedId = useRef<string | null>(null);
 
   useEffect(() => {
+    const handleSidebarOpen = () => setMobileOpen(true);
+    const handleSidebarClose = () => setMobileOpen(false);
+    
+    window.addEventListener('student-sidebar:open', handleSidebarOpen);
+    window.addEventListener('student-sidebar:close', handleSidebarClose);
+    
+    return () => {
+      window.removeEventListener('student-sidebar:open', handleSidebarOpen);
+      window.removeEventListener('student-sidebar:close', handleSidebarClose);
+    };
+  }, []);
+
+  useEffect(() => {
     const currentId = user?.id; // Using UUID strictly for consistency
     if (!currentId || currentId === lastFetchedId.current) return;
 
@@ -135,6 +148,13 @@ export const StudentSidebar = () => {
                 "flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors",
                 isActive ? "bg-primary/20 text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
               )}
+              data-tour={
+                item.path === "/student/office" ? "sidebar-office" :
+                item.path === "/student/portfolio" ? "sidebar-portfolio" :
+                item.path === "/student/wallet" ? "sidebar-wallet" :
+                item.path === "/student/squad" ? "sidebar-squad" :
+                undefined
+              }
             >
               <div className="flex items-center gap-3">
                 <item.icon size={18} />
@@ -158,6 +178,7 @@ export const StudentSidebar = () => {
               ? "bg-green-500/20 text-green-400"
               : "text-green-400 bg-green-500/20 hover:bg-green-500/10"
           )}
+          data-tour="sidebar-earn"
         >
           <DollarSign size={18} />
           <span className="text-sm font-medium">Earn Money</span>

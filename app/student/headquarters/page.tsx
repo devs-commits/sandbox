@@ -11,8 +11,10 @@ import { toast } from "sonner";
 import { WhatsAppSupport } from "@/app/components/students/whatAppSupport";
 import { buildLetterFileName, downloadLetterFromElement, type LetterType } from "../../../lib/generateReferenceLetter";
 import { ReferenceLetterTemplate, type LetterData } from "../../components/letters/ReferenceLetterTemplate";
+import { HeadquartersProvider } from "../../contexts/HeadquartersContext";
+import { HeadquartersTour } from "../../components/students/headquarters/HeadquartersTour";
 
-export default function page() {
+function HeadquartersContent() {
   const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -145,7 +147,7 @@ export default function page() {
       <StudentHeader title="Headquarters" />
       <div className="p-4 lg:p-6 space-y-6">
         <SubscriptionLineCounter user={user} />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour="hq-stats">
           <div className="bg-muted-foreground/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <FileText size={18} />
             <div>
@@ -172,7 +174,7 @@ export default function page() {
             </div>
           </div>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5" data-tour="hq-letters">
           <div className="flex flex-col lg:flex-row lg:justify-between gap-4 mb-4">
             <div className="flex items-start gap-3">
               <FileText className="text-purple-400" size={20} />
@@ -264,10 +266,19 @@ export default function page() {
           </div>
         </div>
       </div>
+      <HeadquartersTour />
       <WhatsAppSupport />
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         {letterData && <ReferenceLetterTemplate ref={letterRef} data={letterData} />}
       </div>
     </div>
+  );
+}
+
+export default function page() {
+  return (
+    <HeadquartersProvider>
+      <HeadquartersContent />
+    </HeadquartersProvider>
   );
 }
