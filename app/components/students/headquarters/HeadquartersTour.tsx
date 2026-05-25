@@ -12,7 +12,7 @@ const TOUR_STEPS = [
   {
     target: 'sidebar-office',
     title: 'Your Office',
-    description: 'This is where the magic happens. Generate tasks, receive assignments, and complete work. Your desk is your command center where you check in every morning.',
+    description: 'This is where the magic happens. receive and complete your task. Your desk is your command center where you check in every morning.',
   },
   {
     target: 'sidebar-portfolio',
@@ -22,7 +22,7 @@ const TOUR_STEPS = [
   {
     target: 'sidebar-wallet',
     title: 'Global Wallet',
-    description: 'Track your earnings, manage bank accounts, and withdraw your money. Every completed task and referral bonus earns you real cash here.',
+    description: 'Track your referral earnings, fund your subscription, and manage withdrawals. Your referral bonuses and wallet balance are managed here.',
   },
   {
     target: 'sidebar-squad',
@@ -42,7 +42,7 @@ const TOUR_STEPS = [
   {
     target: 'hq-letters',
     title: 'Reference Letters',
-    description: 'Maintain your streak to unlock work and visa reference letters. These are powerful credentials for immigration and job applications.',
+    description: 'Maintain your active streak to unlock work and visa reference letters. Complete 12 weeks for the Work Letter and 24 weeks for the Visa Letter which is essential for immigration and job applications.',
   },
 ];
 
