@@ -44,6 +44,13 @@ interface OfficeContextType extends OfficeState {
   trackName: string;
   typingAgent: AgentName | null;
   acceptBounty: (bounty: Bounty) => Promise<void>;
+  
+  // --- ADDED: Gamification State ---
+  currentWeek: number;
+  currentIdentity: string;
+  weekStatus: 'in_progress' | 'passed_waiting';
+  nextUnlockDate: string | null;
+  unlockedBadges: Array<{ badge_name: string; earned_in_week: number; unlocked_at: string }>;
 }
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
@@ -87,7 +94,14 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const userId = user?.id || null;
   
   const [trackName, setTrackName] = useState<string>('General');
-  
+
+  // --- ADDED: Gamification State Initialization ---
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [currentIdentity, setCurrentIdentity] = useState<string>('Intern');
+  const [weekStatus, setWeekStatus] = useState<'in_progress' | 'passed_waiting'>('in_progress');
+  const [nextUnlockDate, setNextUnlockDate] = useState<string | null>(null);
+  const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
+
   // ==========================================
   // RESOURCE MAPPER (Bulletproof JSON parser)
   // ==========================================
@@ -171,6 +185,42 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   // ==========================================
   // DATA FETCHING
   // ==========================================
+
+  // --- ADDED: Fetch Gamification Data ---
+  useEffect(() => {
+    const fetchGamificationData = async () => {
+      if (!userId) return;
+
+      try {
+        const { data: progData, error: progError } = await supabase
+          .from('user_progression')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (!progError && progData) {
+          setCurrentWeek(progData.current_week);
+          setCurrentIdentity(progData.current_identity);
+          setWeekStatus(progData.week_status);
+          setNextUnlockDate(progData.next_unlock_date);
+        }
+
+        const { data: badgeData, error: badgeError } = await supabase
+          .from('user_badges')
+          .select('*')
+          .eq('user_id', userId)
+          .order('unlocked_at', { ascending: false });
+
+        if (!badgeError && badgeData) {
+          setUnlockedBadges(badgeData);
+        }
+      } catch (err) {
+        console.error("Error fetching gamification data:", err);
+      }
+    };
+    fetchGamificationData();
+  }, [userId]);
+
   useEffect(() => {
     const fetchBounties = async () => {
       if (!userId) return;
@@ -449,10 +499,19 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     try {
       const isCompleted = status === 'approved';
       await supabase.from('tasks').update({ completed: isCompleted }).eq('id', taskId);
+      
+      // --- ADDED: Flip to passed_waiting state and save to DB ---
+      if (isCompleted && userId) {
+        setWeekStatus('passed_waiting');
+        await supabase
+          .from('user_progression')
+          .update({ week_status: 'passed_waiting' })
+          .eq('user_id', userId);
+      }
     } catch (error) {
       console.error('Error updating task status in database:', error);
     }
-  }, []);
+  }, [userId]);
 
   const completeOnboarding = useCallback(() => {
     setHasCompletedOnboarding(true);
@@ -593,6 +652,17 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           message: data.response_text,
           timestamp: new Date(),
         });
+        
+        // --- ADDED: Initialize Progression State on DB ---
+        if (userId) {
+          await supabase.from('user_progression').upsert({
+            user_id: userId,
+            current_week: 1,
+            current_identity: 'Intern',
+            week_status: 'in_progress'
+          }, { onConflict: 'user_id' });
+        }
+
       } else {
         setUserLevel('Level 1');
       }
@@ -672,7 +742,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           deadline_display: "", 
           experience_level: "",
           difficulty: "intermediate",
-          task_number: tasks.length + 1, 
+          task_number: currentWeek, // --- UPDATED: Passing the 24-week gamified currentWeek
           user_city: "Lagos",
           include_ethical_trap: false,
           model: "",
@@ -747,7 +817,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
     setIsGeneratingTask(false);
-  }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages, tasks.length, user?.fullName, mapResources]);
+  }, [addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages, currentWeek, user?.fullName, mapResources]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
@@ -952,7 +1022,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             user_level: userLevel,
             track: trackName.toLowerCase().replace(/[- ]/g, "_"),
             task_brief: currentTaskInfo?.description,
-            deadline: currentTaskInfo?.deadline
+            deadline: currentTaskInfo?.deadline,
+            current_identity: currentIdentity, // --- ADDED: Pass Gamified Rank
+            current_week: currentWeek // --- ADDED: Pass Gamified Week
           },
           chat_history: chatMessages.slice(-10).map(m => ({ role: m.agentName ? 'assistant' : 'user', content: m.message }))
         })
@@ -968,7 +1040,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       console.error('Chat failed:', error);
       addChatMessage({ id: (Date.now() + 1).toString(), agentName: 'Sola', message: "Connection issue. Please check if the AI backend is running.", timestamp: new Date() });
     }
-  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount, userId]);
+  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount, userId, currentIdentity, currentWeek]);
 
   const sendInterviewMessage = useCallback(async (message: string, interviewType: string, interviewHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1063,6 +1135,13 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         trackName,
         typingAgent: null,
         acceptBounty, 
+        
+        // --- ADDED: Exposing Gamification state to UI ---
+        currentWeek,
+        currentIdentity,
+        weekStatus,
+        nextUnlockDate,
+        unlockedBadges
       }}
     >
       {children}

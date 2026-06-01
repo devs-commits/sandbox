@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next dev",
-  "build": "next build",
-  "start": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next start",
-  "lint": "eslint"
-},
+    "dev": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next dev",
+    "build": "next build",
+    "start": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first next start",
+    "lint": "eslint"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@next/third-parties": "^16.2.6",
