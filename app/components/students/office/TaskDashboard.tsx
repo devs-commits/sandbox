@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Coffee, Target } from 'lucide-react';
+import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Coffee, Target, ChevronDown, RefreshCw } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
@@ -24,25 +24,21 @@ const formatTrackName = (track: string): string => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 };
+
 export function TaskDashboard() {
-  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks } = useOffice();
+  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks, weekStatus } = useOffice();
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
 
   const getStatusIcon = (status: Task['status']) => {
     switch (status) {
-      case 'approved':
-        return <CheckCircle className="text-green-500" size={14} />;
-      case 'rejected':
-        return <AlertCircle className="text-destructive" size={14} />;
+      case 'approved': return <CheckCircle className="text-green-500" size={14} />;
+      case 'rejected': return <AlertCircle className="text-destructive" size={14} />;
       case 'under-review':
-      case 'submitted':
-        return <Loader2 className="text-amber-500 animate-spin" size={14} />;
-      case 'in-progress':
-        return <Clock className="text-primary" size={14} />;
-      default:
-        return <Clock className="text-muted-foreground" size={14} />;
+      case 'submitted': return <Loader2 className="text-amber-500 animate-spin" size={14} />;
+      case 'in-progress': return <Clock className="text-primary" size={14} />;
+      default: return <Clock className="text-muted-foreground" size={14} />;
     }
   };
 
@@ -74,19 +70,65 @@ export function TaskDashboard() {
     setPreviewTask(previewTask?.id === task.id ? null : task);
   };
 
-  console.log("tasks", tasks)
+  // --- THE STANDBY LOCKOUT SCREEN ---
+  if (weekStatus === 'passed_waiting') {
+    return (
+      <div className={`h-full flex flex-col bg-[#0A0D14] overflow-y-auto ${openSans.className} p-6`}>
+        <div className="flex-1 flex flex-col items-center justify-center text-center mt-12 mb-20 relative">
+          
+          {/* Emergency Fallback Button */}
+          <div className="absolute top-0 right-0">
+             <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={generateTask} 
+                disabled={isGeneratingTask}
+                className="bg-transparent border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+             >
+                <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
+                Force Sync Next Task
+             </Button>
+          </div>
 
+          <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 ring-4 ring-emerald-500/10">
+            <span className="text-4xl">🎉</span>
+          </div>
+          <h2 className="text-3xl font-bold text-white mb-3">Week Cleared!</h2>
+          <p className="text-slate-400 max-w-md mb-8 leading-relaxed">
+            Excellent work. Sola has approved your final submission. Take the weekend off to rest, recharge, and review your learning materials.
+          </p>
+          <div className="bg-[#1A1F2E] border border-slate-700 p-6 rounded-2xl w-full max-w-sm">
+            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">Next Task Unlocks</p>
+            <p className="text-2xl font-black text-white">Monday @ 8:00 AM</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- NORMAL ACTIVE DESK ---
   return (
-    <div className={`h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 ${openSans.className}`}>
-      {/* Header - removed Generate Task button */}
-      <div className="p-6 border-b border-border/50">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
+    <div className={`h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 overflow-y-auto ${openSans.className}`}>
+      
+      <div className="p-6 pb-0 flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+             <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
+             {/* Emergency Fallback for Active Desk */}
+             <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={generateTask} 
+                disabled={isGeneratingTask}
+                className="bg-card border-border text-muted-foreground hover:text-foreground text-xs shadow-sm"
+             >
+                <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
+                Fetch Missing Task
+             </Button>
         </div>
       </div>
 
       {/* Task List */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+      <div className="flex-1 p-6 space-y-8">
         {isLoadingTasks ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <Loader2 className="text-primary animate-spin mb-4" size={36} />
@@ -106,13 +148,8 @@ export function TaskDashboard() {
               )}
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              {isGeneratingTask ? 'Preparing your first task...' : 'Your desk is empty'}
+              {isGeneratingTask ? 'Preparing your task...' : 'Your desk is empty'}
             </h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {isGeneratingTask
-                ? 'The team is reviewing your profile and preparing an assignment.'
-                : 'Head to the Meeting Room - the team wants to introduce themselves.'}
-            </p>
           </motion.div>
         ) : (
           <>
@@ -144,12 +181,39 @@ export function TaskDashboard() {
                       <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
                         <ReactMarkdown>{task.description}</ReactMarkdown>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+
+                      {/* --- RESOURCE ACCORDION --- */}
+                      {task.resources && task.resources.length > 0 && (
+                        <div onClick={(e) => e.stopPropagation()} className="mb-4">
+                          <details className="group border border-border/60 rounded-xl overflow-hidden bg-secondary/10">
+                            <summary className="cursor-pointer text-xs font-semibold p-3 flex justify-between items-center text-foreground hover:bg-secondary/20 transition-colors">
+                              <span className="flex items-center gap-2"><FileText size={14} className="text-primary"/> Reference Materials ({task.resources.length})</span>
+                              <ChevronDown size={14} className="group-open:rotate-180 transition-transform text-muted-foreground" />
+                            </summary>
+                            <div className="p-3 border-t border-border/50 space-y-2 bg-card/40">
+                              {task.resources.map((res) => (
+                                <a 
+                                  key={res.id} 
+                                  href={res.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all"
+                                >
+                                  <span className="font-semibold text-primary block truncate">{res.title}</span>
+                                  {res.description && <p className="text-muted-foreground mt-0.5 truncate">{res.description}</p>}
+                                </a>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30">
                         <span className="flex items-center gap-1.5">
                           <Clock size={12} /> Due: {task.deadline}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <FileText size={12} /> {task.attachments.length} files
+                          <FileText size={12} /> {task.attachments?.length || 0} files
                         </span>
                       </div>
                     </motion.div>

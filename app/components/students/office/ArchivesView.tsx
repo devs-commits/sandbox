@@ -1,35 +1,31 @@
 "use client"
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, BookOpen, ExternalLink, FolderOpen, Sparkles, X, FileText, FileSpreadsheet, Globe } from 'lucide-react';
+import { Search, BookOpen, ExternalLink, FolderOpen, Sparkles, X, FileText, FileSpreadsheet, Globe, Layers } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { ArchiveItem } from './types';
 import { useOffice } from '../../../contexts/OfficeContext';
 
-// Helper to determine icon based on title/category
-const getFileIcon = (item: ArchiveItem) => {
-  if (item.type === "pdf") return <FileText size={32} strokeWidth={1.5} />;
-  if (item.type === "video") return <Globe size={32} strokeWidth={1.5} />;
-  if (item.type === "web") return <Globe size={32} strokeWidth={1.5} />;
-  if (item.type === "dataset") return <FileSpreadsheet size={32} strokeWidth={1.5} />;
+const getFileIcon = (type: string) => {
+  if (type === "pdf") return <FileText size={32} strokeWidth={1.5} />;
+  if (type === "video") return <Globe size={32} strokeWidth={1.5} />;
+  if (type === "web") return <Globe size={32} strokeWidth={1.5} />;
+  if (type === "dataset") return <FileSpreadsheet size={32} strokeWidth={1.5} />;
   return <FileText size={32} strokeWidth={1.5} />;
 };
 
-// Helper for file type badge
-const getFileType = (item: ArchiveItem) => {
-  if (item.type === "pdf") return "PDF";
-  if (item.type === "video") return "VIDEO";
-  if (item.type === "web") return "WEB";
-  if (item.type === "dataset") return "DATA";
+const getFileType = (type: string) => {
+  if (type === "pdf") return "PDF";
+  if (type === "video") return "VIDEO";
+  if (type === "web") return "WEB";
+  if (type === "dataset") return "DATA";
   return "DOC";
 };
 
-// INTELLIGENT EMBED URL GENERATOR
 const getEmbedUrl = (url: string | undefined, type: string | undefined) => {
   if (!url) return "";
   try {
-    // 1. Handle YouTube Videos
     if (url.includes('youtube.com/watch')) {
       const urlObj = new URL(url);
       return `https://www.youtube.com/embed/${urlObj.searchParams.get('v')}`;
@@ -38,13 +34,9 @@ const getEmbedUrl = (url: string | undefined, type: string | undefined) => {
       const id = url.split('youtu.be/')[1]?.split('?')[0];
       return `https://www.youtube.com/embed/${id}`;
     }
-    
-    // 2. Handle External PDFs (Bypasses Chrome Blocking)
     if (type === 'pdf' || url.toLowerCase().endsWith('.pdf')) {
       return `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
     }
-
-    // 3. Standard Web Pages
     return url; 
   } catch (e) {
     return url;
@@ -52,36 +44,44 @@ const getEmbedUrl = (url: string | undefined, type: string | undefined) => {
 };
 
 export function ArchivesView() {
-  const { currentTask } = useOffice();
+  // We bring in 'tasks' to access the entire history, not just currentTask
+  const { currentTask, tasks } = useOffice();
   const [search, setSearch] = useState('');
-  const [selectedResource, setSelectedResource] = useState<ArchiveItem | null>(null);
+  const [selectedResource, setSelectedResource] = useState<ArchiveItem & { type: string, taskTitle?: string } | null>(null);
 
+  // Group all resources from all tasks
   const allResources = useMemo(() => {
-    const raw = currentTask?.resources || [];
+    if (!tasks || tasks.length === 0) return [];
     
-    return raw.map((item: any, index: number) => ({
-      id: item.id || `task-res-${index}`,
-      title: item.title,
-      category: item.category || "Learning Resources",
-      description: item.description,
-      content: item.content || item.description,
-      url: item.url || item.link,
-      type: item.type || (item.url?.includes("youtube") || item.url?.includes("youtu.be") ? "video" : (item.url?.endsWith(".pdf") ? "pdf" : "web")),
-    }));
-  }, [currentTask]);
+    const extractedResources: any[] = [];
+    
+    // Reverse so the newest tasks appear first in the archives
+    [...tasks].reverse().forEach((task: any, taskIndex: number) => {
+      const raw = task.resources || [];
+      raw.forEach((item: any, index: number) => {
+        extractedResources.push({
+          id: item.id || `task-${task.id}-res-${index}`,
+          title: item.title,
+          category: item.category || "Learning Resources",
+          taskTitle: task.title || `Task ${tasks.length - taskIndex}`,
+          description: item.description,
+          content: item.content || item.description,
+          url: item.url || item.link,
+          type: item.type || (item.url?.includes("youtube") || item.url?.includes("youtu.be") ? "video" : (item.url?.endsWith(".pdf") ? "pdf" : "web")),
+        });
+      });
+    });
+    
+    return extractedResources;
+  }, [tasks]);
 
   const filteredArchives = allResources.filter(item =>
     item.title?.toLowerCase().includes(search.toLowerCase()) ||
-    item.category?.toLowerCase().includes(search.toLowerCase())
+    item.taskTitle?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const categories = [...new Set(filteredArchives.map(a => a.category))];
-
-  categories.sort((a, b) => {
-    if (a === 'Task Guide') return -1;
-    if (b === 'Task Guide') return 1;
-    return a?.localeCompare(b ?? "") ?? 0;
-  });
+  // Group by Task instead of Category
+  const taskGroups = [...new Set(filteredArchives.map(a => a.taskTitle))];
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 relative">
@@ -89,19 +89,19 @@ export function ArchivesView() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <BookOpen className="text-primary" size={20} />
+              <Layers className="text-primary" size={20} />
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">The Archives</h2>
               <p className="text-sm text-muted-foreground">
-                {currentTask ? `Active Task: ${currentTask.title}` : 'General Library'}
+                Your Complete Resource Library
               </p>
             </div>
           </div>
           {allResources.length > 0 && (
             <div className="bg-primary/10 px-3 py-1 rounded-full text-xs font-medium text-primary flex items-center gap-1 animate-pulse">
               <Sparkles size={12} />
-              Resources Loaded
+              {allResources.length} Resources Vaulted
             </div>
           )}
         </div>
@@ -109,7 +109,7 @@ export function ArchivesView() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
-            placeholder="Search files..."
+            placeholder="Search by file name or task..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 bg-secondary/50 border-border/50"
@@ -121,26 +121,26 @@ export function ArchivesView() {
         {filteredArchives.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <FolderOpen className="text-muted-foreground mb-4" size={48} />
-            <p className="text-muted-foreground">No resources found</p>
+            <p className="text-muted-foreground">No resources found in your archives.</p>
           </div>
         ) : (
           <div className="space-y-8">
-            {categories.map(category => {
-              const categoryItems = filteredArchives.filter(a => a.category === category);
-              if (categoryItems.length === 0) return null;
+            {taskGroups.map(taskTitle => {
+              const groupItems = filteredArchives.filter(a => a.taskTitle === taskTitle);
+              if (groupItems.length === 0) return null;
 
               return (
-                <div key={category} className="mb-8">
-                  <h3 className="text-xs font-bold mb-4 uppercase tracking-widest flex items-center gap-2 text-primary">
-                    {category}
-                    <Sparkles size={12} />
+                <div key={taskTitle as string} className="mb-8">
+                  <h3 className="text-sm font-bold mb-4 uppercase tracking-widest flex items-center gap-2 text-primary border-b border-border/50 pb-2">
+                    <BookOpen size={16} />
+                    {taskTitle as string}
                     <span className="text-[10px] opacity-50 font-normal ml-auto border border-border px-2 py-0.5 rounded-full">
-                      {categoryItems.length} items
+                      {groupItems.length} items
                     </span>
                   </h3>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {categoryItems.map((item, index) => (
+                    {groupItems.map((item, index) => (
                       <motion.div
                         key={item.id}
                         initial={{ opacity: 0, y: 10 }}
@@ -151,10 +151,10 @@ export function ArchivesView() {
                       >
                         <div className="relative w-full aspect-square mb-3 bg-secondary/30 rounded-lg flex items-center justify-center group-hover:bg-secondary/60 transition-colors border border-border/30 overflow-hidden">
                           <div className="text-primary group-hover:scale-110 transition-transform duration-200 z-10">
-                            {getFileIcon(item)}
+                            {getFileIcon(item.type)}
                           </div>
                           <div className="absolute bottom-2 right-2 text-[9px] font-bold bg-background/80 px-1.5 py-0.5 rounded text-foreground/70 uppercase z-20">
-                            {getFileType(item)}
+                            {getFileType(item.type)}
                           </div>
                         </div>
                         <p className="text-xs font-medium text-foreground/80 group-hover:text-foreground line-clamp-2 leading-relaxed text-center w-full break-words">
@@ -183,11 +183,11 @@ export function ArchivesView() {
               <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between sticky top-0 bg-card/80 backdrop-blur z-10">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-secondary rounded-lg">
-                    {getFileIcon(selectedResource)}
+                    {getFileIcon(selectedResource.type)}
                   </div>
                   <div>
                     <h3 className="text-base font-bold leading-none mb-1 line-clamp-1">{selectedResource.title}</h3>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{getFileType(selectedResource)} • {selectedResource.category}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{getFileType(selectedResource.type)} • {selectedResource.taskTitle}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -209,7 +209,6 @@ export function ArchivesView() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-secondary/10">
-                {/* Media Player Container */}
                 {selectedResource.url && (
                   <div className="w-full bg-black/5 rounded-xl border border-border overflow-hidden mb-6 flex flex-col items-center justify-center min-h-[400px]">
                     {selectedResource.type === 'video' ? (
@@ -220,17 +219,14 @@ export function ArchivesView() {
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       />
                     ) : (
-                      // Chrome-safe rendering for PDFs and Web Pages
                       <iframe
                         src={getEmbedUrl(selectedResource.url, selectedResource.type)}
                         className="w-full h-[600px] border-0 bg-white"
-                        // Removed sandbox restrictions that block external viewers
                       />
                     )}
                   </div>
                 )}
 
-                {/* Content / Description Text */}
                 <div className="p-5 font-mono text-sm leading-7 text-foreground/80 whitespace-pre-wrap selection:bg-primary/20 bg-card rounded-lg border border-border shadow-sm">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
                     <FileText size={14} /> Resource Details
