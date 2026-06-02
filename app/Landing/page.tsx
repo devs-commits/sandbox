@@ -9,7 +9,7 @@ import CurriculumTransparency from "../components/landing/CurriculumTransparency
 import OutcomesSection from "../components/landing/OutcomesSection";
 import ChatSectionV3 from "../components/landing/ChatSectionV3";
 import VideoTestimonials from "../components/landing/VideoTestimonials";
-import { AIOFaqSection } from "../components/landing/AIOFaqSection";
+// import { AIOFaqSection } from "../components/landing/AIOFaqSection";
 import PricingSection from "../components/landing/PricingSection";
 import WaitlistSection from "../components/landing/WaitlistSection";
 import TrustBand from "../components/landing/TrustBand";
@@ -31,7 +31,7 @@ const Landing = () => {
   <OutcomesSection />
   <ChatSectionV3 />
   <PricingSection />
-  <AIOFaqSection />
+  {/* <AIOFaqSection /> */}
   <WaitlistSection />
   <TrustBand />
   <FaqSection />
