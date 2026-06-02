@@ -12,11 +12,12 @@ import {
 
 // Notice we only need useAuth now! Completely bypassing the buggy OfficeContext
 import { useAuth } from '../../../contexts/AuthContexts';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
-import CareerJourneyModal from '../gamification/CareerJourneyModal';
-import { BADGE_CONFIG, rarityStyles } from '../../../config/badges';
-import { cn } from '../../../lib/utils';
+import CareerJourneyModal from '../../gamification/CareerJourneyModal';
+import { BADGE_CONFIG, rarityStyles } from '../../../../config/badges';
+import { cn } from '@/lib/utils';
+
 
 const TRACK_PROGRESSION = {
   "digital-marketing": [
@@ -112,19 +113,14 @@ export function GamificationTracker() {
     fetchGamificationData();
   }, [user?.id]);
 
-  const trackKey =
-  (dbTrack?.trim().toLowerCase() ||
-    "data-analytics") as keyof typeof TRACK_PROGRESSION;
+// =========================================
+  // CALCULATE TRACK AND ROADMAP
+  // =========================================
+  const trackKey = (dbTrack?.trim().toLowerCase() || "data-analytics") as keyof typeof TRACK_PROGRESSION;
+  const roadmap = TRACK_PROGRESSION[trackKey] || TRACK_PROGRESSION["data-analytics"];
 
-const roadmap =
-  TRACK_PROGRESSION[trackKey] ||
-  TRACK_PROGRESSION["data-analytics"];
-
-console.log("TRACK FROM DB:", dbTrack);
-console.log("TRACK KEY:", trackKey);
-
-  const trackKey = getSafeTrackKey(dbTrack);
-  const roadmap = TRACK_PROGRESSION[trackKey as keyof typeof TRACK_PROGRESSION] || TRACK_PROGRESSION.data_analytics;
+  console.log("TRACK FROM DB:", dbTrack);
+  console.log("TRACK KEY:", trackKey);
   
   // DYNAMICALLY CALCULATE IDENTITY BASED ON TRACK & WEEK
   const currentIdentity = [...roadmap].reverse().find(stage => currentWeek >= stage.week)?.title || "Intern";
