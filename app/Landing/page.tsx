@@ -3,7 +3,7 @@ import HeroSection from "../components/landing/HeroSection";
 import CompanyLogoWall from "../components/landing/CompanyLogoWall";
 import ProblemSection from "../components/landing/ProblemSection";
 import CareerPathQuiz from "../components/landing/CareerPathQuiz";
-import ROICalculator from "../components/landing/ROICalculator";
+// import ROICalculator from "../components/landing/ROICalculator";
 import CareerComparisonMatrix from "../components/landing/CareerComparisonMatrix";
 import CurriculumTransparency from "../components/landing/CurriculumTransparency";
 import OutcomesSection from "../components/landing/OutcomesSection";
@@ -24,7 +24,7 @@ const Landing = () => {
   <CompanyLogoWall />
   <CareerPathQuiz />
   <VideoTestimonials />
-  <ROICalculator />
+  {/* <ROICalculator /> */}
   <CareerComparisonMatrix />
   <CurriculumTransparency />
   <ProblemSection />
