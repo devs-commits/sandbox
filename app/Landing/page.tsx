@@ -32,7 +32,6 @@ const Landing = () => {
   {/* <ROICalculator /> */}
   {/* <CareerComparisonMatrix /> */}
   {/* <CurriculumTransparency /> */}
-  <ProblemSection />
   <OutcomesSection />
   {/* <ChatSectionV3 /> */}
   <PricingSection />
