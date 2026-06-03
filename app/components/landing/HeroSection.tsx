@@ -21,7 +21,7 @@ export default function HeroSection() {
   const spots = totalCapacity - enrollmentCount
 
   return (
-    <section className="relative pt-4 pb-20 lg:pb-32 overflow-hidden bg-white">
+    <section className="relative pt-4 pb-16 lg:pb-24 overflow-hidden bg-white">
       <div className="absolute inset-0 bg-dots opacity-50 z-0" />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <p className="text-center text-sm text-slate-600 mb-6">
@@ -52,20 +52,20 @@ export default function HeroSection() {
               </p>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-4 leading-[1.15] text-[#12263f]">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-3 leading-[1.15] text-[#12263f]">
               Get the Experience Employers Actually Want
             </h1>
 
-            <p className="text-lg sm:text-xl font-semibold text-blue-600 mb-6">
+            <p className="text-lg sm:text-xl font-semibold text-blue-600 mb-4">
               Stop watching courses.<br />
               Start doing real work.
             </p>
 
-            <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
+            <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed mb-4 max-w-2xl mx-auto lg:mx-0">
               WDC Labs is an AI-powered virtual workplace where you gain hands-on experience in:
             </p>
 
-            <div className="space-y-3 mb-6 max-w-md mx-auto lg:mx-0">
+            <div className="space-y-2 mb-4 max-w-md mx-auto lg:mx-0">
               {["Digital Marketing", "Data Analytics", "Cybersecurity"].map((track, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm sm:text-base text-slate-700 font-medium">
                   <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0">
@@ -76,11 +76,11 @@ export default function HeroSection() {
               ))}
             </div>
 
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4 max-w-2xl mx-auto lg:mx-0">
               Complete real-world tasks, build a portfolio, and become job-ready.
             </p>
 
-            <p className="text-base sm:text-lg font-bold text-[#12263f] mb-8">
+            <p className="text-base sm:text-lg font-bold text-[#12263f] mb-6">
               Starting at ₦15,000/month.
             </p>
 

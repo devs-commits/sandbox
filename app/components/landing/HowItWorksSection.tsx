@@ -32,13 +32,13 @@ const colorMap = {
 
 export default function HowItWorksSection() {
   return (
-    <section className="py-16 sm:py-24 bg-gradient-to-b from-white to-slate-50">
+    <section className="py-12 sm:py-20 bg-gradient-to-b from-white to-slate-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12 sm:mb-16"
+          className="text-center mb-8 sm:mb-12"
         >
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 text-[#12263f]">
             How WDC Labs Works
@@ -48,7 +48,7 @@ export default function HowItWorksSection() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
           {steps.map((step, index) => {
             const colors = colorMap[step.color as keyof typeof colorMap]
             const Icon = step.icon
@@ -60,15 +60,15 @@ export default function HowItWorksSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className={`relative ${colors.bg} rounded-2xl p-6 sm:p-8 border-2 ${colors.border} hover:shadow-xl transition-all duration-300`}
+                className={`relative ${colors.bg} rounded-2xl p-5 sm:p-6 border-2 ${colors.border} hover:shadow-xl transition-all duration-300`}
               >
                 <div className={`absolute -top-4 -left-4 w-12 h-12 ${colors.iconBg} rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg`}>
                   {index + 1}
                 </div>
-                <div className={`w-14 h-14 ${colors.iconBg} rounded-xl flex items-center justify-center mb-6`}>
-                  <Icon className="w-7 h-7 text-white" />
+                <div className={`w-12 h-12 ${colors.iconBg} rounded-xl flex items-center justify-center mb-4`}>
+                  <Icon className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-[#12263f] mb-3">
+                <h3 className="text-lg sm:text-xl font-bold text-[#12263f] mb-2">
                   {step.title}
                 </h3>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
