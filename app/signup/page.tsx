@@ -3,7 +3,7 @@
 import { useState, useMemo, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Copy, Clock, AlertCircle, CreditCard, Banknote } from "lucide-react";
+import { Loader2, Copy, Clock, AlertCircle, CreditCard, Banknote, X } from "lucide-react";
 import { AuthCard } from "../components/auth/AuthCard";
 import { AuthInput } from "../components/auth/AuthInput";
 import { AuthSelect } from "../components/auth/AuthSelect";
@@ -18,12 +18,11 @@ import { TermsAgreement } from "../components/auth/TermsAgreement";
 countries.registerLocale(enLocale);
 declare const PaystackPop: any;
 
-// Define the interface to resolve the TypeScript Build Error
 interface SignupData {
   fullName: string;
   email: string;
   password: string;
-  role: "student" | "recruiter"; // Changed from string to specific union type
+  role: "student" | "recruiter"; 
   country: string;
   track?: string;
   experienceLevel?: string;
@@ -69,6 +68,12 @@ const SignUpContent = () => {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [wdcPrivacy, setWdcPrivacy] = useState(false);
+
+  // --- COUPON STATE ---
+  const [couponCode, setCouponCode] = useState("");
+  const [isCouponApplied, setIsCouponApplied] = useState(false);
+  const [couponError, setCouponError] = useState("");
+  const [isProcessingTrial, setIsProcessingTrial] = useState(false);
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -128,7 +133,7 @@ const SignUpContent = () => {
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
       referralLink: role === "student" ? referralLink : undefined,
-      subscriptionPlan, 
+      subscriptionPlan: isCouponApplied ? "trial" : subscriptionPlan, 
     };
 
     const result = await signup(signupPayload);
@@ -137,6 +142,39 @@ const SignUpContent = () => {
       return { success: false, error: result.error };
     }
     return { success: true, userId: (result as any).user?.id || (result as any).data?.user?.id };
+  };
+
+  const handleApplyCoupon = () => {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    if (normalizedCode === "WDCLABS14") {
+      setIsCouponApplied(true);
+      setCouponError("");
+      toast.success("🎉 WDCLABS14 Applied! 14-day free trial unlocked.");
+    } else {
+      setIsCouponApplied(false);
+      setCouponError("Invalid coupon code. Please try again.");
+    }
+  };
+
+  const handleTrialBypass = async () => {
+    if (!validateForm()) return;
+    setIsProcessingTrial(true);
+    setError("");
+
+    try {
+      toast.info("Activating your 14-Day Free Trial...", { id: "trial" });
+      
+      const reg = await handleRegistration();
+      if (!reg.success) throw new Error(reg.error || "Signup failed");
+
+      toast.success("Trial Activated! Check your email to verify.", { id: "trial" });
+      router.push("/auth/verify-email");
+
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong activating your trial.", { id: "trial" });
+    } finally {
+      setIsProcessingTrial(false);
+    }
   };
 
   const createPaymentAccount = async () => {
@@ -302,6 +340,7 @@ const SignUpContent = () => {
           <div className="space-y-4">
             {error && <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-lg font-medium">{error}</div>}
             <RoleToggle value={role} onChange={(r) => { setRole(r); setPaymentDetails(null); }} />
+            
             <div className="space-y-3">
               <AuthInput label="Full Name" placeholder="John Doe" value={fullName} onChange={setFullName} />
               <AuthInput label="Email" type="email" placeholder="john@example.com" value={email} onChange={setEmail} />
@@ -315,82 +354,128 @@ const SignUpContent = () => {
               )}
             </div>
 
-            <div className="space-y-2 pt-2">
-              <label className="text-sm font-semibold text-muted-foreground">Subscription Plan</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => { setSubscriptionPlan("monthly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${subscriptionPlan === "monthly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                  <span className="text-sm font-bold">Monthly</span>
-                  <span className="text-xs font-medium">₦ 15,000 / mo</span>
-                </button>
-                <button type="button" onClick={() => { setSubscriptionPlan("quarterly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all relative overflow-hidden ${subscriptionPlan === "quarterly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                  <div className="absolute top-0 right-0 bg-primary text-[9px] text-white px-1.5 font-bold rounded-bl-lg">SAVE</div>
-                  <span className="text-sm font-bold">Quarterly</span>
-                  <span className="text-xs font-medium">₦ 45,000 / 3 mos</span>
-                </button>
-              </div>
+            <div className="space-y-2 pt-4 border-t border-border/40 mt-4">
+              {!isCouponApplied ? (
+                <div className="flex flex-col space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Have a Promo Code?</label>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="text" 
+                      placeholder="Enter code" 
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <Button type="button" onClick={handleApplyCoupon} variant="secondary" className="h-10">
+                      Apply
+                    </Button>
+                  </div>
+                  {couponError && <p className="text-red-500 text-xs font-medium">{couponError}</p>}
+                </div>
+              ) : (
+                <div className="p-3 bg-green-100 text-green-800 rounded-md border border-green-300 text-sm font-bold flex justify-between items-center">
+                  <span>🎉 WDCLABS14 Applied! (Free Trial)</span>
+                  <button type="button" onClick={() => setIsCouponApplied(false)} className="text-green-800 hover:text-green-900 transition-colors">
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-between items-center py-2 px-1 border-b border-border/40 font-semibold mt-4">
-              <span className="text-sm text-muted-foreground font-medium">Total Fee</span>
-              <span className="text-lg font-bold text-primary">{subscriptionPrice}</span>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <label className="text-sm font-semibold text-muted-foreground">Payment Method</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => setPaymentMethod("transfer")} className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-medium transition-all ${paymentMethod === "transfer" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                  <Banknote size={16} /> Transfer
-                </button>
-                <button type="button" onClick={() => { setPaymentMethod("paystack"); setPaymentDetails(null); }} className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-medium transition-all ${paymentMethod === "paystack" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                  <CreditCard size={16} /> Paystack
-                </button>
-              </div>
-            </div>
-            <TermsAgreement wdcPrivacy={wdcPrivacy} onWdcPrivacyChange={setWdcPrivacy} />
-            
-            {paymentMethod === "transfer" && paymentDetails && (
-              <div className="border border-border/60 rounded-xl p-5 bg-muted/20 space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Transfer Details</span>
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background border ${timerExpired ? 'border-destructive/50 text-destructive' : 'border-primary/30 text-primary'} shadow-sm`}>
-                    <Clock size={12} className={timerExpired ? "" : "animate-pulse"} />
-                    <span className="text-xs font-mono font-bold">{formattedTime}</span>
+            {!isCouponApplied && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Subscription Plan</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => { setSubscriptionPlan("monthly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${subscriptionPlan === "monthly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                      <span className="text-sm font-bold">Monthly</span>
+                      <span className="text-xs font-medium">₦ 15,000 / mo</span>
+                    </button>
+                    <button type="button" onClick={() => { setSubscriptionPlan("quarterly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all relative overflow-hidden ${subscriptionPlan === "quarterly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                      <div className="absolute top-0 right-0 bg-primary text-[9px] text-white px-1.5 font-bold rounded-bl-lg">SAVE</div>
+                      <span className="text-sm font-bold">Quarterly</span>
+                      <span className="text-xs font-medium">₦ 45,000 / 3 mos</span>
+                    </button>
                   </div>
                 </div>
-                <div className="space-y-2.5 text-sm">
-                  <div className="flex justify-between opacity-80"><span>Bank</span><span className="font-semibold text-right">Parallex Bank</span></div>
-                  <div className="flex justify-between items-center bg-background/50 p-2 rounded-lg border border-border/40">
-                    <span className="text-xs text-muted-foreground uppercase font-bold">Account</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-base tracking-tighter">{paymentDetails.accountNumber}</span>
-                      <button type="button" onClick={copyAccount} className="p-1 hover:bg-muted rounded transition-colors"><Copy size={14} /></button>
+
+                <div className="flex justify-between items-center py-2 px-1 font-semibold mt-4">
+                  <span className="text-sm text-muted-foreground font-medium">Total Fee</span>
+                  <span className="text-lg font-bold text-primary">
+                    {subscriptionPrice}
+                  </span>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Payment Method</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => setPaymentMethod("transfer")} className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-medium transition-all ${paymentMethod === "transfer" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                      <Banknote size={16} /> Transfer
+                    </button>
+                    <button type="button" onClick={() => { setPaymentMethod("paystack"); setPaymentDetails(null); }} className={`flex items-center justify-center gap-2 p-3 rounded-lg border text-sm font-medium transition-all ${paymentMethod === "paystack" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                      <CreditCard size={16} /> Paystack
+                    </button>
+                  </div>
+                </div>
+                
+                {paymentMethod === "transfer" && paymentDetails && (
+                  <div className="border border-border/60 rounded-xl p-5 bg-muted/20 space-y-4 mt-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Transfer Details</span>
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background border ${timerExpired ? 'border-destructive/50 text-destructive' : 'border-primary/30 text-primary'} shadow-sm`}>
+                        <Clock size={12} className={timerExpired ? "" : "animate-pulse"} />
+                        <span className="text-xs font-mono font-bold">{formattedTime}</span>
+                      </div>
                     </div>
+                    <div className="space-y-2.5 text-sm">
+                      <div className="flex justify-between opacity-80"><span>Bank</span><span className="font-semibold text-right">Parallex Bank</span></div>
+                      <div className="flex justify-between items-center bg-background/50 p-2 rounded-lg border border-border/40">
+                        <span className="text-xs text-muted-foreground uppercase font-bold">Account</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-base tracking-tighter">{paymentDetails.accountNumber}</span>
+                          <button type="button" onClick={copyAccount} className="p-1 hover:bg-muted rounded transition-colors"><Copy size={14} /></button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-start pt-1">
+                        <span className="opacity-80">Name</span>
+                        <span className="font-semibold text-right max-w-[180px] leading-tight">{paymentDetails.accountName}</span>
+                      </div>
+                    </div>
+                    <Button type="button" onClick={verifyPayment} disabled={checkingPayment || timerExpired || paymentConfirmed} className="w-full font-bold shadow-md h-10">
+                      {checkingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : paymentConfirmed ? "Verified" : "Verify Payment"}
+                    </Button>
+                    {timerExpired && <div className="flex items-center justify-center gap-2 text-destructive text-[11px] font-bold animate-pulse uppercase"><AlertCircle size={14} /> Account Expired</div>}
                   </div>
-                  <div className="flex justify-between items-start pt-1">
-                    <span className="opacity-80">Name</span>
-                    <span className="font-semibold text-right max-w-[180px] leading-tight">{paymentDetails.accountName}</span>
-                  </div>
-                </div>
-                <Button type="button" onClick={verifyPayment} disabled={checkingPayment || timerExpired || paymentConfirmed} className="w-full font-bold shadow-md h-10">
-                  {checkingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : paymentConfirmed ? "Verified" : "Verify Payment"}
-                </Button>
-                {timerExpired && <div className="flex items-center justify-center gap-2 text-destructive text-[11px] font-bold animate-pulse uppercase"><AlertCircle size={14} /> Account Expired</div>}
+                )}
               </div>
             )}
-            
-            <Button 
-              type="button" 
-              className="w-full h-12 text-base font-bold transition-all shadow-lg" 
-              disabled={creatingAccount || initializingPaystack || (paymentMethod === "transfer" && paymentDetails !== null && !paymentConfirmed && timerExpired)} 
-              onClick={handleMainAction}
-            >
-              {creatingAccount || initializingPaystack ? <Loader2 className="w-5 h-5 animate-spin" /> : 
-               paymentMethod === "paystack" ? "Pay with Paystack" : 
-               paymentDetails === null || timerExpired ? "Generate Payment Details" : 
-               paymentConfirmed ? "Register Now" : "Awaiting Payment..."}
-            </Button>
-            
-            <p className="text-center text-xs text-muted-foreground pb-2">
+
+            <TermsAgreement wdcPrivacy={wdcPrivacy} onWdcPrivacyChange={setWdcPrivacy} />
+
+            {isCouponApplied ? (
+              <Button 
+                type="button" 
+                className="w-full h-12 text-base font-bold transition-all shadow-lg bg-green-600 hover:bg-green-700 text-white mt-4" 
+                disabled={isProcessingTrial} 
+                onClick={handleTrialBypass}
+              >
+                {isProcessingTrial ? <Loader2 className="w-5 h-5 animate-spin" /> : "Start 14-Day Free Trial"}
+              </Button>
+            ) : (
+              <Button 
+                type="button" 
+                className="w-full h-12 text-base font-bold transition-all shadow-lg mt-4" 
+                disabled={creatingAccount || initializingPaystack || (paymentMethod === "transfer" && paymentDetails !== null && !paymentConfirmed && timerExpired)} 
+                onClick={handleMainAction}
+              >
+                {creatingAccount || initializingPaystack ? <Loader2 className="w-5 h-5 animate-spin" /> : 
+                paymentMethod === "paystack" ? "Pay with Paystack" : 
+                paymentDetails === null || timerExpired ? "Generate Payment Details" : 
+                paymentConfirmed ? "Register Now" : "Awaiting Payment..."}
+              </Button>
+            )}
+
+            <p className="text-center text-xs text-muted-foreground pb-2 mt-4">
               Have an account? <Link href="/login" className="text-primary font-bold hover:underline underline-offset-4">Login</Link>
             </p>
           </div>
