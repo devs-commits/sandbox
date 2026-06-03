@@ -25,7 +25,7 @@ interface OfficeContextType extends OfficeState {
   addPortfolioItem: (item: UserPortfolio) => void;
   generateTask: () => Promise<void>;
   isGeneratingTask: boolean;
-  generationStatusText: string; // --- ADDED: For Dynamic Fetching Button
+  generationStatusText: string; 
   isLoadingTasks: boolean;
   isLoadingOnboarding: boolean;
   activeView: 'desk' | 'meeting' | 'archives' | 'bounty';
@@ -46,7 +46,6 @@ interface OfficeContextType extends OfficeState {
   typingAgent: AgentName | null;
   acceptBounty: (bounty: Bounty) => Promise<void>;
   
-  // --- ADDED: Gamification State ---
   currentWeek: number;
   currentIdentity: string;
   weekStatus: 'in_progress' | 'passed_waiting';
@@ -78,7 +77,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [hasCompletedTour, setHasCompletedTour] = useState(false);
   
-  // --- Loading States ---
   const [isGeneratingTask, setIsGeneratingTask] = useState(false);
   const [generationStatusText, setGenerationStatusText] = useState("Fetch Missing Task");
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
@@ -100,16 +98,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   
   const [trackName, setTrackName] = useState<string>('General');
 
-  // --- ADDED: Gamification State Initialization ---
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [currentIdentity, setCurrentIdentity] = useState<string>('Intern');
   const [weekStatus, setWeekStatus] = useState<'in_progress' | 'passed_waiting'>('in_progress');
   const [nextUnlockDate, setNextUnlockDate] = useState<string | null>(null);
   const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
 
-  // ==========================================
-  // RESOURCE MAPPER (Bulletproof JSON parser)
-  // ==========================================
   const mapResources = useCallback((resources?: any): ArchiveItem[] => {
     if (!resources) return [];
 
@@ -147,9 +141,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     return [];
   }, []);
 
-  // ==========================================
-  // CHAT PERSISTENCE
-  // ==========================================
   const getDailyChatKey = useCallback(() => {
     if (!userId) return null;
     const today = new Date().toISOString().split('T')[0];
@@ -187,11 +178,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(key, JSON.stringify(chatMessages));
   }, [chatMessages, hasRestoredChat, getDailyChatKey]);
 
-  // ==========================================
-  // DATA FETCHING
-  // ==========================================
-
-  // --- Fetch Gamification Data ---
   useEffect(() => {
     const fetchGamificationData = async () => {
       if (!userId) return;
@@ -281,11 +267,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             clientConstraints: t.client_constraints || undefined,
             resources: mapResources(t.resources),
             difficulty: t.difficulty,
-            week: t.task_number || t.week // Support for week/task_number
+            week: t.task_number || t.week 
           }));
 
           setTasks(mappedTasks);
-          const activeTask = mappedTasks.find(t => t.status !== 'approved' && t.status !== 'passed') || mappedTasks[mappedTasks.length - 1];
+          // FIX 1: TYPE ASSERTION FOR 'passed'
+          const activeTask = mappedTasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || mappedTasks[mappedTasks.length - 1];
           if (activeTask) {
             setCurrentTask(activeTask);
           }
@@ -299,9 +286,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchTasks();
   }, [userId, trackName, isFirstTask, mapResources]);
 
-  // ==========================================
-  // REALTIME TASK SYNC
-  // ==========================================
   useEffect(() => {
     if (!userId) return;
 
@@ -333,7 +317,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
-      const activeTask = tasks.find(t => t.status !== 'approved' && t.status !== 'passed') || tasks[tasks.length - 1];
+      // FIX 2: TYPE ASSERTION FOR 'passed'
+      const activeTask = tasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || tasks[tasks.length - 1];
       if (activeTask) {
         setCurrentTask(activeTask);
       }
@@ -450,9 +435,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchPortfolio(); 
   }, [userId]);
 
-  // ==========================================
-  // HELPERS & MUTATIONS
-  // ==========================================
   const persistState = useCallback(async (state: Partial<PersistedState>) => {
     if (!userId) return;
     try {
@@ -503,7 +485,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const updateTaskStatus = useCallback(async (taskId: string, status: Task['status']) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
     try {
-      const isCompleted = status === 'approved' || status === 'passed';
+      // FIX 3: TYPE ASSERTION FOR 'passed'
+      const isCompleted = status === 'approved' || (status as string) === 'passed';
       await supabase.from('tasks').update({ completed: isCompleted }).eq('id', taskId);
       
       if (isCompleted && userId) {
@@ -535,9 +518,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setPortfolio(prev => [...prev, item]);
   }, []);
 
-  // ==========================================
-  // BOUNTIES
-  // ==========================================
   const acceptBounty = useCallback(async (bounty: Bounty) => {
     if (!userId) return;
     try {
@@ -592,9 +572,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
   }, [userId, addChatMessage, trackName, mapResources]);
 
-  // ==========================================
-  // SUBMIT BIO
-  // ==========================================
   const submitBio = useCallback(async (bio: string, file?: File) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
     setIsBioProcessing(true);
@@ -619,7 +596,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             .from('cv-uploads')
             .getPublicUrl(uploadData.path);
           cvUrl = urlData?.publicUrl || null;
-          console.log('CV uploaded to:', cvUrl);
 
           const { error: updateError } = await supabase
             .from('users')
@@ -680,18 +656,14 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setShowToluWelcome(true);
   }, [trackName, addChatMessage, userId, persistState]);
 
-  // ==========================================
-  // GENERATE TASK
-  // ==========================================
   const generateTask = useCallback(async () => {
-    // 1. SAFEGUARD: Check if the user already has an active (unpassed) regular task
+    // FIX 4: TYPE ASSERTION FOR 'passed' in array includes
     const hasActiveTask = tasks.some(t => 
       t.difficulty !== 'Bounty' && 
-      !['approved', 'passed'].includes(t.status)
+      !['approved', 'passed'].includes(t.status as string)
     );
 
     if (hasActiveTask && !isFirstTask) {
-      console.log("Active task already exists. Skipping fetch.");
       addChatMessage({
         id: Date.now().toString(),
         agentName: 'Emem',
@@ -753,7 +725,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       timestamp: new Date(),  
     });
 
-    // 2. DYNAMIC STATUS TEXT CYCLING
     setGenerationStatusText("Pinging Emem...");
     const statusCycle = [
       "Reviewing your curriculum...",
@@ -781,7 +752,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           deadline_display: "", 
           experience_level: "",
           difficulty: "intermediate",
-          task_number: currentWeek, // Passed 24-week gamified currentWeek
+          task_number: currentWeek, 
           user_city: "Lagos",
           include_ethical_trap: false,
           model: "",
@@ -805,7 +776,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             attachments: generatedTask.attachments || [],
             clientConstraints: generatedTask.client_constraints,
             resources: mapResources(generatedTask.resources),
-            week: currentWeek // Ensures the UI knows exactly which week this is
+            week: currentWeek 
           };
 
           setTasks(prev => [...prev, newTask]);
@@ -852,7 +823,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       };
       setTasks(prev => [...prev, mockTask]);
     } finally {
-      // 3. Clear dynamic loading
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
@@ -877,9 +847,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     completeOnboarding();
   }, [completeOnboarding]);
 
-  // ==========================================
-  // SUBMIT WORK
-  // ==========================================
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
@@ -1036,9 +1003,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     }
   }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel, setIsExpanded]);
 
-  // ==========================================
-  // MESSAGING
-  // ==========================================
   const sendMessage = useCallback(async (message: string) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
 
@@ -1053,7 +1017,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     addChatMessage({ id: Date.now().toString(), agentName: null, message, timestamp: new Date() });
 
     try {
-      const currentTaskInfo = tasks.find(t => t.status !== 'approved' && t.status !== 'passed');
+      // FIX 5: TYPE ASSERTION FOR 'passed'
+      const currentTaskInfo = tasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed');
       const response = await fetch(`${AI_BACKEND_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1160,7 +1125,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         addPortfolioItem,
         generateTask,
         isGeneratingTask,
-        generationStatusText, // --- EXPOSED Dynamic Text
+        generationStatusText, 
         isLoadingTasks,
         isLoadingOnboarding,
         activeView,

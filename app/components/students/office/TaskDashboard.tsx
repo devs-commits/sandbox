@@ -60,7 +60,7 @@ export function TaskDashboard() {
       case 'passed': return 'Approved';
       case 'rejected':
       case 'needs_revision': return 'Needs Revision';
-      default: return status.replace('_', ' ');
+      default: return (status as string).replace('_', ' ');
     }
   };
 
@@ -185,7 +185,7 @@ export function TaskDashboard() {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Assigned Tasks</h3>
                 <div className="grid gap-4">
                   {sortedRegularTasks.map((task, index) => {
-                    const isCompleted = task.status === 'approved' || task.status === 'passed';
+                    const isCompleted = task.status === 'approved' || (task.status as string) === 'passed';
                     
                     return (
                       <motion.div
@@ -352,7 +352,11 @@ export function TaskDashboard() {
 
               {/* Actions */}
               <div className="px-5 pb-5 flex gap-3">
-                {previewTask.status !== 'approved' && previewTask.status !== 'passed' && previewTask.status !== 'submitted' && previewTask.status !== 'under-review' && previewTask.status !== 'under_review' && (
+                {(previewTask.status as string) !== 'approved' && 
+                 (previewTask.status as string) !== 'passed' && 
+                 (previewTask.status as string) !== 'submitted' && 
+                 (previewTask.status as string) !== 'under-review' && 
+                 (previewTask.status as string) !== 'under_review' && (
                   <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2">
                     <Upload size={16} /> Submit Work
                   </Button>

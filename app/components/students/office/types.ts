@@ -1,8 +1,15 @@
+import { StaticImageData } from 'next/image';
+import toluImage from '../../../../public/tolu.jpg';
+import solaImage from '../../../../public/sola.jpg';
+import kemiImage from '../../../../public/kemi.jpg';
+import ememImage from '../../../../public/emem.jpg';
+
 export type AgentName = 'Tolu' | 'Emem' | 'Sola' | 'Kemi';
 
 export type UserLevel = 'Level 0' | 'Level 1' | 'Level 2';
 
-export type TaskStatus = 'pending' | 'in-progress' | 'submitted' | 'under-review' | 'approved' | 'rejected';
+// FIX 1: Added 'passed' to the allowed TaskStatus strings
+export type TaskStatus = 'pending' | 'in-progress' | 'submitted' | 'under-review' | 'approved' | 'rejected' | 'passed';
 
 export type OfficePhase = 'lobby' | 'tour' | 'team-intro' | 'working' | 'review';
 
@@ -36,6 +43,7 @@ export interface Task {
   feedback?: string;
   resources?: ArchiveItem[]; // AI generated resources specific to this task
   difficulty?: string;
+  week?: number; // FIX 2: Added the week property to support chronological sorting
 }
 
 export interface Bounty {
@@ -91,11 +99,6 @@ export interface PerformanceMetrics {
   communication: number;
   overallRating: string;
 }
-import { StaticImageData } from 'next/image';
-import toluImage from '../../../../public/tolu.jpg';
-import solaImage from '../../../../public/sola.jpg';
-import kemiImage from '../../../../public/kemi.jpg';
-import ememImage from '../../../../public/emem.jpg';
 
 export const AGENTS: Record<AgentName, Agent> = {
   Tolu: {
@@ -127,4 +130,3 @@ export const AGENTS: Record<AgentName, Agent> = {
     image: kemiImage,
   },
 };
-
