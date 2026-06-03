@@ -21,7 +21,7 @@ export default function HeroSection() {
   const spots = totalCapacity - enrollmentCount
 
   return (
-    <section className="relative pt-4 pb-20 lg:pb-32 overflow-hidden bg-white">
+    <section className="relative pt-4 pb-16 lg:pb-24 overflow-hidden bg-white">
       <div className="absolute inset-0 bg-dots opacity-50 z-0" />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <p className="text-center text-sm text-slate-600 mb-6">
@@ -52,19 +52,41 @@ export default function HeroSection() {
               </p>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-6 leading-[1.15] text-[#12263f]">
-              Stop Watching Courses.<br />
-              <span className="gradient-text">Start Building Experience.</span>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-3 leading-[1.15] text-[#12263f]">
+              Get the Experience Employers Actually Want
             </h1>
 
-            <p className="mt-4 text-base sm:text-lg lg:text-xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto lg:mx-0">
-              Traditional bootcamps cost ₦500,000+ for theory. WDC Labs gives you the exact same practical experience, a verified portfolio, and{" "}
-              <strong className="text-[#12263f] bg-yellow-100 px-1 whitespace-nowrap">Tech Visa Support</strong> starting at a fraction of the cost.
+            <p className="text-lg sm:text-xl font-semibold text-blue-600 mb-4">
+              Stop watching courses.<br />
+              Start doing real work.
+            </p>
+
+            <p className="mt-3 text-sm sm:text-base text-slate-600 leading-relaxed mb-4 max-w-2xl mx-auto lg:mx-0">
+              WDC Labs is an AI-powered virtual workplace where you gain hands-on experience in:
+            </p>
+
+            <div className="space-y-2 mb-4 max-w-md mx-auto lg:mx-0">
+              {["Digital Marketing", "Data Analytics", "Cybersecurity"].map((track, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm sm:text-base text-slate-700 font-medium">
+                  <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-white text-sm font-bold">✓</span>
+                  </span>
+                  {track}
+                </div>
+              ))}
+            </div>
+
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-4 max-w-2xl mx-auto lg:mx-0">
+              Complete real-world tasks, build a portfolio, and become job-ready.
+            </p>
+
+            <p className="text-base sm:text-lg font-bold text-[#12263f] mb-6">
+              Starting at ₦15,000/month.
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start items-stretch sm:items-center gap-4">
               <a href="#pricing" className="w-full sm:w-auto px-8 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-[0_0_20px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2 transform hover:-translate-y-1 text-center">
-                Secure Your Desk Now <ArrowRight className="w-4.5 h-4.5" />
+                Start Free Trial <ArrowRight className="w-4.5 h-4.5" />
               </a>
               {/* Squad button hidden for future use */}
               {/* <a href="#squads" className="w-full sm:w-auto px-8 py-4 bg-white border-2 border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all flex items-center justify-center gap-2 text-center">

@@ -1,19 +1,21 @@
 import Navbar from "../components/Navbar";
 import HeroSection from "../components/landing/HeroSection";
-import CompanyLogoWall from "../components/landing/CompanyLogoWall";
-// import ProblemSection from "../components/landing/ProblemSection";
-import CareerPathQuiz from "../components/landing/CareerPathQuiz";
+// import CompanyLogoWall from "../components/landing/CompanyLogoWall";
+import HowItWorksSection from "../components/landing/HowItWorksSection";
+import TracksSection from "../components/landing/TracksSection";
+import ProblemSection from "../components/landing/ProblemSection";
+// import CareerPathQuiz from "../components/landing/CareerPathQuiz";
 // import ROICalculator from "../components/landing/ROICalculator";
 // import CareerComparisonMatrix from "../components/landing/CareerComparisonMatrix";
-import CurriculumTransparency from "../components/landing/CurriculumTransparency";
+// import CurriculumTransparency from "../components/landing/CurriculumTransparency";
 import OutcomesSection from "../components/landing/OutcomesSection";
 // import ChatSectionV3 from "../components/landing/ChatSectionV3";
-import VideoTestimonials from "../components/landing/VideoTestimonials";
+// import VideoTestimonials from "../components/landing/VideoTestimonials";
 // import { AIOFaqSection } from "../components/landing/AIOFaqSection";
 import PricingSection from "../components/landing/PricingSection";
-import WaitlistSection from "../components/landing/WaitlistSection";
+// import WaitlistSection from "../components/landing/WaitlistSection";
 import TrustBand from "../components/landing/TrustBand";
-import FaqSection from "../components/landing/FaqSection";
+// import FaqSection from "../components/landing/FaqSection";
 import FooterSection from "../components/landing/FooterSection";
 
 const Landing = () => {
@@ -21,20 +23,22 @@ const Landing = () => {
  <div className="min-h-screen bg-[hsla(207,36%,95%,1)] pt-16">
   <Navbar />
   <HeroSection />
-  <CompanyLogoWall />
-  <CareerPathQuiz />
-  <VideoTestimonials />
+  {/* <CompanyLogoWall /> */}
+  <ProblemSection />
+  <HowItWorksSection />
+  <TracksSection />
+  {/* <CareerPathQuiz /> */}
+  {/* <VideoTestimonials /> */}
   {/* <ROICalculator /> */}
   {/* <CareerComparisonMatrix /> */}
-  <CurriculumTransparency />
-  {/* <ProblemSection /> */}
+  {/* <CurriculumTransparency /> */}
   <OutcomesSection />
   {/* <ChatSectionV3 /> */}
   <PricingSection />
   {/* <AIOFaqSection /> */}
-  <WaitlistSection />
+  {/* <WaitlistSection /> */}
   <TrustBand />
-  <FaqSection />
+  {/* <FaqSection /> */}
   <FooterSection />
  </div>
   )
