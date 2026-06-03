@@ -11,7 +11,7 @@ import OutcomesSection from "../components/landing/OutcomesSection";
 import VideoTestimonials from "../components/landing/VideoTestimonials";
 // import { AIOFaqSection } from "../components/landing/AIOFaqSection";
 import PricingSection from "../components/landing/PricingSection";
-import WaitlistSection from "../components/landing/WaitlistSection";
+// import WaitlistSection from "../components/landing/WaitlistSection";
 import TrustBand from "../components/landing/TrustBand";
 import FaqSection from "../components/landing/FaqSection";
 import FooterSection from "../components/landing/FooterSection";
@@ -32,7 +32,7 @@ const Landing = () => {
   {/* <ChatSectionV3 /> */}
   <PricingSection />
   {/* <AIOFaqSection /> */}
-  <WaitlistSection />
+  {/* <WaitlistSection /> */}
   <TrustBand />
   <FaqSection />
   <FooterSection />
