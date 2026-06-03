@@ -24,6 +24,7 @@ const Landing = () => {
   <Navbar />
   <HeroSection />
   {/* <CompanyLogoWall /> */}
+  <ProblemSection />
   <HowItWorksSection />
   <TracksSection />
   {/* <CareerPathQuiz /> */}
