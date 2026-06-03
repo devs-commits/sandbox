@@ -56,18 +56,18 @@ export default function HeroSection() {
               Get the Experience Employers Actually Want
             </h1>
 
-            <p className="text-xl sm:text-2xl font-semibold text-blue-600 mb-6">
+            <p className="text-lg sm:text-xl font-semibold text-blue-600 mb-6">
               Stop watching courses.<br />
               Start doing real work.
             </p>
 
-            <p className="mt-4 text-base sm:text-lg lg:text-xl text-slate-600 leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
+            <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
               WDC Labs is an AI-powered virtual workplace where you gain hands-on experience in:
             </p>
 
             <div className="space-y-3 mb-6 max-w-md mx-auto lg:mx-0">
               {["Digital Marketing", "Data Analytics", "Cybersecurity"].map((track, i) => (
-                <div key={i} className="flex items-center gap-3 text-base sm:text-lg text-slate-700 font-medium">
+                <div key={i} className="flex items-center gap-3 text-sm sm:text-base text-slate-700 font-medium">
                   <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shrink-0">
                     <span className="text-white text-sm font-bold">✓</span>
                   </span>
@@ -76,11 +76,11 @@ export default function HeroSection() {
               ))}
             </div>
 
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
               Complete real-world tasks, build a portfolio, and become job-ready.
             </p>
 
-            <p className="text-lg sm:text-xl font-bold text-[#12263f] mb-8">
+            <p className="text-base sm:text-lg font-bold text-[#12263f] mb-8">
               Starting at ₦15,000/month.
             </p>
 

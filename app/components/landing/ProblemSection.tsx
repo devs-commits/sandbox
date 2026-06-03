@@ -29,29 +29,29 @@ export default function ProblemSection() {
               THE HIRING GAP
             </div>
             
-            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#12263f] leading-tight">
+            <h3 className="text-3xl sm:text-4xl font-extrabold text-[#12263f] leading-tight">
               Why Most People Struggle to Get Hired
             </h3>
             
-            <div className="space-y-4">
-              <p className="text-xl sm:text-2xl font-semibold text-blue-600 leading-relaxed">
+            <div className="space-y-3">
+              <p className="text-lg sm:text-xl font-semibold text-blue-600 leading-relaxed">
                 You don't need another certificate.
               </p>
-              <p className="text-xl sm:text-2xl font-bold text-[#12263f] leading-relaxed">
+              <p className="text-lg sm:text-xl font-bold text-[#12263f] leading-relaxed">
                 You need experience.
               </p>
             </div>
             
-            <div className="space-y-4 text-base sm:text-lg text-slate-600 leading-relaxed">
+            <div className="space-y-3 text-sm sm:text-base text-slate-600 leading-relaxed">
               <p>Most courses teach theory.</p>
               <p>Employers want proof that you can actually do the work.</p>
             </div>
             
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-6 rounded-r-xl">
-              <p className="text-base sm:text-lg font-semibold text-[#12263f] mb-2">
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-5 rounded-r-xl">
+              <p className="text-sm sm:text-base font-semibold text-[#12263f] mb-2">
                 That's where WDC Labs is different.
               </p>
-              <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
+              <p className="text-sm text-slate-700 leading-relaxed">
                 Instead of watching videos, you complete real tasks in a simulated workplace environment.
               </p>
             </div>

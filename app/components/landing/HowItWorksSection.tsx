@@ -68,10 +68,10 @@ export default function HowItWorksSection() {
                 <div className={`w-14 h-14 ${colors.iconBg} rounded-xl flex items-center justify-center mb-6`}>
                   <Icon className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-[#12263f] mb-3">
+                <h3 className="text-lg sm:text-xl font-bold text-[#12263f] mb-3">
                   {step.title}
                 </h3>
-                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                   {step.description}
                 </p>
               </motion.div>

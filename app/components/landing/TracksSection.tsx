@@ -73,11 +73,11 @@ export default function TracksSection() {
                     <Icon className="w-8 h-8 text-white" />
                   </div>
                   
-                  <h3 className="text-2xl sm:text-3xl font-bold text-[#12263f] mb-4">
+                  <h3 className="text-xl sm:text-2xl font-bold text-[#12263f] mb-4">
                     {track.title}
                   </h3>
                   
-                  <p className="text-base sm:text-lg text-slate-600 leading-relaxed mb-6">
+                  <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6">
                     {track.description}
                   </p>
                   
