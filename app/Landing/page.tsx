@@ -1,6 +1,8 @@
 import Navbar from "../components/Navbar";
 import HeroSection from "../components/landing/HeroSection";
 import CompanyLogoWall from "../components/landing/CompanyLogoWall";
+import HowItWorksSection from "../components/landing/HowItWorksSection";
+import TracksSection from "../components/landing/TracksSection";
 import ProblemSection from "../components/landing/ProblemSection";
 import CareerPathQuiz from "../components/landing/CareerPathQuiz";
 // import ROICalculator from "../components/landing/ROICalculator";
@@ -22,6 +24,8 @@ const Landing = () => {
   <Navbar />
   <HeroSection />
   <CompanyLogoWall />
+  <HowItWorksSection />
+  <TracksSection />
   <CareerPathQuiz />
   <VideoTestimonials />
   {/* <ROICalculator /> */}
