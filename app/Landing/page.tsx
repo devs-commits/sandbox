@@ -7,7 +7,7 @@ import ProblemSection from "../components/landing/ProblemSection";
 import CareerPathQuiz from "../components/landing/CareerPathQuiz";
 // import ROICalculator from "../components/landing/ROICalculator";
 // import CareerComparisonMatrix from "../components/landing/CareerComparisonMatrix";
-import CurriculumTransparency from "../components/landing/CurriculumTransparency";
+// import CurriculumTransparency from "../components/landing/CurriculumTransparency";
 import OutcomesSection from "../components/landing/OutcomesSection";
 // import ChatSectionV3 from "../components/landing/ChatSectionV3";
 import VideoTestimonials from "../components/landing/VideoTestimonials";
@@ -30,7 +30,7 @@ const Landing = () => {
   <VideoTestimonials />
   {/* <ROICalculator /> */}
   {/* <CareerComparisonMatrix /> */}
-  <CurriculumTransparency />
+  {/* <CurriculumTransparency /> */}
   <ProblemSection />
   <OutcomesSection />
   {/* <ChatSectionV3 /> */}
