@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, BookOpen, ExternalLink, FolderOpen, Sparkles, X, FileText, FileSpreadsheet, Globe, Layers } from 'lucide-react';
+import { Search, BookOpen, ExternalLink, FolderOpen, Sparkles, X, FileText, FileSpreadsheet, Globe, Layers, ChevronDown } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { ArchiveItem } from './types';
@@ -44,26 +44,61 @@ const getEmbedUrl = (url: string | undefined, type: string | undefined) => {
 };
 
 export function ArchivesView() {
-  // We bring in 'tasks' to access the entire history, not just currentTask
-  const { currentTask, tasks } = useOffice();
+  const { tasks } = useOffice();
   const [search, setSearch] = useState('');
   const [selectedResource, setSelectedResource] = useState<ArchiveItem & { type: string, taskTitle?: string } | null>(null);
 
-  // Group all resources from all tasks
+  // Group all resources from all tasks, sorted newest to oldest, with intelligent naming
   const allResources = useMemo(() => {
     if (!tasks || tasks.length === 0) return [];
     
     const extractedResources: any[] = [];
     
-    // Reverse so the newest tasks appear first in the archives
-    [...tasks].reverse().forEach((task: any, taskIndex: number) => {
+    // Sort ascending first to figure out the true chronological Task Number
+    const chronologicalTasks = [...tasks].sort((a: any, b: any) => {
+      const weekA = a.week || 0;
+      const weekB = b.week || 0;
+      return weekA - weekB;
+    });
+
+    // Reverse for the display so the newest Task is at the top of the Archives
+    const displayTasks = [...chronologicalTasks].reverse();
+    
+    displayTasks.forEach((task: any) => {
+      // Create the "Task 1: Topic" naming convention
+      const taskNumber = task.week || (chronologicalTasks.indexOf(task) + 1);
+      const formattedTaskTitle = `Task ${taskNumber}: ${task.title || 'Assignment'}`;
+      
       const raw = task.resources || [];
+      
       raw.forEach((item: any, index: number) => {
+        let intelligentTitle = item.title;
+
+        // Intelligent Naming Override if the title is generic or missing
+        if (!intelligentTitle || intelligentTitle.toLowerCase().includes('learning resource') || intelligentTitle.toLowerCase().startsWith('resource')) {
+          const isPdf = item.type === 'pdf' || item.url?.toLowerCase().endsWith('.pdf');
+          const isVid = item.type === 'video' || item.url?.includes('youtube') || item.url?.includes('youtu.be');
+
+          if (isPdf && item.url) {
+            try {
+              // Try to extract the actual file name from the URL
+              const decodedUrl = decodeURIComponent(item.url.split('/').pop()?.split('?')[0] || '');
+              intelligentTitle = decodedUrl.length > 5 ? decodedUrl.replace(/[-_]/g, ' ') : `${task.title} - PDF Guide`;
+            } catch (e) {
+              intelligentTitle = `${task.title} - Reference Guide ${index + 1}`;
+            }
+          } else if (isVid) {
+            intelligentTitle = `${task.title} - Video Tutorial ${index + 1}`;
+          } else {
+            intelligentTitle = `${task.title} - Reference Link ${index + 1}`;
+          }
+        }
+
         extractedResources.push({
           id: item.id || `task-${task.id}-res-${index}`,
-          title: item.title,
+          title: intelligentTitle,
           category: item.category || "Learning Resources",
-          taskTitle: task.title || `Task ${tasks.length - taskIndex}`,
+          taskTitle: formattedTaskTitle,
           description: item.description,
           content: item.content || item.description,
           url: item.url || item.link,
@@ -80,8 +115,9 @@ export function ArchivesView() {
     item.taskTitle?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by Task instead of Category
+  // Group by Task Title (Insertion order is preserved from our sorted extraction)
   const taskGroups = [...new Set(filteredArchives.map(a => a.taskTitle))];
+  const isSearching = search.trim().length > 0;
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 relative">
@@ -109,7 +145,7 @@ export function ArchivesView() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
-            placeholder="Search by file name or task..."
+            placeholder="Search by file name, topic, or task number..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 bg-secondary/50 border-border/50"
@@ -121,48 +157,94 @@ export function ArchivesView() {
         {filteredArchives.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <FolderOpen className="text-muted-foreground mb-4" size={48} />
-            <p className="text-muted-foreground">No resources found in your archives.</p>
+            <p className="text-muted-foreground">No resources match your search.</p>
+          </div>
+        ) : isSearching ? (
+          /* SEARCH VIEW: Flat Grid so results aren't hidden inside Accordions */
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-primary mb-4 border-b border-border/50 pb-2">
+              Search Results ({filteredArchives.length})
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {filteredArchives.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => setSelectedResource(item)}
+                  className="group flex flex-col p-3 rounded-lg cursor-pointer transition-all duration-200 border border-border/30 bg-card hover:shadow-md hover:border-primary/50 relative"
+                >
+                  <div className="relative w-full aspect-square mb-3 bg-secondary/10 rounded-lg flex items-center justify-center group-hover:bg-secondary/30 transition-colors overflow-hidden">
+                    <div className="text-primary group-hover:scale-110 transition-transform duration-200 z-10">
+                      {getFileIcon(item.type)}
+                    </div>
+                    <div className="absolute bottom-2 right-2 text-[9px] font-bold bg-background/90 px-1.5 py-0.5 rounded text-foreground/70 uppercase z-20 shadow-sm border border-border/50">
+                      {getFileType(item.type)}
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-foreground/90 group-hover:text-foreground line-clamp-2 leading-relaxed mb-2">
+                    {item.title}
+                  </p>
+                  
+                  {/* Shows exactly where the search result came from */}
+                  <div className="mt-auto pt-2 border-t border-border/40">
+                    <p className="text-[10px] text-primary/80 font-medium truncate">
+                      From: {item.taskTitle}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         ) : (
-          <div className="space-y-8">
-            {taskGroups.map(taskTitle => {
+          /* NORMAL VIEW: Organized Accordions */
+          <div className="space-y-4">
+            {taskGroups.map((taskTitle, groupIndex) => {
               const groupItems = filteredArchives.filter(a => a.taskTitle === taskTitle);
               if (groupItems.length === 0) return null;
 
               return (
-                <div key={taskTitle as string} className="mb-8">
-                  <h3 className="text-sm font-bold mb-4 uppercase tracking-widest flex items-center gap-2 text-primary border-b border-border/50 pb-2">
-                    <BookOpen size={16} />
-                    {taskTitle as string}
-                    <span className="text-[10px] opacity-50 font-normal ml-auto border border-border px-2 py-0.5 rounded-full">
-                      {groupItems.length} items
-                    </span>
-                  </h3>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {groupItems.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        onClick={() => setSelectedResource(item)}
-                        className={`group flex flex-col p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent hover:bg-secondary/40 hover:border-border/50`}
-                      >
-                        <div className="relative w-full aspect-square mb-3 bg-secondary/30 rounded-lg flex items-center justify-center group-hover:bg-secondary/60 transition-colors border border-border/30 overflow-hidden">
-                          <div className="text-primary group-hover:scale-110 transition-transform duration-200 z-10">
-                            {getFileIcon(item.type)}
-                          </div>
-                          <div className="absolute bottom-2 right-2 text-[9px] font-bold bg-background/80 px-1.5 py-0.5 rounded text-foreground/70 uppercase z-20">
-                            {getFileType(item.type)}
-                          </div>
-                        </div>
-                        <p className="text-xs font-medium text-foreground/80 group-hover:text-foreground line-clamp-2 leading-relaxed text-center w-full break-words">
-                          {item.title}
-                        </p>
-                      </motion.div>
-                    ))}
-                  </div>
+                <div key={taskTitle as string} className="bg-card/50 border border-border/50 rounded-xl overflow-hidden shadow-sm transition-all hover:border-primary/30">
+                  <details className="group" open={groupIndex === 0}>
+                    <summary className="cursor-pointer p-4 font-bold text-sm uppercase tracking-widest flex items-center justify-between text-primary hover:bg-secondary/20 transition-colors outline-none select-none">
+                      <div className="flex items-center gap-2">
+                        <BookOpen size={16} />
+                        {taskTitle as string}
+                        <span className="text-[10px] opacity-70 font-normal ml-2 border border-primary/30 px-2 py-0.5 rounded-full text-foreground">
+                          {groupItems.length} items
+                        </span>
+                      </div>
+                      <ChevronDown size={18} className="group-open:rotate-180 transition-transform text-muted-foreground" />
+                    </summary>
+                    
+                    <div className="p-4 border-t border-border/50 bg-secondary/5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {groupItems.map((item, index) => (
+                          <motion.div
+                            key={item.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            onClick={() => setSelectedResource(item)}
+                            className="group/item flex flex-col p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent hover:bg-card hover:shadow-md hover:border-border/50"
+                          >
+                            <div className="relative w-full aspect-square mb-3 bg-card rounded-lg flex items-center justify-center group-hover/item:bg-secondary/40 transition-colors border border-border/30 overflow-hidden shadow-sm">
+                              <div className="text-primary group-hover/item:scale-110 transition-transform duration-200 z-10">
+                                {getFileIcon(item.type)}
+                              </div>
+                              <div className="absolute bottom-2 right-2 text-[9px] font-bold bg-background/90 px-1.5 py-0.5 rounded text-foreground/70 uppercase z-20 shadow-sm border border-border/50">
+                                {getFileType(item.type)}
+                              </div>
+                            </div>
+                            <p className="text-xs font-medium text-foreground/80 group-hover/item:text-foreground line-clamp-2 leading-relaxed text-center w-full break-words">
+                              {item.title}
+                            </p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
                 </div>
               );
             })}

@@ -30,6 +30,20 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
+    // DATE & SUBSCRIPTION CALCULATION ENGINE
+    // ==========================================
+    const startDate = new Date();
+    const expiryDate = new Date();
+
+    if (subscriptionPlan === 'trial') {
+      expiryDate.setDate(startDate.getDate() + 14); // 14 Days
+    } else if (subscriptionPlan === 'quarterly') {
+      expiryDate.setMonth(startDate.getMonth() + 3); // 3 Months
+    } else {
+      expiryDate.setMonth(startDate.getMonth() + 1); // 1 Month
+    }
+
+    // ==========================================
     // SCENARIO 1: RETURNING LEAD (Abandoned Cart)
     // ==========================================
     if (role === 'student') {
@@ -49,6 +63,9 @@ export async function POST(request: Request) {
             track: track,
             experience_level: experienceLevel, 
             subscription_plan: subscriptionPlan || 'monthly',
+            subscription_status: 'active', // Forced to active as requested
+            start_date: startDate.toISOString(),
+            subscription_expires_at: expiryDate.toISOString(),
             nudge_sent: false                  
           }).eq('auth_id', existingLead.auth_id);
 
@@ -74,7 +91,6 @@ export async function POST(request: Request) {
     if (authError) return NextResponse.json({ success: false, error: authError.message }, { status: 400 });
 
     // --- CAPTURE THE ID DEFENSIVELY ---
-    // Fix: Redundant .data access removed to align with Supabase types
     const newAuthId = authData?.user?.id;
 
     if (!newAuthId) {
@@ -99,7 +115,9 @@ export async function POST(request: Request) {
           subscription_plan: subscriptionPlan || 'monthly',
           referral_code: referralCode,       
           has_completed_onboarding: false,    
-          subscription_status: 'pending',     
+          subscription_status: 'active', // Forced to active as requested
+          start_date: startDate.toISOString(),
+          subscription_expires_at: expiryDate.toISOString(),    
           nudge_sent: false,                 
           wallet_balance: 0,                 
           is_first_task: true,               

@@ -26,41 +26,55 @@ const formatTrackName = (track: string): string => {
 };
 
 export function TaskDashboard() {
-  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks, weekStatus } = useOffice();
+  // Added generationStatusText to pull the dynamic loading states
+  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks, weekStatus, generationStatusText } = useOffice();
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
 
-  const getStatusIcon = (status: Task['status']) => {
+  // Updated to handle both frontend and backend state strings safely
+  const getStatusIcon = (status: Task['status'] | string) => {
     switch (status) {
-      case 'approved': return <CheckCircle className="text-green-500" size={14} />;
-      case 'rejected': return <AlertCircle className="text-destructive" size={14} />;
+      case 'approved':
+      case 'passed': return <CheckCircle className="text-green-500" size={14} />;
+      case 'rejected':
+      case 'needs_revision': return <AlertCircle className="text-destructive" size={14} />;
       case 'under-review':
+      case 'under_review':
       case 'submitted': return <Loader2 className="text-amber-500 animate-spin" size={14} />;
-      case 'in-progress': return <Clock className="text-primary" size={14} />;
+      case 'in-progress':
+      case 'in_progress': return <Clock className="text-primary" size={14} />;
       default: return <Clock className="text-muted-foreground" size={14} />;
     }
   };
 
-  const getStatusLabel = (status: Task['status']) => {
+  const getStatusLabel = (status: Task['status'] | string) => {
     switch (status) {
       case 'pending': return 'Not Started';
-      case 'in-progress': return 'In Progress';
+      case 'in-progress':
+      case 'in_progress': return 'In Progress';
       case 'submitted': return 'Submitted';
-      case 'under-review': return 'Under Review';
-      case 'approved': return 'Approved';
-      case 'rejected': return 'Needs Revision';
-      default: return status;
+      case 'under-review':
+      case 'under_review': return 'Under Review';
+      case 'approved':
+      case 'passed': return 'Approved';
+      case 'rejected':
+      case 'needs_revision': return 'Needs Revision';
+      default: return (status as string).replace('_', ' ');
     }
   };
 
-  const getStatusColor = (status: Task['status']) => {
+  const getStatusColor = (status: Task['status'] | string) => {
     switch (status) {
-      case 'approved': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      case 'rejected': return 'bg-destructive/20 text-destructive border-destructive/30';
+      case 'approved':
+      case 'passed': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'rejected':
+      case 'needs_revision': return 'bg-destructive/20 text-destructive border-destructive/30';
       case 'under-review':
+      case 'under_review':
       case 'submitted': return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-      case 'in-progress': return 'bg-primary/20 text-primary border-primary/30';
+      case 'in-progress':
+      case 'in_progress': return 'bg-primary/20 text-primary border-primary/30';
       default: return 'bg-muted text-muted-foreground border-muted';
     }
   };
@@ -69,6 +83,18 @@ export function TaskDashboard() {
     setCurrentTask(task);
     setPreviewTask(previewTask?.id === task.id ? null : task);
   };
+
+  // Sort tasks descending (Newest week at the top)
+  const sortedRegularTasks = [...tasks]
+    .filter(t => t.difficulty !== 'Bounty')
+    .sort((a, b) => {
+      // Fallback to id comparison if week is undefined
+      const weekA = (a as any).week || 0;
+      const weekB = (b as any).week || 0;
+      return weekB - weekA; 
+    });
+
+  const sortedBounties = [...tasks].filter(t => t.difficulty === 'Bounty');
 
   // --- THE STANDBY LOCKOUT SCREEN ---
   if (weekStatus === 'passed_waiting') {
@@ -86,7 +112,7 @@ export function TaskDashboard() {
                 className="bg-transparent border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
              >
                 <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
-                Force Sync Next Task
+                {isGeneratingTask ? (generationStatusText || 'Fetching...') : 'Force Sync Next Task'}
              </Button>
           </div>
 
@@ -113,16 +139,16 @@ export function TaskDashboard() {
       <div className="p-6 pb-0 flex flex-col gap-4">
         <div className="flex justify-between items-center">
              <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
-             {/* Emergency Fallback for Active Desk */}
+             {/* Emergency Fallback for Active Desk with Dynamic Status Text */}
              <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={generateTask} 
                 disabled={isGeneratingTask}
-                className="bg-card border-border text-muted-foreground hover:text-foreground text-xs shadow-sm"
+                className="bg-card border-border text-muted-foreground hover:text-foreground text-xs shadow-sm transition-all"
              >
-                <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
-                Fetch Missing Task
+                <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin text-primary' : ''}`} />
+                {isGeneratingTask ? (generationStatusText || 'Preparing Task...') : 'Fetch Missing Task'}
              </Button>
         </div>
       </div>
@@ -154,82 +180,99 @@ export function TaskDashboard() {
         ) : (
           <>
             {/* Regular Tasks Section */}
-            {tasks.filter(t => t.difficulty !== 'Bounty').length > 0 && (
+            {sortedRegularTasks.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Assigned Tasks</h3>
                 <div className="grid gap-4">
-                  {tasks.filter(t => t.difficulty !== 'Bounty').map((task, index) => (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`bg-card/80 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-primary ring-2 ring-primary/20' : 'border-border/50'
+                  {sortedRegularTasks.map((task, index) => {
+                    const isCompleted = task.status === 'approved' || (task.status as string) === 'passed';
+                    
+                    return (
+                      <motion.div
+                        key={task.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg ${
+                          isCompleted 
+                            ? 'bg-green-500/5 border-green-500/30' // Green tint for passed tasks
+                            : currentTask?.id === task.id 
+                              ? 'bg-card/80 border-primary ring-2 ring-primary/20' 
+                              : 'bg-card/80 border-border/50 hover:border-primary/50'
                         }`}
-                      onClick={() => handleTaskClick(task)}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                          {formatTrackName(task.type)}
-                        </span>
-                        <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
-                          {getStatusIcon(task.status)}
-                          {getStatusLabel(task.status)}
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
-                      <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
-                        <ReactMarkdown>{task.description}</ReactMarkdown>
-                      </div>
-
-                      {/* --- RESOURCE ACCORDION --- */}
-                      {task.resources && task.resources.length > 0 && (
-                        <div onClick={(e) => e.stopPropagation()} className="mb-4">
-                          <details className="group border border-border/60 rounded-xl overflow-hidden bg-secondary/10">
-                            <summary className="cursor-pointer text-xs font-semibold p-3 flex justify-between items-center text-foreground hover:bg-secondary/20 transition-colors">
-                              <span className="flex items-center gap-2"><FileText size={14} className="text-primary"/> Reference Materials ({task.resources.length})</span>
-                              <ChevronDown size={14} className="group-open:rotate-180 transition-transform text-muted-foreground" />
-                            </summary>
-                            <div className="p-3 border-t border-border/50 space-y-2 bg-card/40">
-                              {task.resources.map((res) => (
-                                <a 
-                                  key={res.id} 
-                                  href={res.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all"
-                                >
-                                  <span className="font-semibold text-primary block truncate">{res.title}</span>
-                                  {res.description && <p className="text-muted-foreground mt-0.5 truncate">{res.description}</p>}
-                                </a>
-                              ))}
-                            </div>
-                          </details>
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
+                            {formatTrackName(task.type)}
+                          </span>
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
+                            {getStatusIcon(task.status)}
+                            {getStatusLabel(task.status)}
+                          </span>
                         </div>
-                      )}
+                        
+                        <h3 className="font-semibold text-foreground mb-2">
+                          {(task as any).week ? `Week ${(task as any).week}: ` : ''}{task.title}
+                        </h3>
+                        
+                        <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
+                          <ReactMarkdown>{task.description}</ReactMarkdown>
+                        </div>
 
-                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30">
-                        <span className="flex items-center gap-1.5">
-                          <Clock size={12} /> Due: {task.deadline}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <FileText size={12} /> {task.attachments?.length || 0} files
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
+                        {/* --- RESOURCE ACCORDION --- */}
+                        {task.resources && task.resources.length > 0 && (
+                          <div onClick={(e) => e.stopPropagation()} className="mb-4">
+                            <details className="group border border-border/60 rounded-xl overflow-hidden bg-secondary/10">
+                              <summary className="cursor-pointer text-xs font-semibold p-3 flex justify-between items-center text-foreground hover:bg-secondary/20 transition-colors">
+                                <span className="flex items-center gap-2"><FileText size={14} className="text-primary"/> Reference Materials ({task.resources.length})</span>
+                                <ChevronDown size={14} className="group-open:rotate-180 transition-transform text-muted-foreground" />
+                              </summary>
+                              <div className="p-3 border-t border-border/50 space-y-2 bg-card/40">
+                                {task.resources.map((res) => (
+                                  <a 
+                                    key={res.id} 
+                                    href={res.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all"
+                                  >
+                                    <span className="font-semibold text-primary block truncate">{res.title}</span>
+                                    {res.description && <p className="text-muted-foreground mt-0.5 truncate">{res.description}</p>}
+                                  </a>
+                                ))}
+                              </div>
+                            </details>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30">
+                          <span className="flex items-center gap-1.5">
+                            <Clock size={12} /> Due: {task.deadline}
+                          </span>
+                          
+                          {/* Removing the 0 files artifact. Only shows if files exist */}
+                          {task.attachments && task.attachments.length > 0 && (
+                            <span className="flex items-center gap-1.5">
+                              <FileText size={12} /> {task.attachments.length} files
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {/* Accepted Bounties Section */}
-            {tasks.filter(t => t.difficulty === 'Bounty').length > 0 && (
+            {sortedBounties.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Target size={16} /> Accepted Bounties
                 </h3>
                 <div className="grid gap-4">
-                  {tasks.filter(t => t.difficulty === 'Bounty').map((task, index) => (
+                  {sortedBounties.map((task, index) => (
                     <motion.div
                       key={task.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -301,7 +344,7 @@ export function TaskDashboard() {
                     </span>
                   </div>
                 </div>
-                <h3 className="font-semibold text-foreground text-lg mb-2">{previewTask.title}</h3>
+                <h3 className="font-semibold text-foreground text-lg mb-2">{(previewTask as any).week ? `Week ${(previewTask as any).week}: ` : ''}{previewTask.title}</h3>
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                   {previewTask.description?.replace(/[#*`_~\[\]]/g, '').substring(0, 150)}...
                 </p>
@@ -309,7 +352,11 @@ export function TaskDashboard() {
 
               {/* Actions */}
               <div className="px-5 pb-5 flex gap-3">
-                {previewTask.status !== 'approved' && previewTask.status !== 'submitted' && previewTask.status !== 'under-review' && (
+                {(previewTask.status as string) !== 'approved' && 
+                 (previewTask.status as string) !== 'passed' && 
+                 (previewTask.status as string) !== 'submitted' && 
+                 (previewTask.status as string) !== 'under-review' && 
+                 (previewTask.status as string) !== 'under_review' && (
                   <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2">
                     <Upload size={16} /> Submit Work
                   </Button>
