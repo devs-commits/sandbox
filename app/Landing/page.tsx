@@ -11,11 +11,11 @@ import ProblemSection from "../components/landing/ProblemSection";
 import OutcomesSection from "../components/landing/OutcomesSection";
 // import ChatSectionV3 from "../components/landing/ChatSectionV3";
 // import VideoTestimonials from "../components/landing/VideoTestimonials";
-// import { AIOFaqSection } from "../components/landing/AIOFaqSection";
+import { AIOFaqSection } from "../components/landing/AIOFaqSection";
 import PricingSection from "../components/landing/PricingSection";
 // import WaitlistSection from "../components/landing/WaitlistSection";
 import TrustBand from "../components/landing/TrustBand";
-// import FaqSection from "../components/landing/FaqSection";
+import FaqSection from "../components/landing/FaqSection";
 import FooterSection from "../components/landing/FooterSection";
 
 const Landing = () => {
@@ -35,10 +35,10 @@ const Landing = () => {
   <OutcomesSection />
   {/* <ChatSectionV3 /> */}
   <PricingSection />
-  {/* <AIOFaqSection /> */}
   {/* <WaitlistSection /> */}
   <TrustBand />
-  {/* <FaqSection /> */}
+  <AIOFaqSection />
+  <FaqSection />
   <FooterSection />
  </div>
   )
