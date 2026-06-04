@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle, X, Users, Gift, Share2, Clock } from "lucide-react"
+import { CheckCircle, X, Gift, Share2 } from "lucide-react"
 
 export default function PricingSection() {
   const shareLink = () => {
@@ -59,27 +59,19 @@ export default function PricingSection() {
             <a href="https://labs.wdc.ng/signup" target="_blank" rel="noopener noreferrer" className="block w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-500 transition shadow-[0_0_20px_rgba(37,99,235,0.5)] text-sm sm:text-base text-center mt-auto">Secure Letters & Access</a>
           </div>
 
-          <div className="bg-[#f8fafc] p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full md:col-span-2 lg:col-span-1 relative">
-            <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] font-bold px-3 py-1.5 rounded-full border border-amber-200">
-              <Clock className="w-3 h-3" /> COMING SOON
-            </div>
+          <div className="bg-amber-50 border border-amber-200 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col h-full">
             <div className="mb-4">
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-1">The Squad</h3>
-              <p className="text-[10px] sm:text-xs text-slate-400 line-through mb-1">Traditional Value: ₦135,000</p>
-              <div className="flex items-baseline gap-1"><span className="text-3xl sm:text-4xl font-extrabold text-[#12263f]">₦40,500</span><span className="text-slate-500 font-medium text-xs sm:text-sm">/ 3 months</span></div>
-              <p className="text-xs text-blue-600 font-semibold mt-2">For 3 friends • ₦13,500/person</p>
+              <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full mb-4 border border-amber-200"><Gift className="w-3 h-3" /> SPONSOR A FUTURE</div>
+              <h3 className="text-lg sm:text-xl font-bold text-[#12263f] mb-1">Ask a Mentor to Pay</h3>
+              <p className="text-slate-600 text-sm leading-relaxed mb-4 font-medium">Copy our pre-written message, send it to a mentor, uncle, or sponsor. Let them invest in your career future.</p>
             </div>
-            <ul className="space-y-3 mb-8 text-slate-600 text-sm font-medium flex-grow opacity-60">
-              <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" /> Everything in Career Accelerator</li>
-              <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" /> 10% Group Discount for Each Member</li>
-              <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" /> Shared Squad Progress Dashboard</li>
-              <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" /> Group Accountability Challenges</li>
-            </ul>
-            <span className="block w-full py-3.5 bg-slate-200 text-slate-500 font-bold rounded-xl text-sm text-center shadow-sm mt-auto cursor-not-allowed">Squad Feature Coming Soon</span>
+            <button onClick={shareLink} className="w-full py-3.5 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors text-sm text-center shadow-sm flex items-center justify-center gap-2 mt-auto">
+              <Share2 className="w-4 h-4" /> Copy Message for Sponsor
+            </button>
           </div>
         </div>
 
-        <div id="squads" className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* <div id="squads" className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-blue-50 border border-blue-200 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col justify-between hover:shadow-md transition relative">
             <div className="absolute top-3 right-3 inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] font-bold px-3 py-1.5 rounded-full border border-amber-200">
               <Clock className="w-3 h-3" /> COMING SOON
@@ -103,7 +95,7 @@ export default function PricingSection() {
               <Share2 className="w-4 h-4" /> Copy Message for Sponsor
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
     </section>
   )
