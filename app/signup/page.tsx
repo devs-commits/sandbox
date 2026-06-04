@@ -91,20 +91,39 @@ const SignUpContent = () => {
     { value: "advanced", label: "Advanced" },
   ];
 
+  // --- AUTO-APPLY PROMO CODE FROM URL ---
   useEffect(() => {
-    if (!paymentDetails?.localExpiry) return;
+    const promoFromUrl = searchParams.get("promo") || searchParams.get("coupon");
+    if (promoFromUrl) {
+      const normalizedCode = promoFromUrl.trim().toUpperCase();
+      setCouponCode(normalizedCode);
+      
+      if (normalizedCode === "WDCLABS14") {
+        setIsCouponApplied(true);
+        setCouponError("");
+        toast.success("🎉 Promo Link Active! Your 14-day free trial is unlocked.");
+      }
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const localExpiry = paymentDetails?.localExpiry;
+    if (!localExpiry) return;
+    
     const updateTimer = () => {
-      const diff = paymentDetails.localExpiry - Date.now();
+      const diff = localExpiry - Date.now();
       if (diff <= 0) {
         setSecondsLeft(0);
         return;
       }
       setSecondsLeft(Math.floor(diff / 1000));
     };
+    
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
+    
     return () => clearInterval(timer);
-  }, [paymentDetails]);
+  }, [paymentDetails?.localExpiry]);
 
   const formattedTime = secondsLeft === null ? "--:--" : 
     `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
@@ -133,6 +152,7 @@ const SignUpContent = () => {
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
       referralLink: role === "student" ? referralLink : undefined,
+      // If coupon is applied, backend receives "trial" and automatically sets 14-days
       subscriptionPlan: isCouponApplied ? "trial" : subscriptionPlan, 
     };
 
