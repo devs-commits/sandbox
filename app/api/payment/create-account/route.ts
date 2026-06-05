@@ -24,8 +24,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Server configuration missing" }, { status: 500 });
     }
 
+    // Ensure the quarterly amount aligns with the new discount logic
     let amount = role === "recruiter" ? PRICE_MAP["recruiter"] : PRICE_MAP[track] || 15000;
-    if (subscriptionPlan === 'quarterly') amount = 45000;
+    if (subscriptionPlan === 'quarterly') amount = 40500;
 
     const names = fullName?.trim().split(" ") || ["User"];
     const firstName = names[0];
@@ -67,7 +68,6 @@ export async function POST(req: Request) {
     }
 
     // 3. TARGET THE WORKING ENDPOINT
-    // Postman: POST https://lab-api.wdc.ng/api/v1/signupfee
     const response = await fetch(`${baseUrl}/signupfee`, {
       method: "POST",
       headers: { 
