@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to link payment" }, { status: 500 });
     }
 
-    // 2. CALCULATE DATES: 15k = 30 days, 45k = 90 days
+    // 2. CALCULATE DATES: 15k = 30 days, 40.5k = 90 days
     const amountPaid = paymentInfo?.amount || 15000;
-    const daysToAdd = amountPaid >= 45000 ? 90 : 30;
-    const planName = amountPaid >= 45000 ? "quarterly" : "monthly";
+    const daysToAdd = amountPaid >= 40500 ? 90 : 30;
+    const planName = amountPaid >= 40500 ? "quarterly" : "monthly";
 
     const startDate = new Date();
     const expiryDate = new Date();

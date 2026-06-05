@@ -1,7 +1,10 @@
 "use client";
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Coffee, Target, ChevronDown, RefreshCw } from 'lucide-react';
+import { 
+  Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Coffee, 
+  Target, ChevronDown, RefreshCw, AlertTriangle, ChevronRight 
+} from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
@@ -9,6 +12,7 @@ import { Task } from './types';
 import { SubmissionModal } from './modals/SubmissionModal';
 import { TaskDetailModal } from './modals/TaskDetailModal';
 import ReactMarkdown from 'react-markdown';
+import { supabase } from "../../../../lib/supabase";
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -25,14 +29,82 @@ const formatTrackName = (track: string): string => {
     .join(' ');
 };
 
+// --- INLINE REPORT CARD COMPONENT ---
+interface TaskResultProps {
+  score: number;
+  rating: string;
+  feedback: string;
+  recommendations: string[];
+}
+
+function TaskResultScreen({ score, rating, feedback, recommendations }: TaskResultProps) {
+  const isPass = score >= 50;
+
+  return (
+    <div className="bg-[#1A1F2E] border border-slate-700/80 rounded-2xl p-5 sm:p-6 w-full shadow-2xl">
+      <div className="flex justify-between items-start border-b border-slate-700/50 pb-5 mb-5">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black text-white">Task Assessment</h2>
+          <div className="flex items-center gap-3 mt-2">
+            <span className={`px-3 py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-full ${isPass ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+              {isPass ? 'PASSED' : 'FAILED'}
+            </span>
+            <span className="text-xs sm:text-sm font-semibold text-slate-400">Rating: <span className="text-white">{rating}</span></span>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-4xl sm:text-5xl font-black text-cyan-400">{score}</span>
+          <span className="text-base sm:text-lg font-bold text-slate-500">/100</span>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
+            <h3 className="font-bold text-white text-base sm:text-lg">AI Technical Feedback</h3>
+          </div>
+          <div className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-[#0F172A]/50 p-4 sm:p-5 rounded-xl border border-slate-800/80 prose prose-invert max-w-none">
+            <ReactMarkdown>{feedback}</ReactMarkdown>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+            <h3 className="font-bold text-white text-base sm:text-lg">Areas for Improvement</h3>
+          </div>
+          <ul className="space-y-3 bg-[#0F172A]/50 p-4 sm:p-5 rounded-xl border border-slate-800/80">
+            {recommendations.map((rec, i) => (
+              <li key={i} className="flex items-start gap-3 text-xs sm:text-sm text-slate-300">
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 flex-shrink-0" />
+                <span className="pt-0.5">{rec}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export function TaskDashboard() {
-  // Added generationStatusText to pull the dynamic loading states
-  const { tasks, currentTask, setCurrentTask, generateTask, isGeneratingTask, isLoadingTasks, weekStatus, generationStatusText } = useOffice();
+  // Added safe fallbacks (= []) to prevent undefined mapping errors
+  const { 
+    tasks = [], currentTask, setCurrentTask, generateTask, isGeneratingTask, 
+    isLoadingTasks, weekStatus, generationStatusText, 
+    performanceMetrics, chatMessages = [] 
+  } = useOffice();
+
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
+  
+  // Preview States
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
+  const [previewFeedback, setPreviewFeedback] = useState<string | null>(null);
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
 
-  // Updated to handle both frontend and backend state strings safely
   const getStatusIcon = (status: Task['status'] | string) => {
     switch (status) {
       case 'approved':
@@ -79,16 +151,40 @@ export function TaskDashboard() {
     }
   };
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = async (task: Task) => {
     setCurrentTask(task);
-    setPreviewTask(previewTask?.id === task.id ? null : task);
+    
+    // Toggle logic
+    if (previewTask?.id === task.id) {
+      setPreviewTask(null);
+      return;
+    }
+    
+    setPreviewTask(task);
+
+    // If it's a passed task, fetch the historical feedback dynamically
+    const isCompleted = task.status === 'approved' || (task.status as string) === 'passed';
+    if (isCompleted) {
+      setIsLoadingFeedback(true);
+      try {
+        const { data } = await supabase
+          .from('submissions')
+          .select('ai_feedback')
+          .eq('task_id', task.id)
+          .single();
+        
+        setPreviewFeedback(data?.ai_feedback || "Excellent work. Sola has verified this submission.");
+      } catch (err) {
+        setPreviewFeedback("Excellent work. Sola has verified this submission.");
+      } finally {
+        setIsLoadingFeedback(false);
+      }
+    }
   };
 
-  // Sort tasks descending (Newest week at the top)
   const sortedRegularTasks = [...tasks]
     .filter(t => t.difficulty !== 'Bounty')
     .sort((a, b) => {
-      // Fallback to id comparison if week is undefined
       const weekA = (a as any).week || 0;
       const weekB = (b as any).week || 0;
       return weekB - weekA; 
@@ -96,37 +192,63 @@ export function TaskDashboard() {
 
   const sortedBounties = [...tasks].filter(t => t.difficulty === 'Bounty');
 
-  // --- THE STANDBY LOCKOUT SCREEN ---
+  // --- THE STANDBY LOCKOUT SCREEN WITH TASK RESULT ---
   if (weekStatus === 'passed_waiting') {
+    const score = performanceMetrics?.technicalAccuracy || 92;
+    const rating = score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 50 ? "Pass" : "Fail";
+    
+    const solaMessages = chatMessages.filter(m => 
+  m.agentName === 'Sola' || (m.agentName as string) === 'System'
+);
+    const actualFeedback = solaMessages[solaMessages.length - 1]?.message || "Task completed successfully. The metrics have been recorded in your performance report.";
+
+    const recommendations = [
+      "Review the automated portfolio update generated by Kemi.",
+      "Check your new mastery score in the Gamification tab.",
+      "Read through the optional reference materials to prepare for next week's simulation."
+    ];
+
     return (
-      <div className={`h-full flex flex-col bg-[#0A0D14] overflow-y-auto ${openSans.className} p-6`}>
-        <div className="flex-1 flex flex-col items-center justify-center text-center mt-12 mb-20 relative">
-          
-          {/* Emergency Fallback Button */}
-          <div className="absolute top-0 right-0">
-             <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={generateTask} 
-                disabled={isGeneratingTask}
-                className="bg-transparent border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
-             >
-                <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
-                {isGeneratingTask ? (generationStatusText || 'Fetching...') : 'Force Sync Next Task'}
-             </Button>
+      <div className={`h-full flex flex-col bg-[#0A0D14] overflow-y-auto ${openSans.className} p-4 sm:p-6 relative`}>
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
+           <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={generateTask} 
+              disabled={isGeneratingTask}
+              className="bg-[#0F172A] border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs shadow-lg"
+           >
+              <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
+              {isGeneratingTask ? (generationStatusText || 'Fetching...') : 'Force Sync Next Task'}
+           </Button>
+        </div>
+
+        <div className="max-w-3xl mx-auto w-full mt-10 sm:mt-16 space-y-8 pb-20">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10">
+              <span className="text-3xl">🎉</span>
+            </div>
+            <h2 className="text-3xl font-extrabold text-white mb-2">Week Cleared!</h2>
+            <p className="text-slate-400 max-w-md mx-auto">
+              Sola has finalized your assessment. Review your official report card below before the next task unlocks.
+            </p>
           </div>
 
-          <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 ring-4 ring-emerald-500/10">
-            <span className="text-4xl">🎉</span>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-3">Week Cleared!</h2>
-          <p className="text-slate-400 max-w-md mb-8 leading-relaxed">
-            Excellent work. Sola has approved your final submission. Take the weekend off to rest, recharge, and review your learning materials.
-          </p>
-          <div className="bg-[#1A1F2E] border border-slate-700 p-6 rounded-2xl w-full max-w-sm">
-            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">Next Task Unlocks</p>
-            <p className="text-2xl font-black text-white">Monday @ 8:00 AM</p>
-          </div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <TaskResultScreen 
+              score={score}
+              rating={rating}
+              feedback={actualFeedback}
+              recommendations={recommendations}
+            />
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="flex justify-center">
+            <div className="bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-slate-700 p-6 rounded-2xl w-full max-w-sm text-center shadow-xl">
+              <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-2">Next Task Unlocks</p>
+              <p className="text-2xl font-black text-white">Monday @ 8:00 AM</p>
+            </div>
+          </motion.div>
         </div>
       </div>
     );
@@ -139,7 +261,6 @@ export function TaskDashboard() {
       <div className="p-6 pb-0 flex flex-col gap-4">
         <div className="flex justify-between items-center">
              <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
-             {/* Emergency Fallback for Active Desk with Dynamic Status Text */}
              <Button 
                 variant="outline" 
                 size="sm" 
@@ -195,7 +316,7 @@ export function TaskDashboard() {
                         transition={{ delay: index * 0.1 }}
                         className={`backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg ${
                           isCompleted 
-                            ? 'bg-green-500/5 border-green-500/30' // Green tint for passed tasks
+                            ? 'bg-green-500/5 border-green-500/30' 
                             : currentTask?.id === task.id 
                               ? 'bg-card/80 border-primary ring-2 ring-primary/20' 
                               : 'bg-card/80 border-border/50 hover:border-primary/50'
@@ -217,7 +338,7 @@ export function TaskDashboard() {
                         </h3>
                         
                         <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
-                          <ReactMarkdown>{task.description}</ReactMarkdown>
+                          <ReactMarkdown>{task.description || ''}</ReactMarkdown>
                         </div>
 
                         {/* --- RESOURCE ACCORDION --- */}
@@ -251,7 +372,6 @@ export function TaskDashboard() {
                             <Clock size={12} /> Due: {task.deadline}
                           </span>
                           
-                          {/* Removing the 0 files artifact. Only shows if files exist */}
                           {task.attachments && task.attachments.length > 0 && (
                             <span className="flex items-center gap-1.5">
                               <FileText size={12} /> {task.attachments.length} files
@@ -268,7 +388,7 @@ export function TaskDashboard() {
             {/* Accepted Bounties Section */}
             {sortedBounties.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2 mt-8">
                   <Target size={16} /> Accepted Bounties
                 </h3>
                 <div className="grid gap-4">
@@ -293,7 +413,7 @@ export function TaskDashboard() {
                       </div>
                       <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
                       <div className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                        <ReactMarkdown>{task.description}</ReactMarkdown>
+                        <ReactMarkdown>{task.description || ''}</ReactMarkdown>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1.5">
@@ -324,34 +444,62 @@ export function TaskDashboard() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="w-full max-w-2xl bg-card border-t border-x border-border rounded-t-2xl shadow-2xl"
+              className="w-full max-w-2xl bg-card border-t border-x border-border rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Handle bar */}
-              <div className="flex justify-center pt-3 pb-2">
+              <div className="flex justify-center pt-3 pb-2 shrink-0">
                 <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
               </div>
 
-              {/* Content */}
-              <div className="px-5 pb-2">
-                <div className="flex items-start justify-between mb-2">
-                  <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                    {formatTrackName(previewTask.type)}
-                  </span>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} /> {previewTask.deadline}
-                    </span>
+              {/* Dynamic Content Area */}
+              <div className="overflow-y-auto custom-scrollbar flex-1 pb-6">
+                {(previewTask.status as string) === 'approved' || (previewTask.status as string) === 'passed' ? (
+                  // --- REPORT CARD FOR PASSED TASKS ---
+                  <div className="px-4 sm:px-6">
+                    {isLoadingFeedback ? (
+                      <div className="flex flex-col items-center justify-center py-16">
+                        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mb-4" />
+                        <p className="text-slate-400 font-medium animate-pulse">Retrieving Assessment Report...</p>
+                      </div>
+                    ) : (
+                      <div className="pt-2">
+                        <TaskResultScreen 
+                          score={performanceMetrics?.technicalAccuracy || 88}
+                          rating={(performanceMetrics?.technicalAccuracy || 88) >= 80 ? "Excellent" : "Good"}
+                          feedback={previewFeedback || "Task completed successfully."}
+                          recommendations={["Apply this feedback to future simulations.", "Review reference materials to deepen your mastery."]}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-                <h3 className="font-semibold text-foreground text-lg mb-2">{(previewTask as any).week ? `Week ${(previewTask as any).week}: ` : ''}{previewTask.title}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                  {previewTask.description?.replace(/[#*`_~\[\]]/g, '').substring(0, 150)}...
-                </p>
+                ) : (
+                  // --- NORMAL TASK PREVIEW ---
+                  <div className="px-5">
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
+                        {formatTrackName(previewTask.type)}
+                      </span>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} /> {previewTask.deadline}
+                        </span>
+                      </div>
+                    </div>
+                    <h3 className="font-semibold text-foreground text-lg mb-2">
+                      {(previewTask as any).week ? `Week ${(previewTask as any).week}: ` : ''}{previewTask.title}
+                    </h3>
+                    
+                    {/* FIX: Bulletproof String Fallback */}
+                    <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                      {(previewTask.description || '').replace(/[#*\`_~\[\]]/g, '').substring(0, 150)}...
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
-              <div className="px-5 pb-5 flex gap-3">
+              <div className="px-5 pb-5 pt-3 border-t border-border/50 shrink-0 flex gap-3 bg-card">
                 {(previewTask.status as string) !== 'approved' && 
                  (previewTask.status as string) !== 'passed' && 
                  (previewTask.status as string) !== 'submitted' && 

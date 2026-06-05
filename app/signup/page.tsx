@@ -82,7 +82,8 @@ const SignUpContent = () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, []);
 
-  const numericAmount = subscriptionPlan === "quarterly" ? 45000 : 15000;
+  // Updated pricing logic
+  const numericAmount = subscriptionPlan === "quarterly" ? 40500 : 15000;
   const subscriptionPrice = `₦ ${numericAmount.toLocaleString()}`;
 
   const experienceLeveloptions = [
@@ -152,7 +153,6 @@ const SignUpContent = () => {
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
       referralLink: role === "student" ? referralLink : undefined,
-      // If coupon is applied, backend receives "trial" and automatically sets 14-days
       subscriptionPlan: isCouponApplied ? "trial" : subscriptionPlan, 
     };
 
@@ -414,16 +414,30 @@ const SignUpContent = () => {
                     <button type="button" onClick={() => { setSubscriptionPlan("quarterly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all relative overflow-hidden ${subscriptionPlan === "quarterly" ? "border-primary bg-primary/10 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
                       <div className="absolute top-0 right-0 bg-primary text-[9px] text-white px-1.5 font-bold rounded-bl-lg">SAVE</div>
                       <span className="text-sm font-bold">Quarterly</span>
-                      <span className="text-xs font-medium">₦ 45,000 / 3 mos</span>
+                      <span className="text-xs font-medium">₦ 40,500 / 3 mos</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center py-2 px-1 font-semibold mt-4">
-                  <span className="text-sm text-muted-foreground font-medium">Total Fee</span>
-                  <span className="text-lg font-bold text-primary">
-                    {subscriptionPrice}
-                  </span>
+                <div className="flex flex-col py-2 px-1 mt-4">
+                  <div className="flex justify-between items-center font-semibold">
+                    <span className="text-sm text-muted-foreground font-medium">Total Fee</span>
+                    <div className="text-right">
+                      {subscriptionPlan === "quarterly" && (
+                        <div className="text-xs text-muted-foreground line-through mb-0.5">Regular Price: ₦ 45,000</div>
+                      )}
+                      <span className="text-lg font-bold text-primary">
+                        {subscriptionPrice}
+                      </span>
+                    </div>
+                  </div>
+                  {subscriptionPlan === "quarterly" && (
+                    <div className="flex justify-end mt-1">
+                      <span className="bg-green-100 text-green-800 text-[11px] px-2 py-0.5 rounded-full font-bold">
+                        Savings: ₦ 4,500
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 pt-2">

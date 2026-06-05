@@ -64,6 +64,7 @@ const defaultState: PersistedState = {
 
 export function OfficeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const router = useRouter(); // FIX: Initialized the Next.js router
 
   const [phase, setPhaseState] = useState<OfficePhase>('lobby');
   const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
@@ -271,7 +272,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           }));
 
           setTasks(mappedTasks);
-          // FIX 1: TYPE ASSERTION FOR 'passed'
           const activeTask = mappedTasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || mappedTasks[mappedTasks.length - 1];
           if (activeTask) {
             setCurrentTask(activeTask);
@@ -317,7 +317,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
-      // FIX 2: TYPE ASSERTION FOR 'passed'
       const activeTask = tasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || tasks[tasks.length - 1];
       if (activeTask) {
         setCurrentTask(activeTask);
@@ -342,7 +341,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error('Error fetching onboarding state:', error);
           if (error.code === 'PGRST116') {
-            window.location.href = '/login';
+            router.push('/login'); // FIX: Lightning-fast client-side routing
             return;
           }
         } else if (data) {
@@ -433,7 +432,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchOnboardingState();
     fetchPerformanceMetrics();
     fetchPortfolio(); 
-  }, [userId]);
+  }, [userId, router]);
 
   const persistState = useCallback(async (state: Partial<PersistedState>) => {
     if (!userId) return;
@@ -485,7 +484,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const updateTaskStatus = useCallback(async (taskId: string, status: Task['status']) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
     try {
-      // FIX 3: TYPE ASSERTION FOR 'passed'
       const isCompleted = status === 'approved' || (status as string) === 'passed';
       await supabase.from('tasks').update({ completed: isCompleted }).eq('id', taskId);
       
@@ -657,7 +655,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [trackName, addChatMessage, userId, persistState]);
 
   const generateTask = useCallback(async () => {
-    // FIX 4: TYPE ASSERTION FOR 'passed' in array includes
     const hasActiveTask = tasks.some(t => 
       t.difficulty !== 'Bounty' && 
       !['approved', 'passed'].includes(t.status as string)
@@ -847,34 +844,15 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     completeOnboarding();
   }, [completeOnboarding]);
 
+  // FIX: SECURE SUBMISSION ROUTING (No Front-End DB calculations & No Local Storage Rate Limits)
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
-    const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
-
-    const today = new Date().toISOString().split('T')[0];
-    const attemptKey = `wdc-task-attempts-${userId}-${taskId}-${today}`;
-    const currentAttempts = parseInt(localStorage.getItem(attemptKey) || '0', 10);
-
-    if (currentAttempts >= 3) {
-      addChatMessage({
-        id: Date.now().toString(),
-        agentName: 'Sola',
-        message: "You have exhausted your 3 submission attempts for today. Review my final evaluation carefully, study the assigned learning materials, and try again tomorrow. Your limit will reset at midnight.",
-        timestamp: new Date(),
-      });
-      setIsExpanded(true);
-      return; 
-    }
-
-    const nextAttempt = currentAttempts + 1;
-    localStorage.setItem(attemptKey, nextAttempt.toString());
-
-    updateTaskStatus(taskId, 'submitted');
     setIsExpanded(true);
+    updateTaskStatus(taskId, 'submitted');
 
     addChatMessage({
       id: Date.now().toString(),
       agentName: 'Sola',
-      message: `I've received your submission (Attempt ${nextAttempt} of 3 for today). Let me review it carefully...`,
+      message: `I've received your submission. Validating your attempts and reviewing it now...`,
       timestamp: new Date(),
     });
 
@@ -902,75 +880,58 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       const task = tasks.find(t => t.id === taskId);
 
-      const response = await fetch(`${AI_BACKEND_URL}/review-submission`, {
+      // Sending everything directly to our secure Next.js Backend route
+      const response = await fetch('/api/tasks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
-          task_id: taskId,
-          file_url: fileUrl || file.name, 
-          file_content: notes,
-          task_title: task?.title || 'Unknown Task',
-          task_brief: task?.description || '',
-          chat_history: chatMessages.slice(-5).map(m => ({
+          userId: userId,
+          taskId: taskId,
+          fileUrl: fileUrl || (file ? file.name : ''), 
+          fileName: file ? file.name : 'submission',
+          taskContent: notes, // Maps notes to what the backend expects
+          taskTitle: task?.title || 'Unknown Task',
+          taskBrief: task?.description || '',
+          chatHistory: chatMessages.slice(-5).map(m => ({
             role: m.agentName ? 'assistant' : 'user',
             content: m.message
           })),
-          attempt_number: nextAttempt 
+          userLevel: userLevel
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json();
 
+      // Database-Enforced Rate Limit Caught
+      if (response.status === 429) {
+         addChatMessage({
+            id: Date.now().toString(),
+            agentName: 'Sola',
+            message: data.message,
+            timestamp: new Date(),
+         });
+         return;
+      }
+
+      if (response.ok) {
         addChatMessage({
           id: (Date.now() + 1).toString(),
           agentName: 'Sola',
-          message: data.feedback,
+          message: data.message || data.feedback,
           timestamp: new Date(),
         });
 
-        if (data.passed) {
+        if (data.completed || data.passed) {
           updateTaskStatus(taskId, 'approved');
 
-          try {
-            const { data: userData } = await supabase
-              .from('users')
-              .select('tasks_completed, average_score')
-              .eq('auth_id', userId)
-              .single();
-
-            const currentTasks = userData?.tasks_completed || 0;
-            const currentAvg = userData?.average_score || 0;
-            const newScore = data.technical_accuracy || 50; 
-            
-            const newAvgScore = ((currentAvg * currentTasks) + newScore) / (currentTasks + 1);
-
-            await supabase.from('users').update({
-              tasks_completed: currentTasks + 1,
-              average_score: Math.round(newAvgScore)
-            }).eq('auth_id', userId);
-          } catch (dbErr) {
-            console.error("Failed to update user progress stats:", dbErr);
-          }
-
+          // Setting UI metrics only (The backend already securely saved the numbers to DB!)
           if (data.technical_accuracy !== undefined) {
             setPerformanceMetrics({
               technicalAccuracy: data.technical_accuracy,
-              deliverySpeed: data.reliability_speed,
-              communication: data.communication_score,
+              deliverySpeed: data.reliability_speed || 0,
+              communication: data.communication_score || 0,
               overallRating: userLevel || 'Level 1'
             }); 
-            try {
-              await supabase.from('performance_reports').insert({
-                user_id: userId,
-                technical_accuracy: data.technical_accuracy,
-                reliability_speed: data.reliability_speed,
-                communication_score: data.communication_score,
-                current_level: userLevel || 'Level 1',
-                assessment_date: new Date().toISOString()
-              });
-            } catch (err) {}
           }
 
           if (data.portfolio_bullet) {
@@ -991,9 +952,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           updateTaskStatus(taskId, 'rejected');
         }
       } else {
-        addChatMessage({
-          id: (Date.now() + 1).toString(), agentName: 'Sola', message: "I'm having trouble processing your submission. Please try again.", timestamp: new Date(),
-        });
+        throw new Error("API Failure");
       }
     } catch (error) {
       console.error('Submission review failed:', error);
@@ -1017,7 +976,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     addChatMessage({ id: Date.now().toString(), agentName: null, message, timestamp: new Date() });
 
     try {
-      // FIX 5: TYPE ASSERTION FOR 'passed'
       const currentTaskInfo = tasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed');
       const response = await fetch(`${AI_BACKEND_URL}/chat`, {
         method: 'POST',
