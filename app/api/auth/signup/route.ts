@@ -152,6 +152,29 @@ export async function POST(request: Request) {
           await dbClient.from('referrals').insert([{ referrer_id: referrer.id, referee_id: newAuthId, status: 'completed', reward_amount: 2000 }]);
         }
       }
+
+      try {
+        const nameParts = fullName.trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/add-to-mailerlite-only`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            email,
+            firstName,
+            lastName,
+            whatsapp: '',
+            linkedin: '',
+          }),
+        });
+      } catch (mailerliteError) {
+        console.error('MailerLite sync failed:', mailerliteError);
+      }
     }
 
     return NextResponse.json({ success: true, user: authData.user, session: authData.session });
