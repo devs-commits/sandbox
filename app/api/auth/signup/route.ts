@@ -8,6 +8,66 @@ import { supabaseAdmin as importedAdmin } from '@/lib/supabase-admin';
 
 
 
+// ADD SIGNUP USER TO MAILERLITE (Non-blocking)
+
+const addToMailerLite = async (email: string, fullName: string, role: string, country: string | undefined, track: string | undefined, experienceLevel: string | undefined, subscriptionPlan: string) => {
+
+  try {
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+    
+
+    if (!supabaseUrl || !supabaseKey) return;
+
+    
+
+    await fetch(`${supabaseUrl}/functions/v1/add-signup-to-mailerlite`, {
+
+      method: 'POST',
+
+      headers: {
+
+        'Content-Type': 'application/json',
+
+        'Authorization': `Bearer ${supabaseKey}`,
+
+      },
+
+      body: JSON.stringify({
+
+        email,
+
+        fullName,
+
+        role,
+
+        country,
+
+        track,
+
+        experienceLevel,
+
+        subscriptionPlan,
+
+      }),
+
+    });
+
+  } catch (error) {
+
+    // Silently log - don't break signup if MailerLite fails
+
+    console.error('MailerLite sync error:', error);
+
+  }
+
+};
+
+
+
 // DEFENSIVE ADMIN CLIENT
 
 const getAdminClient = () => {
@@ -137,6 +197,12 @@ export async function POST(request: Request) {
             nudge_sent: false                  
 
           }).eq('auth_id', existingLead.auth_id);
+
+
+
+          // Sync to MailerLite (fire and forget)
+
+          addToMailerLite(email, fullName, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
 
 
 
@@ -307,6 +373,12 @@ export async function POST(request: Request) {
       }
 
     }
+
+
+
+    // Sync to MailerLite (fire and forget)
+
+    addToMailerLite(email, fullName, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
 
 
 

@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "start": "deno run -A --watch=supabase/functions/add-signup-to-mailerlite supabase/functions/add-signup-to-mailerlite/index.ts"
+  }
+}
