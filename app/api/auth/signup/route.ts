@@ -16,15 +16,16 @@ const addToMailerLite = async (email: string, fullName: string, role: string, co
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY;
 
     
 
-    if (!supabaseUrl || !supabaseKey) return;
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('MailerLite: Missing Supabase config', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey });
+      return;
+    }
 
-    
-
-    await fetch(`${supabaseUrl}/functions/v1/add-signup-to-mailerlite`, {
+    const response = await fetch(`${supabaseUrl}/functions/v1/add-signup-to-mailerlite`, {
 
       method: 'POST',
 
@@ -55,6 +56,9 @@ const addToMailerLite = async (email: string, fullName: string, role: string, co
       }),
 
     });
+
+    const data = await response.json();
+    console.log('MailerLite sync response:', { status: response.status, data });
 
   } catch (error) {
 
