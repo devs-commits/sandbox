@@ -37,7 +37,7 @@ const TOUR_STEPS = [
   {
     target: 'hq-letters',
     title: 'Reference Letters',
-    description: 'Maintain your active streak to unlock work and visa reference letters. Complete 12 weeks for the Work Letter and 24 weeks for the Visa Letter which is essential for immigration and job applications.',
+    description: 'Complete 12 weeks for the Work Letter and 24 weeks for the Visa Letter which is essential for immigration and job applications.',
   },
 ];
 
