@@ -302,6 +302,8 @@ export async function POST(request: Request) {
 
           has_completed_onboarding: false,    
 
+          has_completed_headquarters_tour: false,
+
           subscription_status: 'active', // Forced to active as requested
 
           start_date: startDate.toISOString(),
