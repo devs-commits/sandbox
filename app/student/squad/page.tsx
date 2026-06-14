@@ -1,12 +1,19 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { StudentHeader } from "../../components/students/StudentHeader"
-import { UserPlus, Copy, Check, Flame, Users, ArrowRight, Loader2 } from "lucide-react";
+import { UserPlus, Copy, Check, Flame, Users, Loader2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { toast } from "sonner";
 import { useAuth } from "@/app/contexts/AuthContexts";
+
+const SQUAD_FEATURE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SQUAD === "true";
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  return error instanceof Error ? error.message : fallback;
+};
 
 interface SquadMember {
   userId: string;
@@ -25,6 +32,7 @@ interface Squad {
 
 export default function Squad() {
   const { user } = useAuth();
+  const router = useRouter();
   const [squad, setSquad] = useState<Squad | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -37,13 +45,7 @@ export default function Squad() {
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [isClaiming, setIsClaiming] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchSquad();
-    }
-  }, [user]);
-
-  const fetchSquad = async () => {
+  const fetchSquad = useCallback(async () => {
     try {
       const res = await fetch(`/api/squad?userId=${user?.id}`, { cache: 'no-store' });
       const data = await res.json();
@@ -58,7 +60,28 @@ export default function Squad() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!SQUAD_FEATURE_ENABLED) {
+      router.replace("/student/headquarters");
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!SQUAD_FEATURE_ENABLED) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (user) {
+      fetchSquad();
+    }
+  }, [fetchSquad, user]);
+
+  if (!SQUAD_FEATURE_ENABLED) {
+    return null;
+  }
 
   const handleCreateSquad = async () => {
     if (!newSquadName.trim()) return;
@@ -81,8 +104,8 @@ export default function Squad() {
 
       toast.success("Squad created successfully!");
       fetchSquad(); // Refresh to show squad view
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create squad");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create squad"));
     } finally {
       setIsCreating(false);
     }
@@ -102,8 +125,8 @@ export default function Squad() {
 
       toast.success(`Joined ${data.squadName} successfully!`);
       fetchSquad(); // Refresh to show squad view
-    } catch (error: any) {
-      toast.error(error.message || "Failed to join squad");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to join squad"));
     } finally {
       setIsJoining(false);
     }
@@ -126,8 +149,8 @@ export default function Squad() {
 
       toast.success("Referral code claimed successfully!");
       setReferralCodeInput(""); // Clear input
-    } catch (error: any) {
-      toast.error(error.message || "Failed to claim referral");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to claim referral"));
     } finally {
       setIsClaiming(false);
     }
@@ -140,7 +163,7 @@ export default function Squad() {
       setCopied(true);
       toast.success("Invite code copied!");
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy code");
     }
   };
@@ -175,7 +198,7 @@ export default function Squad() {
               <div className="bg-card border border-border rounded-xl p-6 text-left space-y-4 hover:border-primary/50 transition-colors">
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold text-foreground">Create a Squad</h3>
-                  <p className="text-sm text-muted-foreground">Start a new circle. You'll be the Squad Leader.</p>
+                  <p className="text-sm text-muted-foreground">Start a new circle. You&apos;ll be the Squad Leader.</p>
                 </div>
                 <div className="space-y-3">
                   <Input
