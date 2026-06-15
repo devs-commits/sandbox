@@ -110,7 +110,7 @@ export const StudentSidebar = () => {
           .from("users")
           .select("track, subscription_status, subscription_expires_at, tasks_completed, progress_percentage, current_streak")
           .eq("auth_id", currentId)
-          .single();
+          .maybeSingle();
         
         if (usersError) {
           console.error("Sidebar: Supabase User Query Error:", usersError.message);

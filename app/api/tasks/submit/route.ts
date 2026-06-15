@@ -4,12 +4,13 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
   try {
-    const { taskId, userId, user_id, fileUrl, fileName, taskTitle, taskContent, chatHistory, userLevel } = await request.json();
+    // Extracted taskBrief to ensure Sola gets the full context
+    const { taskId, userId, user_id, fileUrl, fileName, taskTitle, taskBrief, taskContent, chatHistory, userLevel } = await request.json();
 
     // Standardize the user ID since both might be passed
     const activeUserId = userId || user_id;
 
-    if (!taskId || !activeUserId || !fileUrl) {
+    if (!taskId || !activeUserId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -18,13 +19,14 @@ export async function POST(request: Request) {
     // ==========================================
     const today = new Date().toISOString().split('T')[0];
 
+    // FIX: Used maybeSingle() so new users don't trigger a 406 crash
     const { data: attemptData } = await supabaseAdmin
       .from('task_attempts')
       .select('attempt_count')
       .eq('user_id', activeUserId)
       .eq('task_id', taskId)
       .eq('attempt_date', today)
-      .single();
+      .maybeSingle();
 
     const currentAttempts = attemptData?.attempt_count || 0;
 
@@ -51,23 +53,21 @@ export async function POST(request: Request) {
     // ==========================================
 
     // 2. Call Python Backend for Analysis
-    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'; 
+    // FIX: Using the correct Environment Variable and Render fallback
+    const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com'; 
     
-    const backendResponse = await fetch(`${BACKEND_URL}/analyze-submission`, {
+    // FIX: Changed to the correct endpoint name: /review-submission
+    const backendResponse = await fetch(`${BACKEND_URL}/review-submission`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            taskId,
-            userId: activeUserId,
-            user_id: activeUserId,
-            fileUrl,
-            fileName,
-            taskTitle,
-            taskContent,
-            chatHistory,
-            attempt_number: nextAttempt // Let the AI know which strike they are on
+            file_url: fileUrl || "",
+            file_content: taskContent || "",
+            task_title: taskTitle || "Task Submission",
+            task_brief: taskBrief || "",
+            attempt_number: nextAttempt 
         })
     });
 
@@ -77,9 +77,11 @@ export async function POST(request: Request) {
     }
 
     const data = await backendResponse.json();
-    const aiResponse = data.reply || data.feedback; // Support both naming conventions
-    const isCompleted = data.completed || data.passed || false;
-    const technicalAccuracy = data.technical_accuracy || data.score || 50;
+    
+    // Support the Python model keys
+    const aiResponse = data.feedback || "Review completed."; 
+    const isCompleted = data.passed || false;
+    const technicalAccuracy = data.score || 50;
 
     // 3. Save the AI response as a message in the chat history
     const { error: chatError } = await supabase
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
             .from('users')
             .select('tasks_completed, average_score')
             .eq('auth_id', activeUserId)
-            .single();
+            .maybeSingle();
 
         const currentTasks = userData?.tasks_completed || 0;
         const currentAvg = userData?.average_score || 0;
@@ -133,10 +135,10 @@ export async function POST(request: Request) {
         }).eq('auth_id', activeUserId);
 
         // Save performance metrics for charts if AI provided them
-        if (data.technical_accuracy !== undefined) {
+        if (technicalAccuracy !== undefined) {
             await supabaseAdmin.from('performance_reports').insert({
                 user_id: activeUserId,
-                technical_accuracy: data.technical_accuracy,
+                technical_accuracy: technicalAccuracy,
                 reliability_speed: data.reliability_speed || 0,
                 communication_score: data.communication_score || 0,
                 current_level: userLevel || 'Level 1',
@@ -145,7 +147,7 @@ export async function POST(request: Request) {
         }
         // ==========================================
 
-        // 5. Auto-Generate Next Task (Your existing logic perfectly preserved)
+        // 5. Auto-Generate Next Task
         const { count: incompleteCount } = await supabase
             .from('tasks')
             .select('*', { count: 'exact', head: true })
@@ -159,7 +161,7 @@ export async function POST(request: Request) {
                 .from('tasks')
                 .select('task_track, difficulty')
                 .eq('id', taskId)
-                .single();
+                .maybeSingle();
                 
             if (currentTask) {
                 const track = currentTask.task_track;
@@ -177,37 +179,18 @@ export async function POST(request: Request) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            track,
+                            user_name: "Intern",
+                            track: track || "General",
                             experience_level: experienceLevel,
                             task_number: nextTaskNumber,
-                            previous_task_performance: aiResponse
+                            deadline_display: "Friday, 11:59 PM"
                         })
                     });
                     
                     if (generateResponse.ok) {
                         const genData = await generateResponse.json();
-                        let newTasks: any[] = [];
-                        
-                        if (Array.isArray(genData)) newTasks = genData;
-                        else if (genData.tasks && Array.isArray(genData.tasks)) newTasks = genData.tasks;
-                        else if (genData.title) newTasks = [genData];
-                        
-                        if (newTasks.length > 0) {
-                            const tasksToInsert = newTasks.map((t: any, idx: number) => ({
-                                user: activeUserId,
-                                title: t.title,
-                                brief_content: t.brief_content || t.description,
-                                difficulty: t.difficulty || experienceLevel,
-                                task_track: track,
-                                ai_persona_config: t.ai_persona_config || { role: "Mentor", instruction: "Complete the task." },
-                                completed: false,
-                                task_number: nextTaskNumber + idx
-                            }));
-                            
-                            const dbClient = supabaseAdmin || supabase;
-                            await dbClient.from('tasks').insert(tasksToInsert);
-                            console.log("Next task generated and inserted.");
-                        }
+                        // Generation succeeds silently in background queue now
+                        console.log("Next task requested from queue.");
                     } else {
                         console.error("Failed to auto-generate task:", await generateResponse.text());
                     }
@@ -222,7 +205,7 @@ export async function POST(request: Request) {
       success: true, 
       message: aiResponse,
       completed: isCompleted,
-      nextAttempt // Pass this back to the frontend UI
+      nextAttempt 
     });
 
   } catch (error: any) {

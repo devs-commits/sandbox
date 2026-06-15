@@ -188,7 +188,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .from('user_progression')
           .select('*')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle(); // FIX: Changed from .single()
 
         if (!progError && progData) {
           setCurrentWeek(progData.current_week);
@@ -390,7 +390,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId)
           .order('assessment_date', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle(); // FIX: Changed from .single()
 
         if (error) {
           if (error.code !== 'PGRST116') console.error('Error fetching performance metrics:', error);
