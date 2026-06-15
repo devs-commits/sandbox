@@ -881,22 +881,24 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       const task = tasks.find(t => t.id === taskId);
 
       // Sending everything directly to our secure Next.js Backend route
+      // UPDATED: Now perfectly matches the Python Pydantic Schema
       const response = await fetch('/api/tasks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: userId,
-          taskId: taskId,
-          fileUrl: fileUrl || (file ? file.name : ''), 
-          fileName: file ? file.name : 'submission',
-          taskContent: notes, // Maps notes to what the backend expects
-          taskTitle: task?.title || 'Unknown Task',
-          taskBrief: task?.description || '',
-          chatHistory: chatMessages.slice(-5).map(m => ({
+          user_id: userId,
+          task_id: taskId,
+          file_url: fileUrl || (file ? file.name : ''), 
+          fileName: file ? file.name : 'submission', // Kept for Next.js proxy if needed
+          file_content: notes, // Fixed: Mapped notes to file_content
+          task_title: task?.title || 'Unknown Task',
+          task_brief: task?.description || '',
+          chat_history: chatMessages.slice(-5).map(m => ({
             role: m.agentName ? 'assistant' : 'user',
             content: m.message
           })),
-          userLevel: userLevel
+          userLevel: userLevel, // Kept for frontend metrics
+          attempt_number: 1 // Fixed: Added required 3-strike parameter
         })
       });
 
