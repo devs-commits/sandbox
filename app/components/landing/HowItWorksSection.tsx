@@ -86,7 +86,7 @@ export default function HowItWorksSection() {
           className="text-center"
         >
           <a
-            href="#pricing"
+            href="https://labs.wdc.ng/signup?promo=WDCLABS14"
             className="inline-flex items-center gap-2 px-8 sm:px-10 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-[0_0_20px_rgba(37,99,235,0.5)] transform hover:-translate-y-1"
           >
             Start Free Trial <ArrowRight className="w-5 h-5" />

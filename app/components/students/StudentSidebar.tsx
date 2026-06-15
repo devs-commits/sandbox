@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import {
-  LayoutGrid, Briefcase, FolderOpen, Wallet, Users, DollarSign,
+  LayoutGrid, Briefcase, FolderOpen, Wallet, DollarSign,
   Menu, X, Lock, Trophy, Target, Shield, BarChart3, Megaphone, Award,
 } from "lucide-react";
 
@@ -22,8 +22,13 @@ const navItems = [
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
-  { label: "Squad", icon: Users, path: "/student/squad" },
 ];
+
+const tourTargetByPath: Record<string, string> = {
+  "/student/office": "sidebar-office",
+  "/student/portfolio": "sidebar-portfolio",
+  "/student/wallet": "sidebar-wallet",
+};
 
 const GAMIFICATION_TRACKS = {
   "data-analytics": {
@@ -189,7 +194,11 @@ console.log("================================");
 
           if (isItemLocked) {
             return (
-              <div key={item.path} className="group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed">
+              <div
+                key={item.path}
+                data-tour={tourTargetByPath[item.path]}
+                className="group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-muted-foreground/40 cursor-not-allowed"
+              >
                 <div className="flex items-center gap-3"><item.icon size={18} className="opacity-40" /><span className="text-sm font-medium">{item.label}</span></div>
                 <Lock size={14} className="text-red-500/40" />
               </div>
@@ -197,7 +206,13 @@ console.log("================================");
           }
 
           return (
-            <Link key={item.path} href={item.path} onClick={() => setMobileOpen(false)} className={cn("flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors", isActive ? "bg-primary/20 text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent")}>
+            <Link
+              key={item.path}
+              href={item.path}
+              data-tour={tourTargetByPath[item.path]}
+              onClick={() => setMobileOpen(false)}
+              className={cn("flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors", isActive ? "bg-primary/20 text-primary" : "text-sidebar-foreground hover:bg-sidebar-accent")}
+            >
               <div className="flex items-center gap-3"><item.icon size={18} /><span className="text-sm font-medium">{item.label}</span></div>
               {item.id === "office" && completedTasksCount > 0 && (
                 <span className="bg-primary text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">{completedTasksCount}</span>
@@ -205,7 +220,12 @@ console.log("================================");
             </Link>
           );
         })}
-        <Link href="/student/earn" onClick={() => setMobileOpen(false)} className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mt-2", pathname === "/student/earn" ? "bg-green-500/20 text-green-400" : "text-green-400 bg-green-500/20 hover:bg-green-500/10")}>
+        <Link
+          href="/student/earn"
+          data-tour="sidebar-earn"
+          onClick={() => setMobileOpen(false)}
+          className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mt-2", pathname === "/student/earn" ? "bg-green-500/20 text-green-400" : "text-green-400 bg-green-500/20 hover:bg-green-500/10")}
+        >
           <DollarSign size={18} /><span className="text-sm font-medium">Earn Money</span>
         </Link>
       </nav>

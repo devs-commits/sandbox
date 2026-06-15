@@ -4,7 +4,7 @@ import { CheckCircle, X, Gift, Share2 } from "lucide-react"
 
 export default function PricingSection() {
   const shareLink = () => {
-    const text = `Good day Ma/Sir/Mentor. I have found a career accelerator called WDC Labs that guarantees work experience for global remote jobs. It is not just a course; it is a virtual internship. I need to secure my spot for 2026. The Career Accelerator Bundle is ₦45000. Can you please sponsor my future? Here is the payment link: https://labs.wdc.ng/signup`
+    const text = `Good day Ma/Sir/Mentor. I have found a career accelerator called WDC Labs that guarantees work experience for global remote jobs. It is not just a course; it is a virtual internship. I need to secure my spot for 2026. The Career Accelerator Bundle is ₦40,500. Can you please sponsor my future? Here is the payment link: https://labs.wdc.ng/signup`
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => {
         alert("Message copied to clipboard! \n\nNow open WhatsApp and paste it to your Mentor, Uncle, or Sponsor.")
@@ -48,7 +48,7 @@ export default function PricingSection() {
             <div className="mb-4">
               <h3 className="text-lg sm:text-xl font-bold text-blue-400 mb-1">Career Accelerator</h3>
               <p className="text-[10px] sm:text-xs text-slate-400 line-through mb-1">Traditional Value: ₦500,000</p>
-              <div className="flex items-baseline gap-1"><span className="text-3xl sm:text-4xl font-extrabold text-white">₦45,000</span><span className="text-slate-400 font-medium text-xs sm:text-sm">/ 3 months</span></div>
+              <div className="flex items-baseline gap-1"><span className="text-3xl sm:text-4xl font-extrabold text-white">₦40,500</span><span className="text-slate-400 font-medium text-xs sm:text-sm">/ 3 months</span></div>
             </div>
             <ul className="space-y-3 mb-8 text-slate-200 text-sm font-medium flex-grow">
               <li className="flex items-start gap-3"><CheckCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" /> Everything in Monthly</li>

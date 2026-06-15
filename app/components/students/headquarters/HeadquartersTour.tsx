@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { useHeadquarters } from '@/app/contexts/HeadquartersContext';
 import { AgentAvatar } from '../office/AgentAvatar';
@@ -25,11 +25,6 @@ const TOUR_STEPS = [
     description: 'Track your referral earnings, fund your subscription, and manage withdrawals. Your referral bonuses and wallet balance are managed here.',
   },
   {
-    target: 'sidebar-squad',
-    title: 'Squad',
-    description: 'Collaborate with other interns, join teams, and leverage community support. You grow faster together with your squad.',
-  },
-  {
     target: 'sidebar-earn',
     title: 'Earn Money',
     description: 'Unlock additional income streams through referrals and bonus opportunities. Share your progress with friends and earn more.',
@@ -42,7 +37,7 @@ const TOUR_STEPS = [
   {
     target: 'hq-letters',
     title: 'Reference Letters',
-    description: 'Maintain your active streak to unlock work and visa reference letters. Complete 12 weeks for the Work Letter and 24 weeks for the Visa Letter which is essential for immigration and job applications.',
+    description: 'Complete 12 weeks for the Work Letter and 24 weeks for the Visa Letter which is essential for immigration and job applications.',
   },
 ];
 
@@ -160,9 +155,9 @@ export function HeadquartersTour() {
   const { tourStep, setTourStep, completeTour, cancelTour, isTourActive } = useHeadquarters();
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
-  const [placement, setPlacement] = useState<'right' | 'bottom' | 'top'>('right');
   
-  const isSidebarStep = tourStep < 5;
+  const currentStep = TOUR_STEPS[tourStep] ?? TOUR_STEPS[TOUR_STEPS.length - 1];
+  const isSidebarStep = currentStep.target.startsWith('sidebar-');
   const isMobile = typeof window !== 'undefined' && window.innerWidth < TOUR_CONFIG.MOBILE_BREAKPOINT;
   
   const isMeasuringRef = useRef(false);
@@ -175,7 +170,6 @@ export function HeadquartersTour() {
     skipExternalEventsRef.current = true;
 
     try {
-      const currentStep = TOUR_STEPS[tourStep];
       let element = findVisibleTarget(`[data-tour="${currentStep.target}"]`);
       
       if (!element && isSidebarStep && isMobile) {
@@ -190,6 +184,9 @@ export function HeadquartersTour() {
       }
       
       if (!element) {
+        if (isSidebarStep && isMobile) {
+          dispatchSidebarEvent('close');
+        }
         setTargetRect(null);
         setTooltipPos(null);
         return;
@@ -212,7 +209,7 @@ export function HeadquartersTour() {
 
       setTargetRect(rect);
 
-      const { pos, placement: newPlacement } = calculateTooltipPosition(
+      const { pos } = calculateTooltipPosition(
         rect,
         isSidebarStep,
         TOUR_CONFIG.TOOLTIP_WIDTH,
@@ -220,7 +217,6 @@ export function HeadquartersTour() {
       );
 
       setTooltipPos(pos);
-      setPlacement(newPlacement);
     } finally {
       isMeasuringRef.current = false;
       skipExternalEventsTimeoutRef.current = setTimeout(() => {
@@ -283,8 +279,6 @@ export function HeadquartersTour() {
     dispatchSidebarEvent('close');
     cancelTour();
   };
-
-  const currentStep = TOUR_STEPS[tourStep];
 
   return (
     <AnimatePresence>
