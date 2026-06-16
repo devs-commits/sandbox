@@ -53,21 +53,22 @@ export async function POST(request: Request) {
     // ==========================================
 
     // 2. Call Python Backend for Analysis
-    // FIX: Using the correct Environment Variable and Render fallback
     const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com'; 
     
-    // FIX: Changed to the correct endpoint name: /review-submission
     const backendResponse = await fetch(`${BACKEND_URL}/review-submission`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+            user_id: activeUserId,           // Added: Required by Pydantic
+            task_id: taskId,                 // Added: Required by Pydantic
             file_url: fileUrl || "",
             file_content: taskContent || "",
             task_title: taskTitle || "Task Submission",
             task_brief: taskBrief || "",
-            attempt_number: nextAttempt 
+            chat_history: chatHistory || [], // Added: Crucial for Sola's context
+            attempt_number: nextAttempt      // Passed securely from your DB check
         })
     });
 

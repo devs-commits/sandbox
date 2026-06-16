@@ -64,7 +64,7 @@ const defaultState: PersistedState = {
 
 export function OfficeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const router = useRouter(); // FIX: Initialized the Next.js router
+  const router = useRouter(); 
 
   const [phase, setPhaseState] = useState<OfficePhase>('lobby');
   const [userLevel, setUserLevel] = useState<UserLevel | null>(null);
@@ -104,6 +104,13 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [weekStatus, setWeekStatus] = useState<'in_progress' | 'passed_waiting'>('in_progress');
   const [nextUnlockDate, setNextUnlockDate] = useState<string | null>(null);
   const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
+
+  // ==========================================
+  // GLOBALLY SCOPED FUNCTIONS (FIXED)
+  // ==========================================
+  const addChatMessage = useCallback((message: ChatMessage) => {
+    setChatMessages(prev => [...prev, message]);
+  }, []);
 
   const mapResources = useCallback((resources?: any): ArchiveItem[] => {
     if (!resources) return [];
@@ -148,6 +155,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     return `office-chat-${userId}-${today}`;
   }, [userId]);
 
+  // ==========================================
+  // CHAT PERSISTENCE & SESSION CLEANUP
+  // ==========================================
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const key = getDailyChatKey();
@@ -179,6 +189,17 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(key, JSON.stringify(chatMessages));
   }, [chatMessages, hasRestoredChat, getDailyChatKey]);
 
+  // Session Cleanup on Logout (Fixes Ghost Chat History)
+  useEffect(() => {
+    if (!userId) {
+      setChatMessages([]);
+      setHasRestoredChat(false);
+    }
+  }, [userId]);
+
+  // ==========================================
+  // DATA FETCHING
+  // ==========================================
   useEffect(() => {
     const fetchGamificationData = async () => {
       if (!userId) return;
@@ -188,7 +209,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .from('user_progression')
           .select('*')
           .eq('user_id', userId)
-          .maybeSingle(); // FIX: Changed from .single()
+          .maybeSingle(); 
 
         if (!progError && progData) {
           setCurrentWeek(progData.current_week);
@@ -286,6 +307,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchTasks();
   }, [userId, trackName, isFirstTask, mapResources]);
 
+  // ==========================================
+  // REALTIME TASK LISTENER (SUPABASE)
+  // ==========================================
   useEffect(() => {
     if (!userId) return;
 
@@ -293,19 +317,55 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       .channel('realtime-tasks')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `user=eq.${userId}` },
+        // Now listening to all events (*) to catch INSERTs from Python Background Queue
+        { event: '*', schema: 'public', table: 'tasks', filter: `user=eq.${userId}` },
         (payload) => {
-          setTasks(prevTasks => prevTasks.map(task => {
-            if (task.id === payload.new.id.toString()) {
-              return {
-                ...task,
-                resources: mapResources(payload.new.resources), 
-                completed: payload.new.completed,
-                status: payload.new.completed ? 'approved' : task.status
-              };
-            }
-            return task;
-          }));
+          if (payload.eventType === 'INSERT') {
+            const t = payload.new;
+            const newTask: Task = {
+              id: t.id.toString(),
+              title: t.title,
+              description: t.brief_content,
+              type: t.task_track || trackName,
+              deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
+              status: t.completed ? 'approved' : t.status || 'pending',
+              attachments: t.attachments || [],
+              clientConstraints: t.client_constraints || undefined,
+              resources: mapResources(t.resources),
+              difficulty: t.difficulty,
+              week: t.task_number || t.week 
+            };
+
+            setTasks(prev => {
+              if (prev.some(task => task.id === newTask.id)) return prev;
+              return [...prev, newTask];
+            });
+            setCurrentTask(newTask);
+
+            // Successfully received! Turn off generation spinner.
+            setIsGeneratingTask(false);
+            setGenerationStatusText("Fetch Missing Task");
+
+            addChatMessage({
+              id: Date.now().toString(),
+              agentName: 'Emem',
+              message: `Task: "${newTask.title}"\nDeadline: ${newTask.deadline}\nCheck your desk. The resources have been prepared for you.`,
+              timestamp: new Date()
+            });
+
+          } else if (payload.eventType === 'UPDATE') {
+            setTasks(prevTasks => prevTasks.map(task => {
+              if (task.id === payload.new.id.toString()) {
+                return {
+                  ...task,
+                  resources: mapResources(payload.new.resources), 
+                  completed: payload.new.completed,
+                  status: payload.new.completed ? 'approved' : task.status
+                };
+              }
+              return task;
+            }));
+          }
         }
       )
       .subscribe();
@@ -313,7 +373,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(taskSubscription);
     };
-  }, [userId, mapResources]);
+  }, [userId, mapResources, trackName, addChatMessage]);
 
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
@@ -341,7 +401,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error('Error fetching onboarding state:', error);
           if (error.code === 'PGRST116') {
-            router.push('/login'); // FIX: Lightning-fast client-side routing
+            router.push('/login'); 
             return;
           }
         } else if (data) {
@@ -390,7 +450,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId)
           .order('assessment_date', { ascending: false })
           .limit(1)
-          .maybeSingle(); // FIX: Changed from .single()
+          .maybeSingle(); 
 
         if (error) {
           if (error.code !== 'PGRST116') console.error('Error fetching performance metrics:', error);
@@ -479,7 +539,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const setPhase = useCallback((newPhase: OfficePhase) => setPhaseState(newPhase), []);
-  const addChatMessage = useCallback((message: ChatMessage) => setChatMessages(prev => [...prev, message]), []);
 
   const updateTaskStatus = useCallback(async (taskId: string, status: Task['status']) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
@@ -654,6 +713,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     setShowToluWelcome(true);
   }, [trackName, addChatMessage, userId, persistState]);
 
+  // ==========================================
+  // GENERATE TASK (ASYNC QUEUE READY)
+  // ==========================================
   const generateTask = useCallback(async () => {
     const hasActiveTask = tasks.some(t => 
       t.difficulty !== 'Bounty' && 
@@ -746,83 +808,29 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           user_id: userId,
           user_name: user?.fullName,
           track: trackName.toLowerCase().replace(/[- ]/g, "_"),
-          deadline_display: "", 
-          experience_level: "",
-          difficulty: "intermediate",
           task_number: currentWeek, 
-          user_city: "Lagos",
-          include_ethical_trap: false,
-          model: "",
+          difficulty: "intermediate",
           include_video_brief: true
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.tasks && data.tasks.length > 0) {
-          const generatedTask = data.tasks[0];
-          const displayDeadline = generatedTask.ai_persona_config?.deadline_display || generatedTask.deadline_display || generatedTask.deadline || "Flexible";
+      if (!response.ok) throw new Error("API Failure");
 
-          const newTask: Task = {
-            id: generatedTask.id?.toString() || Date.now().toString(),
-            title: generatedTask.title,
-            description: generatedTask.brief_content,
-            type: trackName,
-            deadline: displayDeadline, 
-            status: 'pending',
-            attachments: generatedTask.attachments || [],
-            clientConstraints: generatedTask.client_constraints,
-            resources: mapResources(generatedTask.resources),
-            week: currentWeek 
-          };
+      // We do NOT stop the spinner or insert the task here anymore.
+      // We rely entirely on the Supabase Realtime Listener (above) to catch the DB insert.
 
-          setTasks(prev => [...prev, newTask]);
-
-          addChatMessage({
-            id: (Date.now() + 1).toString(),
-            agentName: 'Emem',
-            message: `Task: "${newTask.title}"\nDeadline: ${displayDeadline}\nEnsure to submit on or before the deadline elapses.\nThere are some reference materials that could assist you during this task, they are given below your task brief in desk.`,
-            timestamp: new Date(),
-          });
-        }
-      } else {
-        const fallbackTaskData = {
-          user: userId, title: 'Data Cleansing: Lagos Tech Hub Sales', brief_content: 'Find and fix 3 anomalies in the sales data.',
-          task_track: trackName || 'General', difficulty: 'intermediate', completed: false, resources: [],
-        };
-
-        let fallbackId = Date.now().toString();
-        try {
-          if (userId) {
-            const { data: inserted } = await supabase.from('tasks').insert(fallbackTaskData).select('id').single();
-            if (inserted?.id) fallbackId = inserted.id.toString();
-          }
-        } catch (persistErr) {}
-
-        const mockTask: Task = {
-          id: fallbackId, title: fallbackTaskData.title, description: fallbackTaskData.brief_content,
-          type: fallbackTaskData.task_track, deadline: 'Due in 24 hrs', status: 'pending',
-          attachments: ['sales_data.csv'], clientConstraints: 'Must use Python. No external libraries except pandas.',
-          resources: [],
-          week: currentWeek
-        };
-
-        setTasks(prev => [...prev, mockTask]);
-        addChatMessage({
-          id: (Date.now() + 1).toString(), agentName: 'Emem', message: `Task: "${mockTask.title}"\nDeadline: ${mockTask.deadline}\n\nGet it done.`, timestamp: new Date(),
-        });
-      }
     } catch (error) {
-      console.error('Task generation failed:', error);
-      const mockTask: Task = {
-        id: Date.now().toString(), title: 'Offline Task Assignment', description: 'Connection issue. Please refresh.',
-        type: trackName || 'General', deadline: 'TBD', status: 'pending', attachments: [], resources: [], week: currentWeek
-      };
-      setTasks(prev => [...prev, mockTask]);
-    } finally {
+      console.error('Task queue failed:', error);
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
+      
+      addChatMessage({
+        id: Date.now().toString(),
+        agentName: 'Emem',
+        message: "Connection issue. The system couldn't reach the queue. Please try again.",
+        timestamp: new Date()
+      });
     }
 
     if (isFirstTask) {
@@ -844,7 +852,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     completeOnboarding();
   }, [completeOnboarding]);
 
-  // FIX: SECURE SUBMISSION ROUTING (No Front-End DB calculations & No Local Storage Rate Limits)
+  // ==========================================
+  // SUBMIT WORK (FORTIFIED)
+  // ==========================================
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     setIsExpanded(true);
     updateTaskStatus(taskId, 'submitted');
@@ -880,8 +890,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       const task = tasks.find(t => t.id === taskId);
 
-      // Sending everything directly to our secure Next.js Backend route
-      // UPDATED: Now perfectly matches the Python Pydantic Schema
+      // Sending perfectly formatted JSON to bypass 422 Unprocessable Content errors
       const response = await fetch('/api/tasks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -889,16 +898,16 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           user_id: userId,
           task_id: taskId,
           file_url: fileUrl || (file ? file.name : ''), 
-          fileName: file ? file.name : 'submission', // Kept for Next.js proxy if needed
-          file_content: notes, // Fixed: Mapped notes to file_content
+          fileName: file ? file.name : 'submission',
+          file_content: notes, 
           task_title: task?.title || 'Unknown Task',
           task_brief: task?.description || '',
           chat_history: chatMessages.slice(-5).map(m => ({
             role: m.agentName ? 'assistant' : 'user',
             content: m.message
           })),
-          userLevel: userLevel, // Kept for frontend metrics
-          attempt_number: 1 // Fixed: Added required 3-strike parameter
+          userLevel: userLevel, 
+          attempt_number: 1 // Required for 3-strike Python model
         })
       });
 
@@ -912,6 +921,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             message: data.message,
             timestamp: new Date(),
          });
+         updateTaskStatus(taskId, 'pending');
          return;
       }
 
@@ -926,7 +936,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         if (data.completed || data.passed) {
           updateTaskStatus(taskId, 'approved');
 
-          // Setting UI metrics only (The backend already securely saved the numbers to DB!)
           if (data.technical_accuracy !== undefined) {
             setPerformanceMetrics({
               technicalAccuracy: data.technical_accuracy,
@@ -954,13 +963,18 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           updateTaskStatus(taskId, 'rejected');
         }
       } else {
-        throw new Error("API Failure");
+        throw new Error("API Failure: " + (data.message || response.statusText));
       }
     } catch (error) {
       console.error('Submission review failed:', error);
       addChatMessage({
-        id: (Date.now() + 1).toString(), agentName: 'Sola', message: "Connection issue. Please check if the system is running and resubmit.", timestamp: new Date(),
+        id: (Date.now() + 1).toString(), 
+        agentName: 'Sola', 
+        message: "Connection issue. Please check if the system is running and resubmit.", 
+        timestamp: new Date(),
       });
+      // Revert status to allow re-submission if connection drops
+      updateTaskStatus(taskId, 'pending');
     }
   }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel, setIsExpanded]);
 
