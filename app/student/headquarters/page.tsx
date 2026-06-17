@@ -14,40 +14,43 @@ import { ReferenceLetterTemplate, type LetterData } from "../../components/lette
 import { HeadquartersProvider } from "../../contexts/HeadquartersContext";
 import { HeadquartersTour } from "../../components/students/headquarters/HeadquartersTour";
 
+const buildCandidateId = (fullName: string) => {
+  const initials = fullName
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase();
+
+  return `WDC-${new Date().getFullYear()}-${initials || "WDC"}${Math.floor(1000 + Math.random() * 9000)}`;
+};
+
 function HeadquartersContent() {
   const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [streak, setStreak] = useState(0);
-  const [weeksCompleted, setWeeksCompleted] = useState(0);
   const [tasksCompleted, setTasksCompleted] = useState(0);
-  const [downloading, setDownloading] = useState(false);
+  const [downloadingWork, setDownloadingWork] = useState(false);
+  const [downloadingVisa, setDownloadingVisa] = useState(false);
   const [letterData, setLetterData] = useState<LetterData | null>(null);
-  const [shouldDownload, setShouldDownload] = useState(false);
-  const [downloadFileName, setDownloadFileName] = useState<string>("");
+  const [downloadRequest, setDownloadRequest] = useState<{ fileName: string } | null>(null);
   const letterRef = useRef<HTMLDivElement>(null);
-  const weeksRemaining12 = Math.max(12 - weeksCompleted, 0);
-  const weeksRemaining24 = Math.max(24 - weeksCompleted, 0);
+  const tasksRemaining12 = Math.max(12 - tasksCompleted, 0);
+  const tasksRemaining24 = Math.max(24 - tasksCompleted, 0);
 
   const fetchUserData = async () => {
     if (!user) return;
     try {
       const { data: userData, error } = await supabase
         .from("users")
-        .select("created_at, tasks_completed")
+        .select("tasks_completed")
         .eq("auth_id", user.id)
         .single();
 
       if (error) {
         console.error("Error fetching user data:", error);
         return;
-      }
-
-      if (userData?.created_at) {
-        const weeksSinceJoining = Math.floor(
-          (new Date().getTime() - new Date(userData.created_at).getTime()) / (1000 * 60 * 60 * 24 * 7)
-        );
-        setWeeksCompleted(weeksSinceJoining);
       }
 
       if (userData?.tasks_completed !== undefined) {
@@ -81,23 +84,38 @@ function HeadquartersContent() {
 
   // Handle download after letterData is set and component is rendered
   useEffect(() => {
+    if (!downloadRequest || !letterData) return;
+
+    let cancelled = false;
+
     const performDownload = async () => {
-      if (shouldDownload && letterRef.current && downloadFileName) {
-        try {
-          await downloadLetterFromElement(letterRef.current, downloadFileName);
-          toast.success("Letter downloaded successfully!");
-        } catch (error) {
-          console.error("Error downloading letter:", error);
-          toast.error("Failed to generate letter");
-        } finally {
-          setDownloading(false);
-          setShouldDownload(false);
-          setDownloadFileName("");
+      try {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        if (!letterRef.current) {
+          throw new Error("Letter template did not render before download");
+        }
+
+        await downloadLetterFromElement(letterRef.current, downloadRequest.fileName);
+        toast.success("Letter downloaded successfully!");
+      } catch (error) {
+        console.error("Error downloading letter:", error);
+        toast.error("Failed to generate letter");
+      } finally {
+        if (!cancelled) {
+          setDownloadingWork(false);
+          setDownloadingVisa(false);
+          setDownloadRequest(null);
         }
       }
     };
+
     performDownload();
-  }, [shouldDownload, letterRef, downloadFileName]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [downloadRequest, letterData]);
 
   useEffect(() => {
     fetchUserData();
@@ -106,9 +124,9 @@ function HeadquartersContent() {
 
   const handleDownloadLetter = async (type: "work" | "visa") => {
     const letterType: LetterType = type === "work" ? "12week" : "24week";
-    const requiredWeeks = type === "work" ? 12 : 24;
-    if (weeksCompleted < requiredWeeks) {
-      toast.error("Requirements not met", { description: `You need ${requiredWeeks} weeks to unlock the ${type === "work" ? "Work" : "Visa"} letter.` });
+    const requiredTasks = type === "work" ? 12 : 24;
+    if (tasksCompleted < requiredTasks) {
+      toast.error("Requirements not met", { description: `You need ${requiredTasks} tasks to unlock the ${type === "work" ? "Work" : "Visa"} letter.` });
       return;
     }
     if (!user) {
@@ -116,29 +134,40 @@ function HeadquartersContent() {
       return;
     }
     try {
-      setDownloading(true);
+      if (type === "work") {
+        setDownloadingWork(true);
+      } else {
+        setDownloadingVisa(true);
+      }
       const { data: userData } = await supabase.from("users").select("full_name, track").eq("auth_id", user.id).single();
       if (!userData?.full_name) {
         toast.error("User data not found");
-        setDownloading(false);
+        if (type === "work") {
+          setDownloadingWork(false);
+        } else {
+          setDownloadingVisa(false);
+        }
         return;
       }
       const newLetterData: LetterData = {
         fullName: userData.full_name,
         track: userData.track || "digital-marketing",
         type: letterType,
-        candidateId: undefined,
+        candidateId: buildCandidateId(userData.full_name),
         jobTitle: undefined,
         projects: undefined,
       };
       const fileName = buildLetterFileName(newLetterData.fullName, newLetterData.track || "digital-marketing", letterType);
       setLetterData(newLetterData);
-      setDownloadFileName(fileName);
-      setShouldDownload(true);
+      setDownloadRequest({ fileName });
     } catch (error) {
       console.error("Error generating letter:", error);
       toast.error("Failed to generate letter");
-      setDownloading(false);
+      if (type === "work") {
+        setDownloadingWork(false);
+      } else {
+        setDownloadingVisa(false);
+      }
     }
   };
 
@@ -180,7 +209,7 @@ function HeadquartersContent() {
               <FileText className="text-purple-400" size={20} />
               <div>
                 <h2 className="text-lg font-semibold">Work and Visa Reference Letters</h2>
-                <p className="text-sm text-muted-foreground">Maintain your 12-weeks active streak to unlock verified immigration references.</p>
+                <p className="text-sm text-muted-foreground">Complete tasks to unlock verified immigration references.</p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-medium">
@@ -191,27 +220,26 @@ function HeadquartersContent() {
           <div className="mb-6">
             <div className="relative w-full bg-muted rounded-full h-2 overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_3s_ease-in-out_infinite]" />
-              <div className="bg-purple-600 h-2 rounded-full transition-all duration-700 ease-out relative" style={{ width: `${Math.min((weeksCompleted / 24) * 100, 100)}%` }} />
+              <div className="bg-purple-600 h-2 rounded-full transition-all duration-700 ease-out relative" style={{ width: `${Math.min((tasksCompleted / 24) * 100, 100)}%` }} />
               <div className={`absolute top-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 ${
-                weeksCompleted >= 12
+                tasksCompleted >= 12
                   ? "bg-green-500 border-white scale-110 shadow-lg"
-                  : weeksCompleted >= 8
+                  : tasksCompleted >= 8
                   ? "bg-purple-500 border-white animate-pulse shadow-md"
                   : "bg-purple-400 border-purple-600"
               }`} style={{ left: "50%", transform: "translate(-50%, -50%)" }} title={
-                weeksCompleted >= 12
+                tasksCompleted >= 12
                   ? "🎉 Work Letter Unlocked!"
-                  : `${12 - weeksCompleted} more week(s) to unlock`
+                  : `${12 - tasksCompleted} more task(s) to unlock`
               } />
             </div>
             <div className="relative mt-3 text-[10px] sm:text-xs text-muted-foreground">
-              <p className="absolute left-0 max-w-[30%] truncate">{weeksCompleted}/24 Weeks</p>
-              <p className="absolute left-1/2 -translate-x-1/2 text-center max-w-[30%] truncate">🎯 12 Weeks</p>
-              <p className="absolute right-0 max-w-[30%] text-right truncate">24 Weeks</p>
+              <p className="absolute left-0 max-w-[30%] truncate">{tasksCompleted}/24 Tasks</p>
+              <p className="absolute left-1/2 -translate-x-1/2 text-center max-w-[30%] truncate">🎯 12 Tasks</p>
+              <p className="absolute right-0 max-w-[30%] text-right truncate">24 Tasks</p>
             </div>
             <div className="mt-6 text-xs text-center text-purple-400">
-              {weeksCompleted < 12
-                // ? `${12 - weeksCompleted} week${12 - weeksCompleted > 1 ? "s" : ""} to unlock your Work Letter`
+              {tasksCompleted < 12
                 ? ""
                 : "🎉 Work Letter unlocked. Download now!"}
             </div>
@@ -222,21 +250,21 @@ function HeadquartersContent() {
                 <FileText size={20} />
                 <div>
                   <p className="text-sm font-semibold">WORK LETTER OF REFERENCE</p>
-                  <p className={`text-xs flex items-center gap-1 ${weeksRemaining12 > 0 ? "text-orange-400" : "text-green-400"}`}>
-                    {weeksRemaining12 > 0
-                      ? `Available in ${weeksRemaining12} week${weeksRemaining12 > 1 ? "s" : ""}`
+                  <p className={`text-xs flex items-center gap-1 ${tasksRemaining12 > 0 ? "text-orange-400" : "text-green-400"}`}>
+                    {tasksRemaining12 > 0
+                      ? `Available in ${tasksRemaining12} task${tasksRemaining12 > 1 ? "s" : ""}`
                       : <><CheckCircle size={14}/> Ready for Download</>
                     }
                   </p>
                 </div>
               </div>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={() => handleDownloadLetter("work")}
-                disabled={weeksRemaining12 > 0}
-                className={weeksRemaining12 > 0 ? "opacity-50 cursor-not-allowed" : ""}
+                disabled={tasksRemaining12 > 0 || downloadingWork}
+                className={tasksRemaining12 > 0 ? "opacity-50 cursor-not-allowed" : ""}
               >
-                {downloading ? <Loader2 size={14} className="animate-spin"/> : <Download size={14}/>}
+                {downloadingWork ? <Loader2 size={14} className="animate-spin"/> : <Download size={14}/>}
                 Download
               </Button>
             </div>
@@ -245,21 +273,21 @@ function HeadquartersContent() {
                 <FileText size={20} />
                 <div>
                   <p className="text-sm font-semibold">VISA LETTER OF REFERENCE</p>
-                  <p className={`text-xs flex items-center gap-1 ${weeksRemaining24 > 0 ? "text-orange-400" : "text-green-400"}`}>
-                    {weeksRemaining24 > 0
-                      ? `Available in ${weeksRemaining24} week${weeksRemaining24 > 1 ? "s" : ""}`
+                  <p className={`text-xs flex items-center gap-1 ${tasksRemaining24 > 0 ? "text-orange-400" : "text-green-400"}`}>
+                    {tasksRemaining24 > 0
+                      ? `Available in ${tasksRemaining24} task${tasksRemaining24 > 1 ? "s" : ""}`
                       : <><CheckCircle size={14}/> Ready for Download</>
                     }
                   </p>
                 </div>
               </div>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={() => handleDownloadLetter("visa")}
-                disabled={weeksRemaining24 > 0}
-                className={weeksRemaining24 > 0 ? "opacity-50 cursor-not-allowed" : ""}
+                disabled={tasksRemaining24 > 0 || downloadingVisa}
+                className={tasksRemaining24 > 0 ? "opacity-50 cursor-not-allowed" : ""}
               >
-                {downloading ? <Loader2 size={14} className="animate-spin"/> : <Download size={14}/>}
+                {downloadingVisa ? <Loader2 size={14} className="animate-spin"/> : <Download size={14}/>}
                 Download
               </Button>
             </div>

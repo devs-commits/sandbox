@@ -8,13 +8,13 @@ export function WhatsAppSupport() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
       <div
         className={cn(
           "w-[calc(100vw-2rem)] max-w-80 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 origin-bottom-right",
           "border border-border/50 backdrop-blur-xl",
           isOpen
-            ? "scale-100 opacity-100 translate-y-0"
+            ? "scale-100 opacity-100 translate-y-0 pointer-events-auto"
             : "scale-90 opacity-0 translate-y-4 pointer-events-none"
         )}
       >
@@ -48,7 +48,7 @@ export function WhatsAppSupport() {
 
         <div className="bg-card p-4 space-y-3">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Got questions about tasks, portfolio or your account? Jump into our community. We're happy to help.
+            Got questions about tasks, portfolio or your account? Jump into our community. We&rsquo;re happy to help.
           </p>
 
           {/* CTA Button */}
@@ -72,7 +72,7 @@ export function WhatsAppSupport() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "group relative w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95",
+          "group relative w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 pointer-events-auto",
           isOpen
             ? "bg-card border border-border rotate-0"
             : "hover:shadow-[0_4px_24px_rgba(37,211,102,0.35)]"

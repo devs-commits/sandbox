@@ -36,13 +36,13 @@ export const ReferenceLetterTemplate = forwardRef<HTMLDivElement, Props>(
       year: "numeric",
     });
     const year = new Date().getFullYear();
-    const candidateId =
-      data.candidateId ||
-      `WDC-${year}-${data.fullName
-        .split(" ")
-        .map((p) => p[0])
-        .join("")
-        .toUpperCase()}${Math.floor(1000 + Math.random() * 9000)}`;
+    const initials = data.fullName
+      .split(" ")
+      .map((p) => p[0])
+      .filter(Boolean)
+      .join("")
+      .toUpperCase();
+    const candidateId = data.candidateId || `WDC-${year}-${initials || "WDC"}0000`;
 
     const track = data.track || "Digital Marketing";
     const formattedTrack = track
@@ -114,7 +114,15 @@ export const ReferenceLetterTemplate = forwardRef<HTMLDivElement, Props>(
     const verifyUrl = `https://wdc.com.ng/verify/${candidateId}`;
 
     useEffect(() => {
-      QRCode.toDataURL(verifyUrl, { margin: 1, width: 160 }).then(setQrUrl);
+      let cancelled = false;
+
+      QRCode.toDataURL(verifyUrl, { margin: 1, width: 160 }).then((url) => {
+        if (!cancelled) setQrUrl(url);
+      });
+
+      return () => {
+        cancelled = true;
+      };
     }, [verifyUrl]);
 
     return (
@@ -274,7 +282,7 @@ export const ReferenceLetterTemplate = forwardRef<HTMLDivElement, Props>(
                   I am writing to formally endorse <strong>{data.fullName}</strong> as an individual of exceptional promise and demonstrated technical capability within the global digital technology sector.
                 </p>
                 <p style={{ marginTop: "12px" }}>
-                  As the Chief Executive Officer of Wild Fusion Digital Centre (WDC Labs), one of Africa's leading digital technology institutes accredited by the American Council of Training and Development (ACTD), I have overseen the training, assessment, and professional development of thousands of technology professionals across multiple disciplines. Based on this experience, I can state with confidence that {firstName} represents the upper tier of emerging global technology talent.
+                  As the Chief Executive Officer of Wild Fusion Digital Centre (WDC Labs), one of Africa&rsquo;s leading digital technology institutes accredited by the American Council of Training and Development (ACTD), I have overseen the training, assessment, and professional development of thousands of technology professionals across multiple disciplines. Based on this experience, I can state with confidence that {firstName} represents the upper tier of emerging global technology talent.
                 </p>
                 <p style={{ marginTop: "12px" }}>
                   <strong>{firstName}</strong> successfully completed our highly selective WDC Labs Tech Accelerator, an advanced, simulation-driven program designed to replicate real-world corporate and enterprise-level technical environments.
@@ -339,10 +347,10 @@ export const ReferenceLetterTemplate = forwardRef<HTMLDivElement, Props>(
                   The competencies demonstrated by <strong>{firstName}</strong> are highly specialized, globally transferable, and in strong demand across modern digital economies. Their ability to independently execute complex technical mandates positions them as an immediate contributor to any advanced technology ecosystem.
                 </p>
                 <p style={{ marginTop: "12px" }}>
-                  I endorse <strong>{firstName}</strong> without reservation. They possess a rare combination of technical rigor, innovative thinking, and professional resilience. These qualities are essential for driving meaningful impact within your country's technology sector.
+                  I endorse <strong>{firstName}</strong> without reservation. They possess a rare combination of technical rigor, innovative thinking, and professional resilience. These qualities are essential for driving meaningful impact within your country&rsquo;s technology sector.
                 </p>
                 {/* <p style={{ marginTop: "12px" }}>
-                  This endorsement, along with the candidate's portfolio and performance records, can be independently verified through our official channels using the reference number provided above.
+                  This endorsement, along with the candidate&rsquo;s portfolio and performance records, can be independently verified through our official channels using the reference number provided above.
                 </p> */}
               </>
             ) : (
