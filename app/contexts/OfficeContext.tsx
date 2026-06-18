@@ -55,13 +55,6 @@ interface OfficeContextType extends OfficeState {
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
 
-const defaultState: PersistedState = {
-  hasCompletedOnboarding: false,
-  hasCompletedTour: false,
-  userLevel: null,
-  isFirstTask: true
-};
-
 export function OfficeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const router = useRouter(); 
@@ -73,6 +66,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [bounties, setBounties] = useState<Bounty[]>([]); 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [hasRestoredChat, setHasRestoredChat] = useState(false);
+  const [restoredUserId, setRestoredUserId] = useState<string | null>(null); // 🔥 Anti-Ghost Leak Lock
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
   const [tourStep, setTourStep] = useState(0);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -106,7 +100,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
 
   // ==========================================
-  // GLOBALLY SCOPED FUNCTIONS (FIXED)
+  // GLOBALLY SCOPED FUNCTIONS
   // ==========================================
   const addChatMessage = useCallback((message: ChatMessage) => {
     setChatMessages(prev => [...prev, message]);
@@ -149,21 +143,23 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     return [];
   }, []);
 
-  const getDailyChatKey = useCallback(() => {
-    if (!userId) return null;
-    const today = new Date().toISOString().split('T')[0];
-    return `office-chat-${userId}-${today}`;
-  }, [userId]);
-
   // ==========================================
-  // CHAT PERSISTENCE & SESSION CLEANUP
+  // CHAT PERSISTENCE & GHOST CLEANUP
   // ==========================================
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const key = getDailyChatKey();
-    if (!key) return;
+    
+    if (!userId) {
+      // 100% hard wipe on logout
+      setChatMessages([]);
+      setHasRestoredChat(false);
+      setRestoredUserId(null);
+      return;
+    }
 
+    const key = `office-chat-${userId}-${new Date().toISOString().split('T')[0]}`;
     const stored = localStorage.getItem(key);
+
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -175,27 +171,21 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("Failed to restore chat history:", err);
       }
+    } else {
+        // Force an empty array for a brand new user
+        setChatMessages([]);
     }
+
     setHasRestoredChat(true);
-  }, [getDailyChatKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!hasRestoredChat) return;
-
-    const key = getDailyChatKey();
-    if (!key) return;
-
-    localStorage.setItem(key, JSON.stringify(chatMessages));
-  }, [chatMessages, hasRestoredChat, getDailyChatKey]);
-
-  // Session Cleanup on Logout (Fixes Ghost Chat History)
-  useEffect(() => {
-    if (!userId) {
-      setChatMessages([]);
-      setHasRestoredChat(false);
-    }
+    setRestoredUserId(userId);
   }, [userId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !hasRestoredChat || !userId || userId !== restoredUserId) return;
+    const key = `office-chat-${userId}-${new Date().toISOString().split('T')[0]}`;
+    localStorage.setItem(key, JSON.stringify(chatMessages));
+  }, [chatMessages, hasRestoredChat, userId, restoredUserId]);
+
 
   // ==========================================
   // DATA FETCHING
@@ -396,7 +386,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .from('users')
           .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at, track')
           .eq('auth_id', userId)
-          .single();
+          .maybeSingle(); // 🔥 FIX: Prevents 406 Not Acceptable crash on slow syncs
 
         if (error) {
           console.error('Error fetching onboarding state:', error);
@@ -816,8 +806,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      // We do NOT stop the spinner or insert the task here anymore.
-      // We rely entirely on the Supabase Realtime Listener (above) to catch the DB insert.
+      // UI Update is handled securely by the Supabase Realtime Listener!
 
     } catch (error) {
       console.error('Task queue failed:', error);

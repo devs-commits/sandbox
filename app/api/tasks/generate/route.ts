@@ -16,24 +16,27 @@ export async function POST(request: Request) {
 
     const dbClient = supabaseAdmin || supabase;
 
-    const { count } = await dbClient
+    // 1. Correctly Calculate Task Number
+    const { count, error: countError } = await dbClient
       .from('tasks')
       .select('*', { count: 'exact', head: true })
       .eq('user', user_id);
 
+    if (countError) console.error("Count Error:", countError);
     const calculatedTaskNumber = (count || 0) + 1;
 
+    // 2. Fetch Previous Performance (Safely for new users)
     let previousPerformance = "N/A";
-    const { data: lastTask } = await dbClient
+    const { data: lastTask, error: lastTaskError } = await dbClient
       .from('tasks')
       .select('id')
       .eq('user', user_id)
       .eq('completed', true)
       .order('id', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle(); // 🔥 THE FIX: Changed from .single() to .maybeSingle()
 
-    if (lastTask) {
+    if (lastTask && !lastTaskError) {
       const { data: lastMsg } = await dbClient
         .from('chat_history')
         .select('content')
@@ -41,14 +44,14 @@ export async function POST(request: Request) {
         .eq('role', 'assistant')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // 🔥 THE FIX: Changed from .single() to .maybeSingle()
 
       if (lastMsg) previousPerformance = lastMsg.content;
     }
 
     const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com';
 
-    // 🔥 FIX: Ensure we always send user_name to prevent 422 errors
+    // 3. Trigger Python Background Queue
     const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
