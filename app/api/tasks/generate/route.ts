@@ -16,7 +16,6 @@ export async function POST(request: Request) {
 
     const dbClient = supabaseAdmin || supabase;
 
-    // 1. Correctly Calculate Task Number
     const { count } = await dbClient
       .from('tasks')
       .select('*', { count: 'exact', head: true })
@@ -24,7 +23,6 @@ export async function POST(request: Request) {
 
     const calculatedTaskNumber = (count || 0) + 1;
 
-    // 2. Fetch Previous Performance
     let previousPerformance = "N/A";
     const { data: lastTask } = await dbClient
       .from('tasks')
@@ -48,24 +46,26 @@ export async function POST(request: Request) {
       if (lastMsg) previousPerformance = lastMsg.content;
     }
 
-    // 3. Trigger Python Background Queue
     const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com';
 
+    // 🔥 FIX: Ensure we always send user_name to prevent 422 errors
     const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...body,
+        user_name: user_name || "Intern",
         task_number: calculatedTaskNumber,
         previous_performance: previousPerformance
       })
     });
 
     if (!backendResponse.ok) {
+      const errText = await backendResponse.text();
+      console.error("Backend generation error:", errText);
       throw new Error(`Backend API Error: ${backendResponse.status}`);
     }
 
-    // 4. Return IMMEDIATELY. Do not insert into DB! The Realtime listener will catch the Python insert.
     return NextResponse.json({ 
       success: true, 
       message: "Task generation queued successfully." 
