@@ -703,7 +703,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [trackName, addChatMessage, userId, persistState]);
 
   // ==========================================
-  // GENERATE TASK (ASYNC QUEUE READY)
+  // GENERATE TASK (ASYNC QUEUE POLLING SYSTEM)
   // ==========================================
   const generateTask = useCallback(async () => {
     const hasActiveTask = tasks.some(t => 
@@ -721,6 +721,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       setIsExpanded(true);
       return; 
     }
+
+    // 🔥 Capture current task count before requesting the new one
+    const initialTaskCount = tasks.length;
 
     setIsGeneratingTask(true);
     setIsExpanded(true); 
@@ -805,11 +808,29 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      // 🔥 THE GUARANTEED FALLBACK:
-      // If Supabase Realtime misses the broadcast, this forces the UI to pull the data directly and unlock the loading screen.
+      // 🔥 THE 60-SECOND POLLING ENGINE:
+      // Since the AI background worker takes ~60s, we check the DB every 5 seconds.
+      // This prevents the frontend from giving up too early and leaving an empty desk.
+      let attempts = 0;
+      let taskFound = false;
+
+      while (attempts < 18 && !taskFound) { // 18 attempts * 5s = 90 seconds max
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Fetch raw ID directly from Supabase to bypass stale component state
+        const { data } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('user', userId);
+
+        if (data && data.length > initialTaskCount) {
+          taskFound = true;
+          await fetchTasks(); // Pull down the new task to the desk
+        }
+        attempts++;
+      }
+
       clearInterval(loadingInterval);
-      await new Promise(resolve => setTimeout(resolve, 2500)); // Allow backend a moment to finish inserting row
-      await fetchTasks(); 
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task");
 
