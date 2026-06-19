@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { processReferralCommission } from "@/lib/commissionEngine"; // 🔥 Added Import
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,8 +41,8 @@ export async function POST(req: NextRequest) {
     const expiryDate = new Date();
     expiryDate.setDate(startDate.getDate() + daysToAdd);
 
-    // 3. Activate User with precise timestamps
-    const { error: userError } = await supabaseAdmin
+    // 3. Activate User with precise timestamps AND return their numeric DB ID
+    const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .update({ 
         subscription_status: "active",
@@ -51,10 +52,17 @@ export async function POST(req: NextRequest) {
         is_complete: true, 
         has_completed_onboarding: true 
       })
-      .eq("auth_id", userId);
+      .eq("auth_id", userId)
+      .select("id") // 🔥 Retrieve the numeric ID needed for the commission engine
+      .single();
 
     if (userError) {
       console.error("Database Error (Users):", userError.message);
+    }
+
+    // 🔥 4. TRIGGER COMMISSION ENGINE
+    if (userData?.id) {
+      await processReferralCommission(userData.id, amountPaid);
     }
 
     return NextResponse.json({ success: true });
