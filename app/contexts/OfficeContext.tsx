@@ -66,7 +66,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [bounties, setBounties] = useState<Bounty[]>([]); 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [hasRestoredChat, setHasRestoredChat] = useState(false);
-  const [restoredUserId, setRestoredUserId] = useState<string | null>(null); // 🔥 Anti-Ghost Leak Lock
+  const [restoredUserId, setRestoredUserId] = useState<string | null>(null); 
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
   const [tourStep, setTourStep] = useState(0);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -150,7 +150,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
     
     if (!userId) {
-      // 100% hard wipe on logout
       setChatMessages([]);
       setHasRestoredChat(false);
       setRestoredUserId(null);
@@ -172,7 +171,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         console.error("Failed to restore chat history:", err);
       }
     } else {
-        // Force an empty array for a brand new user
         setChatMessages([]);
     }
 
@@ -251,51 +249,53 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchBounties();
   }, [userId]);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!userId) {
-        setIsLoadingTasks(false);
-        return;
-      }
-      setIsLoadingTasks(true);
-      try {
-        const { data, error } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('user', userId)
-          .order('id', { ascending: true });
+  // 🔥 CORE FIX: Extracted fetchTasks so we can trigger it manually!
+  const fetchTasks = useCallback(async () => {
+    if (!userId) {
+      setIsLoadingTasks(false);
+      return;
+    }
+    setIsLoadingTasks(true);
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user', userId)
+        .order('id', { ascending: true });
 
-        if (error) {
-          console.error("Error fetching tasks:", error);
-        } else if (data && data.length > 0) {
-          const mappedTasks: Task[] = data.map((t: any) => ({
-            id: t.id.toString(),
-            title: t.title,
-            description: t.brief_content,
-            type: t.task_track || trackName,
-            deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
-            status: t.completed ? 'approved' : t.status || 'pending',
-            attachments: t.attachments || [],
-            clientConstraints: t.client_constraints || undefined,
-            resources: mapResources(t.resources),
-            difficulty: t.difficulty,
-            week: t.task_number || t.week 
-          }));
-
-          setTasks(mappedTasks);
-          const activeTask = mappedTasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || mappedTasks[mappedTasks.length - 1];
-          if (activeTask) {
-            setCurrentTask(activeTask);
-          }
-        }
-      } catch (error) {
+      if (error) {
         console.error("Error fetching tasks:", error);
-      } finally {
-        setIsLoadingTasks(false);
+      } else if (data) {
+        const mappedTasks: Task[] = data.map((t: any) => ({
+          id: t.id.toString(),
+          title: t.title,
+          description: t.brief_content,
+          type: t.task_track || trackName,
+          deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
+          status: t.completed ? 'approved' : t.status || 'pending',
+          attachments: t.attachments || [],
+          clientConstraints: t.client_constraints || undefined,
+          resources: mapResources(t.resources),
+          difficulty: t.difficulty,
+          week: t.task_number || t.week 
+        }));
+
+        setTasks(mappedTasks);
+        if (mappedTasks.length > 0) {
+          const activeTask = mappedTasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || mappedTasks[mappedTasks.length - 1];
+          if (activeTask) setCurrentTask(activeTask);
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  }, [userId, trackName, mapResources]);
+
+  useEffect(() => {
     fetchTasks();
-  }, [userId, trackName, isFirstTask, mapResources]);
+  }, [fetchTasks]);
 
   // ==========================================
   // REALTIME TASK LISTENER (SUPABASE)
@@ -307,7 +307,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       .channel('realtime-tasks')
       .on(
         'postgres_changes',
-        // Now listening to all events (*) to catch INSERTs from Python Background Queue
         { event: '*', schema: 'public', table: 'tasks', filter: `user=eq.${userId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -332,7 +331,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             });
             setCurrentTask(newTask);
 
-            // Successfully received! Turn off generation spinner.
+            // Successfully received via Realtime
             setIsGeneratingTask(false);
             setGenerationStatusText("Fetch Missing Task");
 
@@ -386,7 +385,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .from('users')
           .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at, track')
           .eq('auth_id', userId)
-          .maybeSingle(); // 🔥 FIX: Prevents 406 Not Acceptable crash on slow syncs
+          .maybeSingle(); 
 
         if (error) {
           console.error('Error fetching onboarding state:', error);
@@ -806,7 +805,13 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      // UI Update is handled securely by the Supabase Realtime Listener!
+      // 🔥 THE GUARANTEED FALLBACK:
+      // If Supabase Realtime misses the broadcast, this forces the UI to pull the data directly and unlock the loading screen.
+      clearInterval(loadingInterval);
+      await new Promise(resolve => setTimeout(resolve, 2500)); // Allow backend a moment to finish inserting row
+      await fetchTasks(); 
+      setIsGeneratingTask(false);
+      setGenerationStatusText("Fetch Missing Task");
 
     } catch (error) {
       console.error('Task queue failed:', error);
@@ -826,7 +831,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages, currentWeek, user?.fullName, mapResources]);
+  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
@@ -879,7 +884,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       const task = tasks.find(t => t.id === taskId);
 
-      // Sending perfectly formatted JSON to bypass 422 Unprocessable Content errors
       const response = await fetch('/api/tasks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -896,13 +900,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             content: m.message
           })),
           userLevel: userLevel, 
-          attempt_number: 1 // Required for 3-strike Python model
+          attempt_number: 1 
         })
       });
 
       const data = await response.json();
 
-      // Database-Enforced Rate Limit Caught
       if (response.status === 429) {
          addChatMessage({
             id: Date.now().toString(),
@@ -962,7 +965,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         message: "Connection issue. Please check if the system is running and resubmit.", 
         timestamp: new Date(),
       });
-      // Revert status to allow re-submission if connection drops
       updateTaskStatus(taskId, 'pending');
     }
   }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel, setIsExpanded]);
