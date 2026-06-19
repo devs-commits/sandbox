@@ -809,15 +809,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error("API Failure");
 
       // 🔥 THE 60-SECOND POLLING ENGINE:
-      // Since the AI background worker takes ~60s, we check the DB every 5 seconds.
-      // This prevents the frontend from giving up too early and leaving an empty desk.
       let attempts = 0;
       let taskFound = false;
 
-      while (attempts < 18 && !taskFound) { // 18 attempts * 5s = 90 seconds max
+      while (attempts < 18 && !taskFound) { 
         await new Promise(resolve => setTimeout(resolve, 5000));
         
-        // Fetch raw ID directly from Supabase to bypass stale component state
         const { data } = await supabase
           .from('tasks')
           .select('id')
@@ -825,7 +822,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
         if (data && data.length > initialTaskCount) {
           taskFound = true;
-          await fetchTasks(); // Pull down the new task to the desk
+          await fetchTasks(); 
         }
         attempts++;
       }
@@ -868,16 +865,35 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [completeOnboarding]);
 
   // ==========================================
-  // SUBMIT WORK (FORTIFIED)
+  // SUBMIT WORK (FORTIFIED 3-STRIKE SYSTEM)
   // ==========================================
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
+    
+    // 1. 🔥 THE 3-STRIKE DAILY LOCKOUT ENGINE 🔥
+    const today = new Date().toISOString().split('T')[0];
+    const attemptKey = `wdc-attempts-${userId}-${taskId}-${today}`;
+    const currentAttempts = parseInt(localStorage.getItem(attemptKey) || '0', 10);
+
+    if (currentAttempts >= 3) {
+      addChatMessage({
+        id: Date.now().toString(),
+        agentName: 'Sola',
+        message: "⚠️ **Daily Limit Reached.** You have already failed 3 attempts today. Review my feedback carefully, study your resources, and come back tomorrow to try again.",
+        timestamp: new Date(),
+      });
+      setIsExpanded(true);
+      return; // Stops the submission dead in its tracks
+    }
+
+    const nextAttemptNumber = currentAttempts + 1;
+
     setIsExpanded(true);
     updateTaskStatus(taskId, 'submitted');
 
     addChatMessage({
       id: Date.now().toString(),
       agentName: 'Sola',
-      message: `I've received your submission. Validating your attempts and reviewing it now...`,
+      message: `I've received your submission (Attempt ${nextAttemptNumber}/3 for today). Validating your work now...`,
       timestamp: new Date(),
     });
 
@@ -921,7 +937,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             content: m.message
           })),
           userLevel: userLevel, 
-          attempt_number: 1 
+          attempt_number: nextAttemptNumber // Passes exact attempt logic to Sola's Brain
         })
       });
 
@@ -939,6 +955,10 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       }
 
       if (response.ok) {
+        
+        // 🔥 Successfully processed by backend, log the attempt!
+        localStorage.setItem(attemptKey, nextAttemptNumber.toString());
+
         addChatMessage({
           id: (Date.now() + 1).toString(),
           agentName: 'Sola',

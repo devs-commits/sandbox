@@ -1,4 +1,5 @@
 // lib/commissionEngine.ts
+import { sendReferralPaidEmail } from "./zeptomail";
 import { createClient } from '@supabase/supabase-js';
 
 // 🔥 We MUST use the Service Role Key here to securely bypass RLS for financial updates
@@ -66,6 +67,17 @@ export async function processReferralCommission(newUserId: number, amountPaid: n
         description: 'Referral Commission',
         status: 'completed'
       });
+
+      // Fetch the referrer's email to send the alert
+    const { data: referrerDataForEmail } = await supabaseAdmin
+      .from('users')
+      .select('email, full_name')
+      .eq('id', referral.referrer_id)
+      .single();
+
+    if (referrerDataForEmail?.email) {
+      await sendReferralPaidEmail(referrerDataForEmail.email, referrerDataForEmail.full_name, commission, newBalance);
+    }
 
     console.log(`WDC Labs: ₦${commission} successfully credited to Referrer DB ID: ${referral.referrer_id}`);
     return { success: true };

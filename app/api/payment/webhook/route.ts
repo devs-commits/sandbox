@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendDepositEmail, sendWelcomeSubscriptionEmail } from "@/lib/zeptomail";
+import { sendDepositEmail, sendWelcomeSubscriptionEmail, sendReferralSuccessEmail } from "@/lib/zeptomail";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -95,6 +95,81 @@ export async function POST(req: NextRequest) {
         }
         
         console.log(`✅ Subscription Engine: Day 0 Activated for ${paymentRecord.email} via Bank Transfer`);
+
+        // ==========================================
+        // 🚀 NEW: REFERRAL PAYOUT ENGINE
+        // ==========================================
+        try {
+            // 1. Check if this paying user has a pending referral
+            const { data: referralRecord } = await supabaseAdmin
+                .from('referrals')
+                .select('id, referrer_id, status')
+                .eq('referred_id', paymentRecord.user_id)
+                .eq('status', 'pending')
+                .maybeSingle();
+
+            if (referralRecord) {
+                // 2. Calculate the 10% commission
+                const commissionAmount = amount * 0.10; 
+
+                // 3. Update the referral status to 'active'
+                await supabaseAdmin
+                    .from('referrals')
+                    .update({ status: 'active', amount_earned: commissionAmount })
+                    .eq('id', referralRecord.id);
+
+                // 4. Credit the Referrer's Wallet
+                const { data: referrerWallet } = await supabaseAdmin
+                    .from('wallets')
+                    .select('balance')
+                    .eq('user_id', referralRecord.referrer_id)
+                    .maybeSingle();
+
+                if (referrerWallet) {
+                    const newReferrerBalance = Number(referrerWallet.balance || 0) + commissionAmount;
+                    
+                    await Promise.all([
+                        supabaseAdmin
+                            .from('wallets')
+                            .update({ balance: newReferrerBalance, updated_at: new Date().toISOString() })
+                            .eq('user_id', referralRecord.referrer_id),
+                        
+                        supabaseAdmin.from('wallet_transactions').insert({
+                            user_id: referralRecord.referrer_id,
+                            amount: commissionAmount,
+                            transaction_type: 'INFLOW',
+                            status: 'SUCCESS',
+                            reference: `REF-COMM-${referralRecord.id}-${Date.now()}`,
+                            provider_tx_id: `REF-COMM-${referralRecord.id}-${Date.now()}`,
+                            source: 'Referral Commission',
+                            created_at: new Date().toISOString()
+                        })
+                    ]);
+                    
+                    console.log(`💰 Referral Commission of ₦${commissionAmount} paid to user ${referralRecord.referrer_id}`);
+
+                    // 5. Get Referrer's email
+                    const { data: referrerDetails } = await supabaseAdmin
+                        .from('users')
+                        .select('email, full_name')
+                        .eq('auth_id', referralRecord.referrer_id)
+                        .maybeSingle();
+
+                    if (referrerDetails?.email) {
+                        // 6. FIRE THE SUCCESS EMAIL!
+                        await sendReferralSuccessEmail(
+                            referrerDetails.email, 
+                            referrerDetails.full_name || "Partner", 
+                            paymentRecord.full_name || "Your referral", 
+                            commissionAmount
+                        );
+                    }
+                }
+            }
+        } catch (refError) {
+            console.error("🚨 Referral Payout Error:", refError);
+            // We catch this specifically so a referral crash doesn't break the main payment confirmation
+        }
     }
 
     // ==========================================

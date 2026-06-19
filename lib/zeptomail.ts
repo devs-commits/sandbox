@@ -407,3 +407,108 @@ export async function sendMondayActivationPendingEmail(
   `;
   await sendZeptoMail(email, name, subject, htmlBody);
 }
+
+// ============================================================================
+// 🤝 WDC LABS REFERRAL ENGINE EMAILS
+// ============================================================================
+
+// ⏳ REFERRAL PENDING (When someone signs up using their link)
+export async function sendReferralPendingEmail(email: string, name: string, referredName: string) {
+  const subject = `🎉 You just got a new referral! (Pending)`;
+  const firstName = name.split(' ')[0];
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Your network is growing!</h2>
+        <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
+        <p style="font-size: 15px; color: #475569;">Great news! <strong>${referredName}</strong> just used your unique link to join WDC Labs.</p>
+        
+        <div style="background-color: #f8fafc; border-left: 4px solid #eab308; padding: 15px 20px; margin: 25px 0;">
+          <p style="margin: 0; font-size: 14px; color: #475569;">They are currently marked as <strong>Pending (Trial)</strong>. If they successfully convert to a paid subscription after their trial, you will automatically receive a 10% commission straight to your WDC Wallet.</p>
+        </div>
+
+        <a href="https://labs.wdc.ng/student/earn" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">View Referral Dashboard</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">© ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(email, name, subject, htmlBody);
+}
+
+// 💰 REFERRAL PAID (When the 10% commission hits their wallet)
+export async function sendReferralPaidEmail(email: string, name: string, amount: number, newBalance: number) {
+  const subject = `💰 You just got paid! Referral Converted.`;
+  const firstName = name.split(' ')[0];
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #10b981; font-size: 22px; margin-top: 0;">Money in the bank! 🚀</h2>
+        <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
+        <p style="font-size: 15px; color: #475569;">One of your pending referrals just converted to a paid WDC Labs subscription!</p>
+        
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 8px 0; color: #64748b;">Commission Earned:</td><td style="padding: 8px 0; font-weight: 600; text-align: right; color: #10b981;">+₦${amount.toLocaleString()}</td></tr>
+          </table>
+        </div>
+        
+        <div style="background-color: #0f172a; border-radius: 12px; padding: 20px; text-align: center; color: #ffffff;">
+          <p style="margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8;">New Wallet Balance</p>
+          <h2 style="margin: 5px 0 0; font-size: 28px;">₦${newBalance.toLocaleString()}</h2>
+        </div>
+
+        <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Cash Out Now</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">© ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(email, name, subject, htmlBody);
+}
+
+export const sendReferralPendingEmail = async (toEmail: string, referrerName: string, referredName: string) => {
+  const subject = "🎉 You just got a new referral!";
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+      <h2 style="color: #2563EB;">Great news, ${referrerName}!</h2>
+      <p>Someone just used your unique WDC Labs link to sign up!</p>
+      <p><strong>${referredName}</strong> has successfully created an account.</p>
+      <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px;"><strong>What happens next?</strong><br/>
+        This referral is currently marked as <em>Pending</em>. As soon as they complete their trial and subscribe to a paid plan, 10% of their subscription fee will automatically be credited to your WDC Wallet.</p>
+      </div>
+      <p>Keep sharing your link to stack up those earnings!</p>
+      <p>Best,<br/>The WDC Labs Team</p>
+    </div>
+  `;
+  return sendEmail(toEmail, subject, htmlBody);
+};
+
+export const sendReferralSuccessEmail = async (toEmail: string, referrerName: string, referredName: string, amount: number) => {
+  const subject = "💰 Your referral just paid! Wallet Credited.";
+  const formattedAmount = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+  
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+      <h2 style="color: #10B981;">Cha-ching! 💸</h2>
+      <p>Awesome work, ${referrerName}!</p>
+      <p>Your referral, <strong>${referredName}</strong>, just successfully subscribed to WDC Labs.</p>
+      <div style="background-color: #ECFDF5; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0; font-size: 16px; color: #065F46;">We have credited your wallet with:</p>
+        <h1 style="margin: 10px 0 0 0; color: #047857; font-size: 32px;">${formattedAmount}</h1>
+      </div>
+      <p>You can withdraw this to your local bank account at any time from your Wallet dashboard.</p>
+      <p>Keep up the great work!<br/>The WDC Labs Team</p>
+    </div>
+  `;
+  return sendEmail(toEmail, subject, htmlBody);
+};
