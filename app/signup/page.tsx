@@ -43,6 +43,15 @@ type PaymentDetails = {
   transactionId: string;
 };
 
+// 🔥 HELPER: Safely extract the 30-day cached referral cookie
+const getCookie = (name: string) => {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
 const SignUpContent = () => {
   const router = useRouter();
   const { signup } = useAuth();
@@ -58,7 +67,10 @@ const SignUpContent = () => {
   const [country, setCountry] = useState("");
   const [track, setTrack] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
-  const [referralLink, setReferralLink] = useState(searchParams.get("code") || "");
+  
+  // 🔥 REFERRAL STATE
+  const [referralLink, setReferralLink] = useState("");
+  const [hasValidReferral, setHasValidReferral] = useState(false);
 
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -82,7 +94,6 @@ const SignUpContent = () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, []);
 
-  // Updated pricing logic
   const numericAmount = subscriptionPlan === "quarterly" ? 40500 : 15000;
   const subscriptionPrice = `₦ ${numericAmount.toLocaleString()}`;
 
@@ -92,8 +103,16 @@ const SignUpContent = () => {
     { value: "advanced", label: "Advanced" },
   ];
 
-  // --- AUTO-APPLY PROMO CODE FROM URL ---
+  // 🔥 Formats "ademola-7vo1" to "Ademola", or "davido" to "Davido"
+  const displayRecommender = useMemo(() => {
+    if (!referralLink) return "";
+    const baseName = referralLink.split('-')[0]; // Drops the random suffix
+    return baseName.charAt(0).toUpperCase() + baseName.slice(1).toLowerCase(); // Capitalizes cleanly
+  }, [referralLink]);
+
+  // --- AUTO-APPLY PROMO CODE & REFERRALS ---
   useEffect(() => {
+    // 1. Promo Code Check
     const promoFromUrl = searchParams.get("promo") || searchParams.get("coupon");
     if (promoFromUrl) {
       const normalizedCode = promoFromUrl.trim().toUpperCase();
@@ -104,6 +123,16 @@ const SignUpContent = () => {
         setCouponError("");
         toast.success("🎉 Promo Link Active! Your 14-day free trial is unlocked.");
       }
+    }
+
+    // 2. Referral Check (URL first, then Cookie fallback)
+    const refFromUrl = searchParams.get("ref");
+    const refFromCookie = getCookie("wdc_referral_id");
+    const activeReferral = refFromUrl || refFromCookie;
+    
+    if (activeReferral) {
+      setReferralLink(activeReferral);
+      setHasValidReferral(true);
     }
   }, [searchParams]);
 
@@ -144,6 +173,7 @@ const SignUpContent = () => {
   };
 
   const handleRegistration = async () => {
+    // We pass the active referral link dynamically directly to the payload
     const signupPayload: SignupData = {
       fullName, 
       email, 
@@ -152,7 +182,7 @@ const SignUpContent = () => {
       country,
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
-      referralLink: role === "student" ? referralLink : undefined,
+      referralLink: role === "student" && referralLink ? referralLink : undefined,
       subscriptionPlan: isCouponApplied ? "trial" : subscriptionPlan, 
     };
 
@@ -186,6 +216,11 @@ const SignUpContent = () => {
       
       const reg = await handleRegistration();
       if (!reg.success) throw new Error(reg.error || "Signup failed");
+
+      // Cleanup referral cookie after successful usage
+      if (typeof document !== 'undefined') {
+        document.cookie = "wdc_referral_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      }
 
       toast.success("Trial Activated! Check your email to verify.", { id: "trial" });
       router.push("/auth/verify-email");
@@ -268,6 +303,12 @@ const SignUpContent = () => {
 
       const data = await res.json();
       if (data.success) {
+        
+        // Cleanup referral cookie after successful usage
+        if (typeof document !== 'undefined') {
+          document.cookie = "wdc_referral_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        }
+
         toast.success("Registration complete. Check your email.", { id: "reg" });
         router.push("/auth/verify-email");
       } else {
@@ -321,6 +362,11 @@ const SignUpContent = () => {
                body: JSON.stringify({ reference: transaction.reference, userId: reg.userId })
             });
 
+            // Cleanup referral cookie after successful usage
+            if (typeof document !== 'undefined') {
+              document.cookie = "wdc_referral_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            }
+
             router.push("/auth/verify-email");
           },
           onCancel: () => {
@@ -370,6 +416,24 @@ const SignUpContent = () => {
                 <>
                   <AuthSelect label="Track" value={track} onChange={(t) => { setTrack(t); setPaymentDetails(null); }} options={tracks} />
                   <AuthSelect label="Experience" value={experienceLevel} onChange={setExperienceLevel} options={experienceLeveloptions} />
+                  
+                  {/* 🔥 UPDATED REFERRAL UI BLOCK */}
+                  <div className="space-y-2 mt-2">
+                    {hasValidReferral && (
+                      <div className="flex items-center gap-2 p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
+                         <span className="text-lg">🎉</span> You were invited by <strong className="font-bold tracking-wider">{displayRecommender}</strong>
+                      </div>
+                    )}
+                    
+                    {!hasValidReferral && (
+                       <AuthInput 
+                         label="Referral Code (Optional)" 
+                         placeholder="Did someone invite you?" 
+                         value={referralLink} 
+                         onChange={setReferralLink} 
+                       />
+                    )}
+                  </div>
                 </>
               )}
             </div>

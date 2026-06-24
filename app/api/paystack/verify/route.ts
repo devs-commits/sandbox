@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { processReferralCommission } from "@/lib/commissionEngine"; // 🔥 Added Import
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,8 +39,8 @@ export async function POST(req: NextRequest) {
     const expiryDate = new Date();
     expiryDate.setDate(today.getDate() + daysToAdd);
 
-    // 2. Update the User's Office Access
-    const { error: userError } = await supabaseAdmin!
+    // 2. Update the User's Office Access AND return their numeric DB ID
+    const { data: userData, error: userError } = await supabaseAdmin!
       .from('users')
       .update({
         has_completed_onboarding: true,
@@ -50,7 +51,9 @@ export async function POST(req: NextRequest) {
         renewal_status: 'pending',
         subscription_plan: plan
       })
-      .eq('auth_id', userId);
+      .eq('auth_id', userId)
+      .select('id') // 🔥 Retrieve the numeric ID needed for the commission engine
+      .single();
 
     if (userError) throw userError;
 
@@ -62,6 +65,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ Paystack Subscription (${plan}) fully completed and logged. Office Unlocked.`);
     
+    // 🔥 4. TRIGGER COMMISSION ENGINE
+    // Paystack returns amount in kobo, so we divide by 100 to get the exact Naira value
+    const amountPaid = paystackData.data.amount / 100;
+    if (userData?.id) {
+      await processReferralCommission(userData.id, amountPaid);
+    }
+
     // Notice we DO NOT touch the wallet_transactions table here anymore.
     return NextResponse.json({ success: true, message: "Subscription activated" });
 

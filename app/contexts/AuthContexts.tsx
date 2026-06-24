@@ -36,6 +36,7 @@ interface SignupData {
   track?: string;
   experienceLevel?: string;
   referralLink?: string;
+  subscriptionPlan?: string; // 🔥 Added to ensure we can read "trial" vs "monthly"
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +46,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Initial Session Check
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -81,14 +81,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     checkSession();
 
-    // 2. 🔥 STABILIZED AUTH LISTENER
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const { user_metadata } = session.user;
         
-        // Use functional update to check if we actually need to change state
         setUser((prev) => {
-          // If the ID is the same, do NOT update state to prevent re-render loops
           if (prev?.id === session.user.id) return prev;
 
           return {
@@ -158,6 +155,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (result.session) {
         await supabase.auth.setSession(result.session);
+      }
+
+      // 🔥 WDC LABS REFERRAL ENGINE: Runs silently after successful account creation
+      const newAuthId = result.user?.id || result.data?.user?.id;
+      
+      if (data.referralLink && newAuthId) {
+        try {
+          // 1. Fetch the newly created user's numeric DB ID
+          const { data: newUserDB } = await supabase
+            .from('users')
+            .select('id')
+            .eq('auth_id', newAuthId)
+            .single();
+
+          // 2. Fetch the referrer's numeric DB ID using the vanity code (e.g., "odogwu")
+          const { data: referrerDB } = await supabase
+            .from('users')
+            .select('id')
+            .eq('referral_code', data.referralLink.toLowerCase().trim())
+            .maybeSingle();
+
+          // 3. If both exist, lock in the referral link!
+          if (newUserDB && referrerDB) {
+            // Determine status based on the subscription plan chosen at signup
+            const referralStatus = 'pending';
+            
+            await supabase.from('referrals').insert({
+              referrer_id: referrerDB.id,
+              referred_user_id: newUserDB.id,
+              status: referralStatus
+            });
+            console.log("WDC Labs: Referral Successfully Linked.");
+          }
+        } catch (refError) {
+          console.error("WDC Labs: Referral linking failed quietly:", refError);
+        }
       }
 
       return { success: true, user: result.user }; 

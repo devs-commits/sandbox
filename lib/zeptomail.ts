@@ -407,3 +407,68 @@ export async function sendMondayActivationPendingEmail(
   `;
   await sendZeptoMail(email, name, subject, htmlBody);
 }
+
+// ============================================================================
+// 🤝 WDC LABS REFERRAL ENGINE EMAILS
+// ============================================================================
+
+// ⏳ REFERRAL PENDING (When someone signs up using their link)
+export async function sendReferralPendingEmail(email: string, name: string, referredName: string) {
+  const subject = `🎉 You just got a new referral! (Pending)`;
+  const firstName = name.split(' ')[0];
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Your network is growing!</h2>
+        <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
+        <p style="font-size: 15px; color: #475569;">Great news! <strong>${referredName}</strong> just used your unique link to join WDC Labs.</p>
+        
+        <div style="background-color: #f8fafc; border-left: 4px solid #eab308; padding: 15px 20px; margin: 25px 0;">
+          <p style="margin: 0; font-size: 14px; color: #475569;">They are currently marked as <strong>Pending (Trial)</strong>. If they successfully convert to a paid subscription after their trial, you will automatically receive a 10% commission straight to your WDC Wallet.</p>
+        </div>
+
+        <a href="https://labs.wdc.ng/student/earn" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">View Referral Dashboard</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">© ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(email, name, subject, htmlBody);
+}
+
+// 💰 REFERRAL PAID / SUCCESS (When the 10% commission hits their wallet)
+export async function sendReferralSuccessEmail(email: string, name: string, referredName: string, amount: number) {
+  const subject = `💰 You just got paid! Referral Converted.`;
+  const firstName = name.split(' ')[0];
+  const formattedAmount = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+  
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #10b981; font-size: 22px; margin-top: 0;">Money in the bank! 🚀</h2>
+        <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
+        <p style="font-size: 15px; color: #475569;">One of your pending referrals, <strong>${referredName}</strong>, just converted to a paid WDC Labs subscription!</p>
+        
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; text-align: center;">
+          <p style="margin: 0; font-size: 14px; color: #64748b;">Commission Earned:</p>
+          <h2 style="margin: 5px 0 0; font-size: 28px; color: #10b981;">+${formattedAmount}</h2>
+        </div>
+        
+        <p style="font-size: 15px; color: #475569;">This has been credited to your WDC Wallet. You can withdraw this to your local bank account at any time from your dashboard.</p>
+
+        <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Cash Out Now</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">Keep up the great work!<br/>© ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(email, name, subject, htmlBody);
+}

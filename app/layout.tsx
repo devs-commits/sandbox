@@ -4,6 +4,8 @@ import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "../app/contexts/AuthContexts";
 import { Toaster } from "sonner";
+import { Suspense } from "react"; // 🔥 Added Suspense
+import { ReferralTracker } from "./components/ReferralTracker"; // 🔥 Import our new tracker (adjust path if needed)
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,7 +46,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         
-        {/* Google Tag Manager (noscript) - Placed immediately after the opening body tag */}
+        {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe 
             src="https://www.googletagmanager.com/ns.html?id=GTM-5PH5LGH3"
@@ -54,7 +56,7 @@ export default function RootLayout({
           />
         </noscript>
 
-        {/* Paystack - Optimized using Next.js Script component */}
+        {/* Paystack */}
         <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" />
 
         {/* Microsoft Clarity */}
@@ -69,6 +71,11 @@ export default function RootLayout({
         </Script>
 
         <AuthProvider>
+          {/* 🔥 INJECTED REFERRAL TRACKER */}
+          <Suspense fallback={null}>
+            <ReferralTracker />
+          </Suspense>
+          
           {children}
         </AuthProvider>
         

@@ -55,13 +55,6 @@ interface OfficeContextType extends OfficeState {
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
 
-const defaultState: PersistedState = {
-  hasCompletedOnboarding: false,
-  hasCompletedTour: false,
-  userLevel: null,
-  isFirstTask: true
-};
-
 export function OfficeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const router = useRouter(); 
@@ -73,6 +66,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [bounties, setBounties] = useState<Bounty[]>([]); 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [hasRestoredChat, setHasRestoredChat] = useState(false);
+  const [restoredUserId, setRestoredUserId] = useState<string | null>(null); 
   const [portfolio, setPortfolio] = useState<UserPortfolio[]>([]);
   const [tourStep, setTourStep] = useState(0);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -106,7 +100,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
 
   // ==========================================
-  // GLOBALLY SCOPED FUNCTIONS (FIXED)
+  // GLOBALLY SCOPED FUNCTIONS
   // ==========================================
   const addChatMessage = useCallback((message: ChatMessage) => {
     setChatMessages(prev => [...prev, message]);
@@ -149,21 +143,22 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     return [];
   }, []);
 
-  const getDailyChatKey = useCallback(() => {
-    if (!userId) return null;
-    const today = new Date().toISOString().split('T')[0];
-    return `office-chat-${userId}-${today}`;
-  }, [userId]);
-
   // ==========================================
-  // CHAT PERSISTENCE & SESSION CLEANUP
+  // CHAT PERSISTENCE & GHOST CLEANUP
   // ==========================================
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const key = getDailyChatKey();
-    if (!key) return;
+    
+    if (!userId) {
+      setChatMessages([]);
+      setHasRestoredChat(false);
+      setRestoredUserId(null);
+      return;
+    }
 
+    const key = `office-chat-${userId}-${new Date().toISOString().split('T')[0]}`;
     const stored = localStorage.getItem(key);
+
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -175,27 +170,20 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("Failed to restore chat history:", err);
       }
+    } else {
+        setChatMessages([]);
     }
+
     setHasRestoredChat(true);
-  }, [getDailyChatKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!hasRestoredChat) return;
-
-    const key = getDailyChatKey();
-    if (!key) return;
-
-    localStorage.setItem(key, JSON.stringify(chatMessages));
-  }, [chatMessages, hasRestoredChat, getDailyChatKey]);
-
-  // Session Cleanup on Logout (Fixes Ghost Chat History)
-  useEffect(() => {
-    if (!userId) {
-      setChatMessages([]);
-      setHasRestoredChat(false);
-    }
+    setRestoredUserId(userId);
   }, [userId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !hasRestoredChat || !userId || userId !== restoredUserId) return;
+    const key = `office-chat-${userId}-${new Date().toISOString().split('T')[0]}`;
+    localStorage.setItem(key, JSON.stringify(chatMessages));
+  }, [chatMessages, hasRestoredChat, userId, restoredUserId]);
+
 
   // ==========================================
   // DATA FETCHING
@@ -261,51 +249,53 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchBounties();
   }, [userId]);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!userId) {
-        setIsLoadingTasks(false);
-        return;
-      }
-      setIsLoadingTasks(true);
-      try {
-        const { data, error } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('user', userId)
-          .order('id', { ascending: true });
+  // 🔥 CORE FIX: Extracted fetchTasks so we can trigger it manually!
+  const fetchTasks = useCallback(async () => {
+    if (!userId) {
+      setIsLoadingTasks(false);
+      return;
+    }
+    setIsLoadingTasks(true);
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user', userId)
+        .order('id', { ascending: true });
 
-        if (error) {
-          console.error("Error fetching tasks:", error);
-        } else if (data && data.length > 0) {
-          const mappedTasks: Task[] = data.map((t: any) => ({
-            id: t.id.toString(),
-            title: t.title,
-            description: t.brief_content,
-            type: t.task_track || trackName,
-            deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
-            status: t.completed ? 'approved' : t.status || 'pending',
-            attachments: t.attachments || [],
-            clientConstraints: t.client_constraints || undefined,
-            resources: mapResources(t.resources),
-            difficulty: t.difficulty,
-            week: t.task_number || t.week 
-          }));
-
-          setTasks(mappedTasks);
-          const activeTask = mappedTasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || mappedTasks[mappedTasks.length - 1];
-          if (activeTask) {
-            setCurrentTask(activeTask);
-          }
-        }
-      } catch (error) {
+      if (error) {
         console.error("Error fetching tasks:", error);
-      } finally {
-        setIsLoadingTasks(false);
+      } else if (data) {
+        const mappedTasks: Task[] = data.map((t: any) => ({
+          id: t.id.toString(),
+          title: t.title,
+          description: t.brief_content,
+          type: t.task_track || trackName,
+          deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
+          status: t.completed ? 'approved' : t.status || 'pending',
+          attachments: t.attachments || [],
+          clientConstraints: t.client_constraints || undefined,
+          resources: mapResources(t.resources),
+          difficulty: t.difficulty,
+          week: t.task_number || t.week 
+        }));
+
+        setTasks(mappedTasks);
+        if (mappedTasks.length > 0) {
+          const activeTask = mappedTasks.find(t => t.status !== 'approved' && (t.status as string) !== 'passed') || mappedTasks[mappedTasks.length - 1];
+          if (activeTask) setCurrentTask(activeTask);
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  }, [userId, trackName, mapResources]);
+
+  useEffect(() => {
     fetchTasks();
-  }, [userId, trackName, isFirstTask, mapResources]);
+  }, [fetchTasks]);
 
   // ==========================================
   // REALTIME TASK LISTENER (SUPABASE)
@@ -317,7 +307,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       .channel('realtime-tasks')
       .on(
         'postgres_changes',
-        // Now listening to all events (*) to catch INSERTs from Python Background Queue
         { event: '*', schema: 'public', table: 'tasks', filter: `user=eq.${userId}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -342,7 +331,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             });
             setCurrentTask(newTask);
 
-            // Successfully received! Turn off generation spinner.
+            // Successfully received via Realtime
             setIsGeneratingTask(false);
             setGenerationStatusText("Fetch Missing Task");
 
@@ -396,7 +385,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
           .from('users')
           .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at, track')
           .eq('auth_id', userId)
-          .single();
+          .maybeSingle(); 
 
         if (error) {
           console.error('Error fetching onboarding state:', error);
@@ -714,7 +703,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [trackName, addChatMessage, userId, persistState]);
 
   // ==========================================
-  // GENERATE TASK (ASYNC QUEUE READY)
+  // GENERATE TASK (ASYNC QUEUE POLLING SYSTEM)
   // ==========================================
   const generateTask = useCallback(async () => {
     const hasActiveTask = tasks.some(t => 
@@ -732,6 +721,9 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       setIsExpanded(true);
       return; 
     }
+
+    // 🔥 Capture current task count before requesting the new one
+    const initialTaskCount = tasks.length;
 
     setIsGeneratingTask(true);
     setIsExpanded(true); 
@@ -816,8 +808,28 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      // We do NOT stop the spinner or insert the task here anymore.
-      // We rely entirely on the Supabase Realtime Listener (above) to catch the DB insert.
+      // 🔥 THE 60-SECOND POLLING ENGINE:
+      let attempts = 0;
+      let taskFound = false;
+
+      while (attempts < 18 && !taskFound) { 
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const { data } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('user', userId);
+
+        if (data && data.length > initialTaskCount) {
+          taskFound = true;
+          await fetchTasks(); 
+        }
+        attempts++;
+      }
+
+      clearInterval(loadingInterval);
+      setIsGeneratingTask(false);
+      setGenerationStatusText("Fetch Missing Task");
 
     } catch (error) {
       console.error('Task queue failed:', error);
@@ -837,7 +849,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, setChatMessages, currentWeek, user?.fullName, mapResources]);
+  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
@@ -853,16 +865,35 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
   }, [completeOnboarding]);
 
   // ==========================================
-  // SUBMIT WORK (FORTIFIED)
+  // SUBMIT WORK (FORTIFIED 3-STRIKE SYSTEM)
   // ==========================================
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
+    
+    // 1. 🔥 THE 3-STRIKE DAILY LOCKOUT ENGINE 🔥
+    const today = new Date().toISOString().split('T')[0];
+    const attemptKey = `wdc-attempts-${userId}-${taskId}-${today}`;
+    const currentAttempts = parseInt(localStorage.getItem(attemptKey) || '0', 10);
+
+    if (currentAttempts >= 3) {
+      addChatMessage({
+        id: Date.now().toString(),
+        agentName: 'Sola',
+        message: "⚠️ **Daily Limit Reached.** You have already failed 3 attempts today. Review my feedback carefully, study your resources, and come back tomorrow to try again.",
+        timestamp: new Date(),
+      });
+      setIsExpanded(true);
+      return; // Stops the submission dead in its tracks
+    }
+
+    const nextAttemptNumber = currentAttempts + 1;
+
     setIsExpanded(true);
     updateTaskStatus(taskId, 'submitted');
 
     addChatMessage({
       id: Date.now().toString(),
       agentName: 'Sola',
-      message: `I've received your submission. Validating your attempts and reviewing it now...`,
+      message: `I've received your submission (Attempt ${nextAttemptNumber}/3 for today). Validating your work now...`,
       timestamp: new Date(),
     });
 
@@ -890,7 +921,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       const task = tasks.find(t => t.id === taskId);
 
-      // Sending perfectly formatted JSON to bypass 422 Unprocessable Content errors
       const response = await fetch('/api/tasks/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -907,13 +937,12 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             content: m.message
           })),
           userLevel: userLevel, 
-          attempt_number: 1 // Required for 3-strike Python model
+          attempt_number: nextAttemptNumber // Passes exact attempt logic to Sola's Brain
         })
       });
 
       const data = await response.json();
 
-      // Database-Enforced Rate Limit Caught
       if (response.status === 429) {
          addChatMessage({
             id: Date.now().toString(),
@@ -926,6 +955,10 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       }
 
       if (response.ok) {
+        
+        // 🔥 Successfully processed by backend, log the attempt!
+        localStorage.setItem(attemptKey, nextAttemptNumber.toString());
+
         addChatMessage({
           id: (Date.now() + 1).toString(),
           agentName: 'Sola',
@@ -973,7 +1006,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         message: "Connection issue. Please check if the system is running and resubmit.", 
         timestamp: new Date(),
       });
-      // Revert status to allow re-submission if connection drops
       updateTaskStatus(taskId, 'pending');
     }
   }, [updateTaskStatus, addChatMessage, tasks, chatMessages, addPortfolioItem, userId, userLevel, setIsExpanded]);

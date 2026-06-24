@@ -4,13 +4,40 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
   try {
-    // Extracted taskBrief to ensure Sola gets the full context
-    const { taskId, userId, user_id, fileUrl, fileName, taskTitle, taskBrief, taskContent, chatHistory, userLevel } = await request.json();
+    const body = await request.json();
+    
+    // 🔥 THE FIX: Extract exact keys matching OfficeContext.tsx 
+    const { 
+        task_id, 
+        user_id, 
+        file_url, 
+        file_content, 
+        task_title, 
+        task_brief, 
+        chat_history, 
+        userLevel,
+        attempt_number,
+        
+        // Fallbacks for older frontend versions
+        taskId,
+        userId,
+        fileUrl,
+        taskContent,
+        taskTitle,
+        taskBrief,
+        chatHistory
+    } = body;
 
-    // Standardize the user ID since both might be passed
-    const activeUserId = userId || user_id;
+    // Use the mapped variable, falling back if necessary
+    const activeUserId = user_id || userId;
+    const activeTaskId = task_id || taskId;
+    const finalFileUrl = file_url || fileUrl || "";
+    const finalFileContent = file_content || taskContent || "";
+    const finalTaskTitle = task_title || taskTitle || "Task Submission";
+    const finalTaskBrief = task_brief || taskBrief || "";
+    const finalChatHistory = chat_history || chatHistory || [];
 
-    if (!taskId || !activeUserId) {
+    if (!activeTaskId || !activeUserId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -19,12 +46,11 @@ export async function POST(request: Request) {
     // ==========================================
     const today = new Date().toISOString().split('T')[0];
 
-    // FIX: Used maybeSingle() so new users don't trigger a 406 crash
     const { data: attemptData } = await supabaseAdmin
       .from('task_attempts')
       .select('attempt_count')
       .eq('user_id', activeUserId)
-      .eq('task_id', taskId)
+      .eq('task_id', activeTaskId)
       .eq('attempt_date', today)
       .maybeSingle();
 
@@ -41,18 +67,18 @@ export async function POST(request: Request) {
 
     const nextAttempt = currentAttempts + 1;
 
-    // Log the new attempt securely via Admin bypassing RLS
     await supabaseAdmin
       .from('task_attempts')
       .upsert({
         user_id: activeUserId,
-        task_id: taskId,
+        task_id: activeTaskId,
         attempt_date: today,
         attempt_count: nextAttempt
       }, { onConflict: 'user_id, task_id, attempt_date' });
-    // ==========================================
 
+    // ==========================================
     // 2. Call Python Backend for Analysis
+    // ==========================================
     const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com'; 
     
     const backendResponse = await fetch(`${BACKEND_URL}/review-submission`, {
@@ -61,65 +87,48 @@ export async function POST(request: Request) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            user_id: activeUserId,           // Added: Required by Pydantic
-            task_id: taskId,                 // Added: Required by Pydantic
-            file_url: fileUrl || "",
-            file_content: taskContent || "",
-            task_title: taskTitle || "Task Submission",
-            task_brief: taskBrief || "",
-            chat_history: chatHistory || [], // Added: Crucial for Sola's context
-            attempt_number: nextAttempt      // Passed securely from your DB check
+            user_id: activeUserId,
+            task_id: activeTaskId,
+            file_url: finalFileUrl,
+            file_content: finalFileContent,
+            task_title: finalTaskTitle,
+            task_brief: finalTaskBrief,
+            chat_history: finalChatHistory,
+            attempt_number: nextAttempt 
         })
     });
 
     if (!backendResponse.ok) {
         const errorText = await backendResponse.text();
-        throw new Error(`Backend API Error: ${backendResponse.status} - ${errorText}`);
+        console.error("Submission error text:", errorText);
+        throw new Error(`Backend API Error: ${backendResponse.status}`);
     }
 
     const data = await backendResponse.json();
     
-    // Support the Python model keys
     const aiResponse = data.feedback || "Review completed."; 
-    const isCompleted = data.passed || false;
+    const isPassed = data.passed || false;
     const technicalAccuracy = data.score || 50;
 
-    // 3. Save the AI response as a message in the chat history
-    const { error: chatError } = await supabase
-      .from('chat_history')
-      .insert({
+    // Save Sola's feedback to chat history
+    await supabase.from('chat_history').insert({
         user_id: activeUserId,
-        task_id: taskId,
+        task_id: activeTaskId,
         role: 'assistant',
         content: aiResponse
-      });
+    });
 
-    if (chatError) {
-      console.error("Error saving chat message:", chatError);
-    }
+    // If passed, trigger DB updates
+    if (isPassed) {
+        await supabase.from('tasks').update({ completed: true }).eq('id', activeTaskId);
+        
+        await supabase.from('submissions').insert({
+            user_id: activeUserId,
+            task_id: activeTaskId,
+            file_url: finalFileUrl,
+            ai_feedback: aiResponse,
+        });
 
-    // 4. If task is completed, process the promotion and stats
-    if (isCompleted) {
-        const { error: submissionError } = await supabase
-            .from('submissions')
-            .insert({
-                user_id: activeUserId,
-                task_id: taskId,
-                file_url: fileUrl,
-                ai_feedback: aiResponse,
-            });
-        if (submissionError) console.error("Error saving submission:", submissionError);
-
-        const { error: updateError } = await supabase
-            .from('tasks')
-            .update({ completed: true })
-            .eq('id', taskId);
-            
-        if (updateError) console.error("Error updating task completion:", updateError);
-
-        // ==========================================
-        // SECURE USER SCORE UPDATE (Admin Only)
-        // ==========================================
         const { data: userData } = await supabaseAdmin
             .from('users')
             .select('tasks_completed, average_score')
@@ -135,7 +144,6 @@ export async function POST(request: Request) {
             average_score: Math.round(newAvgScore)
         }).eq('auth_id', activeUserId);
 
-        // Save performance metrics for charts if AI provided them
         if (technicalAccuracy !== undefined) {
             await supabaseAdmin.from('performance_reports').insert({
                 user_id: activeUserId,
@@ -146,67 +154,27 @@ export async function POST(request: Request) {
                 assessment_date: new Date().toISOString()
             });
         }
-        // ==========================================
 
-        // 5. Auto-Generate Next Task
-        const { count: incompleteCount } = await supabase
-            .from('tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('user', activeUserId)
-            .eq('completed', false);
-        
-        if (incompleteCount === 0) {
-            console.log("All tasks completed. Generating next task...");
-            
-            const { data: currentTask } = await supabase
-                .from('tasks')
-                .select('task_track, difficulty')
-                .eq('id', taskId)
-                .maybeSingle();
-                
-            if (currentTask) {
-                const track = currentTask.task_track;
-                const experienceLevel = currentTask.difficulty;
-                
-                const { count: totalCount } = await supabase
-                    .from('tasks')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user', activeUserId);
-                
-                const nextTaskNumber = (totalCount || 0) + 1;
-                
-                try {
-                    const generateResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user_name: "Intern",
-                            track: track || "General",
-                            experience_level: experienceLevel,
-                            task_number: nextTaskNumber,
-                            deadline_display: "Friday, 11:59 PM"
-                        })
-                    });
-                    
-                    if (generateResponse.ok) {
-                        const genData = await generateResponse.json();
-                        // Generation succeeds silently in background queue now
-                        console.log("Next task requested from queue.");
-                    } else {
-                        console.error("Failed to auto-generate task:", await generateResponse.text());
-                    }
-                } catch (genError) {
-                    console.error("Error in auto-generation:", genError);
-                }
-            }
-        }
+        // Auto-Generate Next Task (Fire & Forget)
+        fetch(`${BACKEND_URL}/generate-tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: activeUserId,
+                user_name: "Intern",
+                track: "General", 
+                task_number: currentTasks + 2
+            })
+        }).catch(e => console.error("Auto-gen error:", e));
     }
 
     return NextResponse.json({ 
       success: true, 
       message: aiResponse,
-      completed: isCompleted,
-      nextAttempt 
+      completed: isPassed,
+      passed: isPassed,
+      technical_accuracy: technicalAccuracy,
+      portfolio_bullet: data.portfolio_bullet
     });
 
   } catch (error: any) {

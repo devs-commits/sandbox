@@ -17,25 +17,26 @@ export async function POST(request: Request) {
     const dbClient = supabaseAdmin || supabase;
 
     // 1. Correctly Calculate Task Number
-    const { count } = await dbClient
+    const { count, error: countError } = await dbClient
       .from('tasks')
       .select('*', { count: 'exact', head: true })
       .eq('user', user_id);
 
+    if (countError) console.error("Count Error:", countError);
     const calculatedTaskNumber = (count || 0) + 1;
 
-    // 2. Fetch Previous Performance
+    // 2. Fetch Previous Performance (Safely for new users)
     let previousPerformance = "N/A";
-    const { data: lastTask } = await dbClient
+    const { data: lastTask, error: lastTaskError } = await dbClient
       .from('tasks')
       .select('id')
       .eq('user', user_id)
       .eq('completed', true)
       .order('id', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle(); // 🔥 THE FIX: Changed from .single() to .maybeSingle()
 
-    if (lastTask) {
+    if (lastTask && !lastTaskError) {
       const { data: lastMsg } = await dbClient
         .from('chat_history')
         .select('content')
@@ -43,29 +44,31 @@ export async function POST(request: Request) {
         .eq('role', 'assistant')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle(); // 🔥 THE FIX: Changed from .single() to .maybeSingle()
 
       if (lastMsg) previousPerformance = lastMsg.content;
     }
 
-    // 3. Trigger Python Background Queue
     const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com';
 
+    // 3. Trigger Python Background Queue
     const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...body,
+        user_name: user_name || "Intern",
         task_number: calculatedTaskNumber,
         previous_performance: previousPerformance
       })
     });
 
     if (!backendResponse.ok) {
+      const errText = await backendResponse.text();
+      console.error("Backend generation error:", errText);
       throw new Error(`Backend API Error: ${backendResponse.status}`);
     }
 
-    // 4. Return IMMEDIATELY. Do not insert into DB! The Realtime listener will catch the Python insert.
     return NextResponse.json({ 
       success: true, 
       message: "Task generation queued successfully." 
