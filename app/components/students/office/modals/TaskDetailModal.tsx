@@ -1,14 +1,27 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, FileText, AlertTriangle, Download, Youtube, ExternalLink, BookOpen } from 'lucide-react';
+import {
+  X,
+  Clock,
+  FileText,
+  AlertTriangle,
+  Download,
+  Youtube,
+  ExternalLink,
+  BookOpen,
+  CheckCircle,
+  AlertCircle,
+  AlertOctagon,
+} from 'lucide-react';
 import { Button } from '../../../../components/ui/button';
 import { Task } from '../types';
 import ReactMarkdown from 'react-markdown';
 
-// Format track names: "data-analytics" -> "Data Analytics"
+// Format track names: "data-analytics" or "data_analytics" -> "Data Analytics"
 const formatTrackName = (track: string): string => {
   if (!track) return 'General';
   return track
-    .split('-')
+    .replace(/[-_]/g, ' ') // Replace both dashes and underscores with spaces
+    .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 };
@@ -19,6 +32,105 @@ const getYouTubeEmbedUrl = (url?: string) => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+};
+
+// Dynamic Escalating Urgency Calculator
+const getUrgencyDisplay = (task: any) => {
+  const isCompleted =
+    task.status === "approved" ||
+    task.status === "passed" ||
+    task.status === "submitted";
+
+  if (isCompleted) {
+    return (
+      <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
+        <CheckCircle size={12} />
+        Completed
+      </span>
+    );
+  }
+
+  if (!task.created_at) {
+    return (
+      <span className="text-cyan-400">
+        <Clock size={12} className="inline mr-1" />
+        Due: {task.deadline}
+      </span>
+    );
+  }
+
+  const createdDate = new Date(task.created_at);
+  const deadline = new Date(createdDate);
+
+  const dayOfWeek = createdDate.getDay();
+  const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+
+  deadline.setDate(
+    createdDate.getDate() +
+      (daysUntilFriday === 0 ? 7 : daysUntilFriday)
+  );
+
+  deadline.setHours(23, 59, 59, 999);
+
+  const now = new Date();
+  const diffDays = Math.ceil(
+    (now.getTime() - deadline.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays > 14) {
+    return (
+      <span className="text-red-400 bg-red-900/30 px-2 py-1 rounded flex items-center gap-1">
+        <AlertOctagon size={12} />
+        Overdue by {Math.floor(diffDays / 7)} weeks
+      </span>
+    );
+  }
+
+  if (diffDays > 7) {
+    return (
+      <span className="text-red-400 bg-red-500/20 px-2 py-1 rounded flex items-center gap-1">
+        <AlertCircle size={12} />
+        Overdue by 1 week
+      </span>
+    );
+  }
+
+  if (diffDays > 0) {
+    return (
+      <span className="text-orange-400 bg-orange-500/10 px-2 py-1 rounded flex items-center gap-1">
+        <AlertCircle size={12} />
+        Overdue by {diffDays} day{diffDays > 1 ? "s" : ""}
+      </span>
+    );
+  }
+
+  const daysLeft = Math.abs(diffDays);
+
+  if (daysLeft === 0) {
+    return (
+      <span className="text-yellow-400 bg-yellow-500/20 px-2 py-1 rounded flex items-center gap-1">
+        <Clock size={12} />
+        Due Today!
+      </span>
+    );
+  }
+
+  if (daysLeft <= 2) {
+    return (
+      <span className="text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded flex items-center gap-1">
+        <Clock size={12} />
+        Due in {daysLeft} days
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded flex items-center gap-1">
+      <Clock size={12} />
+      Due this Friday
+    </span>
+  );
 };
 
 interface TaskDetailModalProps {
@@ -71,18 +183,24 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
               {/* Meta Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Clock size={14} />
-                    <span className="text-xs font-medium uppercase tracking-wider">Deadline</span>
-                  </div>
-                  <p className="text-sm font-bold text-foreground">{task.deadline}</p>
-                </div>
+  <div className="flex items-center gap-2 text-muted-foreground mb-2">
+    <Clock size={14} />
+    <span className="text-xs font-medium uppercase tracking-wider">
+      Deadline
+    </span>
+  </div>
+
+  <div className="text-sm font-bold">
+    {getUrgencyDisplay(task)}
+  </div>
+</div>
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <FileText size={14} />
-                    <span className="text-xs font-medium uppercase tracking-wider">Assets</span>
+                    <span className="text-xs font-medium uppercase tracking-wider">Resources</span>
                   </div>
-                  <p className="text-sm font-bold text-foreground">{task.attachments?.length || 0} attached files</p>
+                  {/* FIX: Count the actual resources returned by the AI Engine */}
+                  <p className="text-sm font-bold text-foreground">{task.resources?.length || 0} attached files</p>
                 </div>
               </div>
 

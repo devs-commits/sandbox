@@ -168,7 +168,8 @@ console.log("================================");
     };
   }, [user?.id]);
 
-  const currentWeek = Math.min(Math.max(completedTasksCount, 1), 24);
+  // 🔥 THE FIX: Current week is tasks completed + 1
+const currentWeek = Math.min(completedTasksCount + 1, 24);
   const currentTrackData = GAMIFICATION_TRACKS[currentTrack] || GAMIFICATION_TRACKS["data-analytics"];
   const progressPercentage = Math.min((currentWeek / 24) * 100, 100);
 

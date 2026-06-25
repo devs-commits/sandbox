@@ -42,13 +42,13 @@ export default function PortfolioPage() {
 
   // Metrics State
   const [metrics, setMetrics] = useState({
-  currentTask: "Awaiting Assignment...",
-  currentLevel: (user as any)?.user_level || "Junior Intern",
-  tasksCompleted: 0,
-  masteryScore: 0,
-  averageScore: 0,
-  ratings: { excellent: 0, good: 0, pass: 0 }
-})
+    currentTask: "Awaiting Assignment...",
+    currentLevel: (user as any)?.user_level || "Junior Intern",
+    tasksCompleted: 0,
+    masteryScore: 0,
+    averageScore: 0,
+    ratings: { excellent: 0, good: 0, pass: 0 }
+  })
 
   useEffect(() => {
     if (user?.id) {
@@ -73,37 +73,58 @@ export default function PortfolioPage() {
 
       setTasks(completed)
 
+      // 1. Fetch user data (average score & level)
       const { data: userData } = await supabase
         .from('users')
         .select('average_score, user_level')
         .eq('auth_id', user?.id)
         .single()
 
-      const excellentCount = Math.floor(completed.length * 0.4)
-      const goodCount = Math.floor(completed.length * 0.5)
-      const passCount = completed.length - excellentCount - goodCount
+      // 2. 🔥 THE FIX: Fetch the exact buckets natively from user_progression
+      const { data: progData } = await supabase
+        .from('user_progression')
+        .select('excellent_count, good_count, pass_count')
+        .eq('user_id', user?.id)
+        .maybeSingle()
 
-      setMetrics({
-        currentTask: active ? active.title : "All caught up!",
-        currentLevel: userData?.user_level || (user as any)?.user_level || "Junior Intern",
-        tasksCompleted: completed.length,
-        averageScore: userData?.average_score || 0,
-        masteryScore: Math.min(100, (completed.length * 5) + (userData?.average_score || 0) * 0.5),
-        ratings: { excellent: excellentCount, good: goodCount, pass: passCount }
-      })
-
+      // 3. Keep pulling the AI feedback for the resume generator
       const feedbacks: { [key: number]: string } = {}
       for (const task of completed) {
         const { data: subData } = await supabase
           .from('submissions')
           .select('ai_feedback')
           .eq('task_id', task.id)
-          .single();
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
         if (subData?.ai_feedback) {
           feedbacks[task.id] = subData.ai_feedback;
         }
       }
       setFeed(feedbacks)
+
+      // 4. Retroactive Fallback (If DB counts are 0 but you have completed tasks)
+      let excCount = progData?.excellent_count || 0;
+      let gdCount = progData?.good_count || 0;
+      let psCount = progData?.pass_count || 0;
+
+      // This ensures your current 88.0 score immediately flags as "Excellent"
+      if (completed.length > 0 && excCount === 0 && gdCount === 0 && psCount === 0) {
+          const avg = userData?.average_score || 0;
+          if (avg >= 85) excCount = completed.length;
+          else if (avg >= 70) gdCount = completed.length;
+          else psCount = completed.length;
+      }
+
+      setMetrics({
+        currentTask: active ? active.title : "All caught up!",
+        currentLevel: userData?.user_level || (user as any)?.user_level || "Junior Intern",
+        tasksCompleted: completed.length,
+        averageScore: userData?.average_score || 0,
+        masteryScore: Math.min(100, (completed.length * 5) + ((userData?.average_score || 0) * 0.5)),
+        ratings: { excellent: excCount, good: gdCount, pass: psCount }
+      })
 
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
@@ -304,7 +325,7 @@ export default function PortfolioPage() {
           )}
         </div>
 
-        {/* Share Link Modal Restored */}
+        {/* Share Link Modal */}
         <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
           <DialogContent className="bg-[#0f172a] border-slate-800 text-white sm:max-w-md p-0 overflow-hidden [&>button]:hidden">
             <div className="p-6 pb-0">

@@ -1,18 +1,20 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Coffee, 
-  Target, ChevronDown, RefreshCw, AlertTriangle, ChevronRight 
+  Target, ChevronDown, RefreshCw, AlertTriangle, ChevronRight, AlertOctagon 
 } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
+import { useAuth } from '../../../contexts/AuthContexts';
 import { Task } from './types';
 import { SubmissionModal } from './modals/SubmissionModal';
 import { TaskDetailModal } from './modals/TaskDetailModal';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from "../../../../lib/supabase";
+import { toast } from 'sonner';
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -20,16 +22,47 @@ const openSans = Open_Sans({
   display: 'swap',
 });
 
-// Format track names: "data-analytics" -> "Data Analytics"
-const formatTrackName = (track: string): string => {
-  if (!track) return 'General';
-  return track
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+const formatTag = (tag: string | undefined): string => {
+  if (!tag) return 'GENERAL';
+  return tag.replace(/_/g, ' ').replace(/-/g, ' ').toUpperCase();
 };
 
-// --- INLINE REPORT CARD COMPONENT ---
+// 🔥 THE FIX: Dynamic Escalating Urgency Calculator
+const getUrgencyDisplay = (task: any) => {
+  const isCompleted = task.status === 'approved' || task.status === 'passed' || task.status === 'submitted';
+  if (isCompleted) return <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1"><CheckCircle size={12}/> Completed</span>;
+  
+  if (!task.created_at) return <span className="text-slate-400">Due: Friday</span>;
+
+  const createdDate = new Date(task.created_at);
+  const deadline = new Date(createdDate);
+  const dayOfWeek = createdDate.getDay();
+  // Finds the next Friday (or gives 7 days if generated ON a Friday)
+  const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+  deadline.setDate(createdDate.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
+  deadline.setHours(23, 59, 59, 999);
+
+  const now = new Date();
+  const diffTime = now.getTime() - deadline.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 0) {
+    if (diffDays > 14) {
+      const weeks = Math.floor(diffDays / 7);
+      return <span className="text-red-400 font-bold bg-red-900/30 border border-red-500/50 px-2 py-0.5 rounded-md animate-pulse flex items-center gap-1"><AlertOctagon size={12}/> Overdue by {weeks} {weeks === 1 ? 'week' : 'weeks'}</span>;
+    }
+    if (diffDays > 7) {
+      return <span className="text-red-400 font-bold bg-red-500/20 px-2 py-0.5 rounded-md flex items-center gap-1"><AlertCircle size={12}/> Overdue by 1 week</span>;
+    }
+    return <span className="text-orange-400 font-semibold bg-orange-500/10 px-2 py-0.5 rounded-md flex items-center gap-1"><AlertCircle size={12}/> Overdue by {diffDays} {diffDays === 1 ? 'day' : 'days'}</span>;
+  } else {
+    const daysLeft = Math.abs(diffDays);
+    if (daysLeft === 0) return <span className="text-yellow-400 font-bold bg-yellow-500/20 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={12}/> Due Today!</span>;
+    if (daysLeft <= 2) return <span className="text-yellow-400/80 font-medium bg-yellow-500/10 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={12}/> Due in {daysLeft} days</span>;
+    return <span className="text-cyan-400/80 font-medium bg-cyan-500/10 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={12}/> Due this Friday</span>;
+  }
+};
+
 interface TaskResultProps {
   score: number;
   rating: string;
@@ -39,7 +72,6 @@ interface TaskResultProps {
 
 function TaskResultScreen({ score, rating, feedback, recommendations }: TaskResultProps) {
   const isPass = score >= 50;
-
   return (
     <div className="bg-[#1A1F2E] border border-slate-700/80 rounded-2xl p-5 sm:p-6 w-full shadow-2xl">
       <div className="flex justify-between items-start border-b border-slate-700/50 pb-5 mb-5">
@@ -57,7 +89,6 @@ function TaskResultScreen({ score, rating, feedback, recommendations }: TaskResu
           <span className="text-base sm:text-lg font-bold text-slate-500">/100</span>
         </div>
       </div>
-
       <div className="space-y-6">
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -68,7 +99,6 @@ function TaskResultScreen({ score, rating, feedback, recommendations }: TaskResu
             <ReactMarkdown>{feedback}</ReactMarkdown>
           </div>
         </div>
-
         <div>
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
@@ -88,9 +118,8 @@ function TaskResultScreen({ score, rating, feedback, recommendations }: TaskResu
   );
 }
 
-
 export function TaskDashboard() {
-  // Added safe fallbacks (= []) to prevent undefined mapping errors
+  const { user } = useAuth();
   const { 
     tasks = [], currentTask, setCurrentTask, generateTask, isGeneratingTask, 
     isLoadingTasks, weekStatus, generationStatusText, 
@@ -100,10 +129,10 @@ export function TaskDashboard() {
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   
-  // Preview States
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
   const [previewFeedback, setPreviewFeedback] = useState<string | null>(null);
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const getStatusIcon = (status: Task['status'] | string) => {
     switch (status) {
@@ -153,16 +182,12 @@ export function TaskDashboard() {
 
   const handleTaskClick = async (task: Task) => {
     setCurrentTask(task);
-    
-    // Toggle logic
     if (previewTask?.id === task.id) {
       setPreviewTask(null);
       return;
     }
-    
     setPreviewTask(task);
 
-    // If it's a passed task, fetch the historical feedback dynamically
     const isCompleted = task.status === 'approved' || (task.status as string) === 'passed';
     if (isCompleted) {
       setIsLoadingFeedback(true);
@@ -172,13 +197,43 @@ export function TaskDashboard() {
           .select('ai_feedback')
           .eq('task_id', task.id)
           .single();
-        
         setPreviewFeedback(data?.ai_feedback || "Excellent work. Sola has verified this submission.");
       } catch (err) {
         setPreviewFeedback("Excellent work. Sola has verified this submission.");
       } finally {
         setIsLoadingFeedback(false);
       }
+    }
+  };
+
+  const handleRegenerate = async (task: Task) => {
+    setIsRegenerating(true);
+    toast.info("Analyzing requirements for a new brief...");
+    try {
+      const res = await fetch('/api/tasks/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task_id: task.id.toString(), // Ensured to be string payload
+          user_name: user?.fullName || "Intern",
+          track: task.type || (task as any).task_track,
+          task_number: tasks.length
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success("Emem has issued a new brief!");
+        setPreviewTask(null); 
+        generateTask(); 
+      } else {
+        toast.error(data.error || "Task has already been regenerated once.");
+      }
+    } catch (err) {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -192,14 +247,11 @@ export function TaskDashboard() {
 
   const sortedBounties = [...tasks].filter(t => t.difficulty === 'Bounty');
 
-  // --- THE STANDBY LOCKOUT SCREEN WITH TASK RESULT ---
   if (weekStatus === 'passed_waiting') {
     const score = performanceMetrics?.technicalAccuracy || 92;
     const rating = score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 50 ? "Pass" : "Fail";
     
-    const solaMessages = chatMessages.filter(m => 
-  m.agentName === 'Sola' || (m.agentName as string) === 'System'
-);
+    const solaMessages = chatMessages.filter(m => m.agentName === 'Sola' || (m.agentName as string) === 'System');
     const actualFeedback = solaMessages[solaMessages.length - 1]?.message || "Task completed successfully. The metrics have been recorded in your performance report.";
 
     const recommendations = [
@@ -211,18 +263,12 @@ export function TaskDashboard() {
     return (
       <div className={`h-full flex flex-col bg-[#0A0D14] overflow-y-auto ${openSans.className} p-4 sm:p-6 relative`}>
         <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
-           <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={generateTask} 
-              disabled={isGeneratingTask}
-              className="bg-[#0F172A] border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs shadow-lg"
-           >
+           <Button variant="outline" size="sm" onClick={generateTask} disabled={isGeneratingTask}
+              className="bg-[#0F172A] border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs shadow-lg">
               <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
               {isGeneratingTask ? (generationStatusText || 'Fetching...') : 'Force Sync Next Task'}
            </Button>
         </div>
-
         <div className="max-w-3xl mx-auto w-full mt-10 sm:mt-16 space-y-8 pb-20">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10">
@@ -233,16 +279,9 @@ export function TaskDashboard() {
               Sola has finalized your assessment. Review your official report card below before the next task unlocks.
             </p>
           </div>
-
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <TaskResultScreen 
-              score={score}
-              rating={rating}
-              feedback={actualFeedback}
-              recommendations={recommendations}
-            />
+            <TaskResultScreen score={score} rating={rating} feedback={actualFeedback} recommendations={recommendations} />
           </motion.div>
-
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="flex justify-center">
             <div className="bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-slate-700 p-6 rounded-2xl w-full max-w-sm text-center shadow-xl">
               <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-2">Next Task Unlocks</p>
@@ -254,27 +293,20 @@ export function TaskDashboard() {
     );
   }
 
-  // --- NORMAL ACTIVE DESK ---
   return (
     <div className={`h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 overflow-y-auto ${openSans.className}`}>
       
       <div className="p-6 pb-0 flex flex-col gap-4">
         <div className="flex justify-between items-center">
              <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
-             <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={generateTask} 
-                disabled={isGeneratingTask}
-                className="bg-card border-border text-muted-foreground hover:text-foreground text-xs shadow-sm transition-all"
-             >
+             <Button variant="outline" size="sm" onClick={generateTask} disabled={isGeneratingTask}
+                className="bg-card border-border text-muted-foreground hover:text-foreground text-xs shadow-sm transition-all">
                 <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin text-primary' : ''}`} />
                 {isGeneratingTask ? (generationStatusText || 'Preparing Task...') : 'Fetch Missing Task'}
              </Button>
         </div>
       </div>
 
-      {/* Task List */}
       <div className="flex-1 p-6 space-y-8">
         {isLoadingTasks ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
@@ -282,17 +314,9 @@ export function TaskDashboard() {
             <p className="text-sm text-muted-foreground">Loading tasks...</p>
           </div>
         ) : tasks.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center h-full text-center py-12"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center h-full text-center py-12">
             <div className="w-20 h-20 rounded-2xl bg-secondary/50 flex items-center justify-center mb-6">
-              {isGeneratingTask ? (
-                <Loader2 className="text-primary animate-spin" size={36} />
-              ) : (
-                <Coffee className="text-muted-foreground" size={36} />
-              )}
+              {isGeneratingTask ? <Loader2 className="text-primary animate-spin" size={36} /> : <Coffee className="text-muted-foreground" size={36} />}
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
               {isGeneratingTask ? 'Preparing your task...' : 'Your desk is empty'}
@@ -300,7 +324,6 @@ export function TaskDashboard() {
           </motion.div>
         ) : (
           <>
-            {/* Regular Tasks Section */}
             {sortedRegularTasks.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Assigned Tasks</h3>
@@ -315,17 +338,13 @@ export function TaskDashboard() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
                         className={`backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg ${
-                          isCompleted 
-                            ? 'bg-green-500/5 border-green-500/30' 
-                            : currentTask?.id === task.id 
-                              ? 'bg-card/80 border-primary ring-2 ring-primary/20' 
-                              : 'bg-card/80 border-border/50 hover:border-primary/50'
+                          isCompleted ? 'bg-green-500/5 border-green-500/30' : currentTask?.id === task.id ? 'bg-card/80 border-primary ring-2 ring-primary/20' : 'bg-card/80 border-border/50 hover:border-primary/50'
                         }`}
                         onClick={() => handleTaskClick(task)}
                       >
                         <div className="flex items-start justify-between mb-3">
-                          <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                            {formatTrackName(task.type)}
+                          <span className="text-xs font-bold bg-primary/20 text-primary px-3 py-1 rounded-full tracking-wider">
+                            {formatTag(task.type || (task as any).task_track)}
                           </span>
                           <span className={`text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
                             {getStatusIcon(task.status)}
@@ -341,7 +360,6 @@ export function TaskDashboard() {
                           <ReactMarkdown>{task.description || ''}</ReactMarkdown>
                         </div>
 
-                        {/* --- RESOURCE ACCORDION --- */}
                         {task.resources && task.resources.length > 0 && (
                           <div onClick={(e) => e.stopPropagation()} className="mb-4">
                             <details className="group border border-border/60 rounded-xl overflow-hidden bg-secondary/10">
@@ -351,13 +369,7 @@ export function TaskDashboard() {
                               </summary>
                               <div className="p-3 border-t border-border/50 space-y-2 bg-card/40">
                                 {task.resources.map((res) => (
-                                  <a 
-                                    key={res.id} 
-                                    href={res.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all"
-                                  >
+                                  <a key={res.id} href={res.url} target="_blank" rel="noopener noreferrer" className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all">
                                     <span className="font-semibold text-primary block truncate">{res.title}</span>
                                     {res.description && <p className="text-muted-foreground mt-0.5 truncate">{res.description}</p>}
                                   </a>
@@ -367,13 +379,14 @@ export function TaskDashboard() {
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30">
-                          <span className="flex items-center gap-1.5">
-                            <Clock size={12} /> Due: {task.deadline}
-                          </span>
+                        <div className="flex items-center justify-between text-xs pt-3 border-t border-border/30">
+                          {/* 🔥 INJECTED DYNAMIC URGENCY SYSTEM HERE */}
+                          <div className="flex items-center gap-1.5">
+                            {getUrgencyDisplay(task)}
+                          </div>
                           
                           {task.attachments && task.attachments.length > 0 && (
-                            <span className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
                               <FileText size={12} /> {task.attachments.length} files
                             </span>
                           )}
@@ -385,7 +398,6 @@ export function TaskDashboard() {
               </div>
             )}
 
-            {/* Accepted Bounties Section */}
             {sortedBounties.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2 mt-8">
@@ -393,33 +405,17 @@ export function TaskDashboard() {
                 </h3>
                 <div className="grid gap-4">
                   {sortedBounties.map((task, index) => (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`bg-yellow-500/5 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-yellow-500/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-yellow-500 ring-2 ring-yellow-500/20' : 'border-yellow-500/20'
-                        }`}
-                      onClick={() => handleTaskClick(task)}
-                    >
+                    <motion.div key={task.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
+                      className={`bg-yellow-500/5 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-yellow-500/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-yellow-500 ring-2 ring-yellow-500/20' : 'border-yellow-500/20'}`}
+                      onClick={() => handleTaskClick(task)}>
                       <div className="flex items-start justify-between mb-3">
-                        <span className="text-xs font-medium bg-yellow-500/20 text-yellow-600 px-3 py-1 rounded-full">
-                          BOUNTY
-                        </span>
+                        <span className="text-xs font-medium bg-yellow-500/20 text-yellow-600 px-3 py-1 rounded-full">BOUNTY</span>
                         <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
-                          {getStatusIcon(task.status)}
-                          {getStatusLabel(task.status)}
+                          {getStatusIcon(task.status)} {getStatusLabel(task.status)}
                         </span>
                       </div>
                       <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
-                      <div className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                        <ReactMarkdown>{task.description || ''}</ReactMarkdown>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <Clock size={12} /> {task.deadline === 'Flexible' ? 'Urgent' : task.deadline}
-                        </span>
-                      </div>
+                      <div className="text-sm text-muted-foreground line-clamp-2 mb-4"><ReactMarkdown>{task.description || ''}</ReactMarkdown></div>
                     </motion.div>
                   ))}
                 </div>
@@ -429,115 +425,54 @@ export function TaskDashboard() {
         )}
       </div>
 
-      {/* Task Detail Panel - Bottom Sheet */}
-      {
-        previewTask && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
-            onClick={() => setPreviewTask(null)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="w-full max-w-2xl bg-card border-t border-x border-border rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Handle bar */}
-              <div className="flex justify-center pt-3 pb-2 shrink-0">
-                <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
-              </div>
-
-              {/* Dynamic Content Area */}
-              <div className="overflow-y-auto custom-scrollbar flex-1 pb-6">
-                {(previewTask.status as string) === 'approved' || (previewTask.status as string) === 'passed' ? (
-                  // --- REPORT CARD FOR PASSED TASKS ---
-                  <div className="px-4 sm:px-6">
-                    {isLoadingFeedback ? (
-                      <div className="flex flex-col items-center justify-center py-16">
-                        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mb-4" />
-                        <p className="text-slate-400 font-medium animate-pulse">Retrieving Assessment Report...</p>
-                      </div>
-                    ) : (
-                      <div className="pt-2">
-                        <TaskResultScreen 
-                          score={performanceMetrics?.technicalAccuracy || 88}
-                          rating={(performanceMetrics?.technicalAccuracy || 88) >= 80 ? "Excellent" : "Good"}
-                          feedback={previewFeedback || "Task completed successfully."}
-                          recommendations={["Apply this feedback to future simulations.", "Review reference materials to deepen your mastery."]}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // --- NORMAL TASK PREVIEW ---
-                  <div className="px-5">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium bg-primary/20 text-primary px-3 py-1 rounded-full">
-                        {formatTrackName(previewTask.type)}
-                      </span>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} /> {previewTask.deadline}
-                        </span>
-                      </div>
+      {previewTask && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setPreviewTask(null)}>
+          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }} className="w-full max-w-2xl bg-card border-t border-x border-border rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center pt-3 pb-2 shrink-0"><div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" /></div>
+            <div className="overflow-y-auto custom-scrollbar flex-1 pb-6">
+              {(previewTask.status as string) === 'approved' || (previewTask.status as string) === 'passed' ? (
+                <div className="px-4 sm:px-6">
+                  {isLoadingFeedback ? (
+                    <div className="flex flex-col items-center justify-center py-16"><Loader2 className="w-8 h-8 text-cyan-400 animate-spin mb-4" /><p className="text-slate-400 font-medium animate-pulse">Retrieving Assessment Report...</p></div>
+                  ) : (
+                    <div className="pt-2">
+                      <TaskResultScreen score={performanceMetrics?.technicalAccuracy || 88} rating={(performanceMetrics?.technicalAccuracy || 88) >= 80 ? "Excellent" : "Good"} feedback={previewFeedback || "Task completed successfully."} recommendations={["Apply this feedback to future simulations.", "Review reference materials to deepen your mastery."]} />
                     </div>
-                    <h3 className="font-semibold text-foreground text-lg mb-2">
-                      {(previewTask as any).week ? `Week ${(previewTask as any).week}: ` : ''}{previewTask.title}
-                    </h3>
-                    
-                    {/* FIX: Bulletproof String Fallback */}
-                    <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                      {(previewTask.description || '').replace(/[#*\`_~\[\]]/g, '').substring(0, 150)}...
-                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="px-5">
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xs font-bold bg-primary/20 text-primary px-3 py-1 rounded-full tracking-wider">{formatTag(previewTask.type || (previewTask as any).task_track)}</span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {/* 🔥 INJECTED DYNAMIC URGENCY SYSTEM IN PREVIEW TOO */}
+                      {getUrgencyDisplay(previewTask)}
+                    </div>
                   </div>
-                )}
-              </div>
+                  <h3 className="font-semibold text-foreground text-lg mb-2">{(previewTask as any).week ? `Week ${(previewTask as any).week}: ` : ''}{previewTask.title}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{(previewTask.description || '').replace(/[#*\`_~\[\]]/g, '').substring(0, 150)}...</p>
+                </div>
+              )}
+            </div>
 
-              {/* Actions */}
-              <div className="px-5 pb-5 pt-3 border-t border-border/50 shrink-0 flex gap-3 bg-card">
-                {(previewTask.status as string) !== 'approved' && 
-                 (previewTask.status as string) !== 'passed' && 
-                 (previewTask.status as string) !== 'submitted' && 
-                 (previewTask.status as string) !== 'under-review' && 
-                 (previewTask.status as string) !== 'under_review' && (
-                  <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2">
-                    <Upload size={16} /> Submit Work
+            <div className="px-5 pb-5 pt-3 border-t border-border/50 shrink-0 flex gap-3 bg-card flex-wrap">
+              {(previewTask.status as string) !== 'approved' && (previewTask.status as string) !== 'passed' && (previewTask.status as string) !== 'submitted' && (previewTask.status as string) !== 'under-review' && (previewTask.status as string) !== 'under_review' && (
+                <>
+                  <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2 min-w-[140px]"><Upload size={16} /> Submit Work</Button>
+                  <Button variant="destructive" onClick={() => handleRegenerate(previewTask)} disabled={(previewTask as any).is_regenerated || isRegenerating} className="flex-1 gap-2 min-w-[140px] bg-red-900/50 hover:bg-red-900 text-red-200 border-none">
+                    {isRegenerating ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                    {(previewTask as any).is_regenerated ? "Already Regenerated" : "Request New Brief"}
                   </Button>
-                )}
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  onClick={() => setDetailTask(previewTask)}
-                >
-                  <FileText size={16} /> View Full Details
-                </Button>
-              </div>
-            </motion.div>
+                </>
+              )}
+              <Button variant="outline" className="flex-1 gap-2 min-w-[140px]" onClick={() => setDetailTask(previewTask)}><FileText size={16} /> View Full Details</Button>
+            </div>
           </motion.div>
-        )
-      }
+        </motion.div>
+      )}
 
-      {
-        submissionTask && (
-          <SubmissionModal
-            isOpen={!!submissionTask}
-            onClose={() => setSubmissionTask(null)}
-            taskId={submissionTask.id}
-            taskTitle={submissionTask.title}
-          />
-        )
-      }
-
-      <TaskDetailModal
-        isOpen={!!detailTask}
-        onClose={() => setDetailTask(null)}
-        task={detailTask}
-      />
+      {submissionTask && <SubmissionModal isOpen={!!submissionTask} onClose={() => setSubmissionTask(null)} taskId={submissionTask.id} taskTitle={submissionTask.title} />}
+      <TaskDetailModal isOpen={!!detailTask} onClose={() => setDetailTask(null)} task={detailTask} />
     </div >
   );
 }
