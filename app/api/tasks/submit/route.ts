@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // 🔥 THE FIX: Extract exact keys matching OfficeContext.tsx 
+    // Extract exact keys matching OfficeContext.tsx 
     const { 
         task_id, 
         user_id, 
@@ -28,7 +28,6 @@ export async function POST(request: Request) {
         chatHistory
     } = body;
 
-    // Use the mapped variable, falling back if necessary
     const activeUserId = user_id || userId;
     const activeTaskId = task_id || taskId;
     const finalFileUrl = file_url || fileUrl || "";
@@ -118,17 +117,44 @@ export async function POST(request: Request) {
         content: aiResponse
     });
 
-    // If passed, trigger DB updates
-    if (isPassed) {
-        await supabase.from('tasks').update({ completed: true }).eq('id', activeTaskId);
-        
-        await supabase.from('submissions').insert({
-            user_id: activeUserId,
-            task_id: activeTaskId,
-            file_url: finalFileUrl,
-            ai_feedback: aiResponse,
-        });
+    // ==========================================
+    // 3. 🔥 THE FIX: Update Tasks Table Directly
+    // ==========================================
+    // We update the task directly so the frontend ArchivesView can pull it immediately.
+    await supabaseAdmin
+        .from('tasks')
+        .update({ 
+            status: isPassed ? 'passed' : 'needs_revision',
+            completed: isPassed,
+            file_url: finalFileUrl, // Store artifact link for the portfolio
+            score: technicalAccuracy,
+            feedback: aiResponse
+        })
+        .eq('id', activeTaskId);
 
+    if (isPassed) {
+        // Get user ID from users table
+        const { data: dbUser, error: userLookupError } = await supabaseAdmin
+            .from('users')
+            .select('id')
+            .eq('auth_id', activeUserId)
+            .single();
+
+        if (!dbUser) {
+            throw new Error(`User not found for auth_id: ${activeUserId}`);
+        }
+
+        // Save historical log in submissions table (Removed the Number() cast to prevent UUID breaks)
+        await supabaseAdmin
+            .from('submissions')
+            .insert({
+                user_id: dbUser.id,
+                task_id: activeTaskId, 
+                file_url: finalFileUrl,
+                ai_feedback: aiResponse,
+            });
+
+        // Get current user stats
         const { data: userData } = await supabaseAdmin
             .from('users')
             .select('tasks_completed, average_score')
@@ -137,35 +163,35 @@ export async function POST(request: Request) {
 
         const currentTasks = userData?.tasks_completed || 0;
         const currentAvg = userData?.average_score || 0;
-        const newAvgScore = ((currentAvg * currentTasks) + technicalAccuracy) / (currentTasks + 1);
 
-        await supabaseAdmin.from('users').update({
-            tasks_completed: currentTasks + 1,
-            average_score: Math.round(newAvgScore)
-        }).eq('auth_id', activeUserId);
+        const newAvgScore =
+            ((currentAvg * currentTasks) + technicalAccuracy) /
+            (currentTasks + 1);
 
-        if (technicalAccuracy !== undefined) {
-            await supabaseAdmin.from('performance_reports').insert({
-                user_id: activeUserId,
-                technical_accuracy: technicalAccuracy,
-                reliability_speed: data.reliability_speed || 0,
-                communication_score: data.communication_score || 0,
-                current_level: userLevel || 'Level 1',
-                assessment_date: new Date().toISOString()
-            });
-        }
-
-        // Auto-Generate Next Task (Fire & Forget)
-        fetch(`${BACKEND_URL}/generate-tasks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: activeUserId,
-                user_name: "Intern",
-                track: "General", 
-                task_number: currentTasks + 2
+        // Update overall user stats
+        await supabaseAdmin
+            .from('users')
+            .update({
+                tasks_completed: currentTasks + 1,
+                average_score: Math.round(newAvgScore),
             })
-        }).catch(e => console.error("Auto-gen error:", e));
+            .eq('auth_id', activeUserId);
+
+        // Save performance report
+        if (technicalAccuracy !== undefined) {
+            await supabaseAdmin
+                .from('performance_reports')
+                .insert({
+                    user_id: dbUser.id,
+                    technical_accuracy: technicalAccuracy,
+                    reliability_speed: data.reliability_speed || 0,
+                    communication_score: data.communication_score || 0,
+                    current_level: userLevel || 'Level 1',
+                    assessment_date: new Date().toISOString(),
+                });
+        }
+        
+        // 🚨 AUTO-GENERATE TASK FETCH REMOVED HERE TO PREVENT WEEK 2 LEAKING!
     }
 
     return NextResponse.json({ 

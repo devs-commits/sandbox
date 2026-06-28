@@ -35,15 +35,24 @@ export interface Task {
   title: string;
   description: string;
   type: string;
+
   deadline: string;
+  created_at?: string;
+
   status: TaskStatus;
+
   attachments: string[];
   clientConstraints?: string;
+
   score?: number;
   feedback?: string;
-  resources?: ArchiveItem[]; // AI generated resources specific to this task
+
+  resources?: ArchiveItem[];
+
   difficulty?: string;
-  week?: number; // FIX 2: Added the week property to support chronological sorting
+  week?: number;
+
+  file_url?: string;      // ← add this
 }
 
 export interface Bounty {
