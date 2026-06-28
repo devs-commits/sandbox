@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ElementType } from "react";
-import { supabase } from "../../../lib/supabase";
 import { AdminHeader } from "../../components/admin/AdminHeader";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { useAuth } from "../../contexts/AuthContexts";
 import {
   Select,
   SelectContent,
@@ -23,10 +23,13 @@ import {
   GraduationCap,
   RefreshCw,
   Share2,
+  ShieldCheck,
   Target,
   TrendingUp,
+  Trophy,
   UserCheck,
   Users,
+  Wallet,
 } from "lucide-react";
 
 interface ActivityItem {
@@ -34,7 +37,33 @@ interface ActivityItem {
   user: string;
   action: string;
   time: string;
-  tone: "blue" | "green" | "purple" | string;
+  tone: "blue" | "green" | "purple" | "amber" | "rose" | string;
+}
+
+interface ReferralLeaderboardRow {
+  rank: number;
+  studentId: string;
+  name: string;
+  email: string;
+  referralCode: string;
+  plan: string;
+  status: string;
+  isPaidReferrer: boolean;
+  totalReferrals: number;
+  paidReferrals: number;
+  successfulReferrals: number;
+  pendingCommissionReferrals: number;
+  conversionRate: number;
+  commissionEarned: number;
+  pendingCommission: number;
+}
+
+interface ReferralSummary {
+  totalReferrals: number;
+  paidReferrals: number;
+  successfulReferrals: number;
+  commissionEarned: number;
+  pendingCommission: number;
 }
 
 interface DashboardStats {
@@ -49,6 +78,9 @@ interface DashboardStats {
   avgScore: number;
   totalTasksCompleted: number;
   expiringSoon: number;
+  referralCommissionAmount: number;
+  referralSummary: ReferralSummary;
+  referralLeaderboard: ReferralLeaderboardRow[];
   chartData: {
     signups: number[];
     active: number[];
@@ -71,6 +103,15 @@ const emptyStats: DashboardStats = {
   avgScore: 0,
   totalTasksCompleted: 0,
   expiringSoon: 0,
+  referralCommissionAmount: 1500,
+  referralSummary: {
+    totalReferrals: 0,
+    paidReferrals: 0,
+    successfulReferrals: 0,
+    commissionEarned: 0,
+    pendingCommission: 0,
+  },
+  referralLeaderboard: [],
   chartData: {
     signups: [],
     active: [],
@@ -103,6 +144,14 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 0,
   }).format(amount);
 
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "ST";
+
 const trackLabel = (track: string) =>
   track === "all"
     ? "All courses"
@@ -115,6 +164,8 @@ const toneClasses: Record<string, string> = {
   blue: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
   green: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   purple: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  amber: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  rose: "bg-rose-500/15 text-rose-300 border-rose-500/30",
 };
 
 const statThemes = {
@@ -213,11 +264,13 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(defaultStartInput);
   const [endDate, setEndDate] = useState(todayInput);
   const [course, setCourse] = useState("all");
   const [plan, setPlan] = useState("all");
   const [status, setStatus] = useState("all");
+  const { authenticatedFetch, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const filterSummary = useMemo(
     () =>
@@ -237,13 +290,19 @@ export default function AdminDashboard() {
   };
 
   const fetchData = useCallback(async (isManualRefresh = false) => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      setLoading(false);
+      setRefreshing(false);
+      setErrorMessage("Sign in as an admin to view dashboard data.");
+      return;
+    }
+
     try {
       if (isManualRefresh) setRefreshing(true);
       else setLoading(true);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      setErrorMessage(null);
 
       const params = new URLSearchParams({
         startDate,
@@ -253,28 +312,31 @@ export default function AdminDashboard() {
         status,
       });
 
-      const response = await fetch(`/api/admin/dashboard/stats?${params.toString()}`, {
-        headers: session?.access_token
-          ? {
-              Authorization: `Bearer ${session.access_token}`,
-            }
-          : {},
-      });
+      const response = await authenticatedFetch(`/api/admin/dashboard/stats?${params.toString()}`);
 
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const message = await response.text();
+        setErrorMessage(
+          response.status === 401
+            ? "Your admin session is not ready or has expired. Please refresh after signing in again."
+            : message,
+        );
+        return;
+      }
       const data = await response.json();
       setStats({ ...emptyStats, ...data, chartData: { ...emptyStats.chartData, ...data.chartData } });
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Unable to load dashboard data.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [course, endDate, plan, startDate, status]);
+  }, [authLoading, authenticatedFetch, course, endDate, isAuthenticated, plan, startDate, status]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!authLoading) fetchData();
+  }, [authLoading, fetchData]);
 
   const handleExport = () => {
     const rows = [
@@ -288,6 +350,10 @@ export default function AdminDashboard() {
       ["Letter eligible students", stats.letterEligibleStudents],
       ["Average score", stats.avgScore],
       ["Tasks completed", stats.totalTasksCompleted],
+      ["Referral total", stats.referralSummary.totalReferrals],
+      ["Paid referred students", stats.referralSummary.paidReferrals],
+      ["Successful referrals", stats.referralSummary.successfulReferrals],
+      ["Referral commission earned", stats.referralSummary.commissionEarned],
     ];
 
     const activityRows = stats.activityItems.map((item) => [
@@ -296,10 +362,24 @@ export default function AdminDashboard() {
       item.action,
       item.time,
     ]);
+    const referralRows = stats.referralLeaderboard.map((row) => [
+      row.rank,
+      row.name,
+      row.email,
+      row.referralCode,
+      row.totalReferrals,
+      row.paidReferrals,
+      row.successfulReferrals,
+      row.commissionEarned,
+      row.pendingCommission,
+    ]);
 
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "SUMMARY\n";
     csvContent += rows.map((row) => row.map((field) => `"${field}"`).join(",")).join("\n");
+    csvContent += "\n\nREFERRAL LEADERBOARD\n";
+    csvContent += ["Rank", "Student", "Email", "Referral Code", "Total Referrals", "Paid Referred", "Successful Referrals", "Commission Earned", "Pending Commission"].map((field) => `"${field}"`).join(",") + "\n";
+    csvContent += referralRows.map((row) => row.map((field) => `"${field}"`).join(",")).join("\n");
     csvContent += "\n\nLIVE ACTIVITY\n";
     csvContent += ["Type", "User", "Action", "Time"].map((field) => `"${field}"`).join(",") + "\n";
     csvContent += activityRows.map((row) => row.map((field) => `"${field}"`).join(",")).join("\n");
@@ -428,6 +508,12 @@ export default function AdminDashboard() {
           Cards and activity are recalculated from the selected dashboard filters.
         </div>
 
+        {errorMessage && (
+          <div className="mb-4 rounded-lg border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            {errorMessage}
+          </div>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, index) => (
@@ -479,13 +565,131 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {!loading && (
+          <Card className="mt-6 rounded-lg border-amber-400/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.13),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.1),transparent_30%),linear-gradient(135deg,rgba(16,32,51,0.98),rgba(20,18,39,0.96))] shadow-sm">
+            <CardContent className="p-5">
+              <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-100">
+                    <Trophy className="h-3.5 w-3.5" />
+                    Referral performance
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">Referral Leaderboard</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Successful commission requires both the referrer and referred student to be on paid plans.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
+                  {formatCurrency(stats.referralCommissionAmount)} per successful referral
+                </div>
+              </div>
+
+              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-lg border border-cyan-400/15 bg-cyan-400/10 p-3">
+                  <p className="text-xs uppercase tracking-wider text-cyan-100">Total referrals</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {stats.referralSummary.totalReferrals.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-emerald-400/15 bg-emerald-400/10 p-3">
+                  <p className="text-xs uppercase tracking-wider text-emerald-100">Paid referred</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {stats.referralSummary.paidReferrals.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-violet-400/15 bg-violet-400/10 p-3">
+                  <p className="text-xs uppercase tracking-wider text-violet-100">Successful</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {stats.referralSummary.successfulReferrals.toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-amber-400/15 bg-amber-400/10 p-3">
+                  <p className="text-xs uppercase tracking-wider text-amber-100">Commission earned</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {formatCurrency(stats.referralSummary.commissionEarned)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-rose-400/15 bg-rose-400/10 p-3">
+                  <p className="text-xs uppercase tracking-wider text-rose-100">Pending commission</p>
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
+                    {formatCurrency(stats.referralSummary.pendingCommission)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-white/10 bg-[#102033]/70">
+                <div className="min-w-[880px]">
+                  <div className="grid grid-cols-[72px_1.6fr_0.8fr_0.8fr_0.8fr_1fr_1fr] gap-4 bg-gradient-to-r from-amber-500/20 via-violet-500/10 to-cyan-500/10 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span>Rank</span>
+                    <span>Student</span>
+                    <span>Total</span>
+                    <span>Paid</span>
+                    <span>Success</span>
+                    <span>Commission</span>
+                    <span>Eligibility</span>
+                  </div>
+                  <div className="divide-y divide-white/10">
+                    {stats.referralLeaderboard.map((row) => (
+                      <div
+                        key={`${row.studentId}-${row.rank}`}
+                        className="grid grid-cols-[72px_1.6fr_0.8fr_0.8fr_0.8fr_1fr_1fr] items-center gap-4 px-4 py-3 text-sm transition hover:bg-white/[0.03]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 font-semibold text-amber-100">
+                            #{row.rank}
+                          </span>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400/30 to-cyan-500/30 text-xs font-semibold text-amber-50 ring-1 ring-white/10">
+                            {getInitials(row.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground">{row.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{row.referralCode}</p>
+                          </div>
+                        </div>
+                        <span className="font-semibold text-foreground">{row.totalReferrals.toLocaleString()}</span>
+                        <span className="text-emerald-100">{row.paidReferrals.toLocaleString()}</span>
+                        <span className="text-violet-100">{row.successfulReferrals.toLocaleString()}</span>
+                        <div>
+                          <p className="font-semibold text-amber-100">{formatCurrency(row.commissionEarned)}</p>
+                          {row.pendingCommission > 0 && (
+                            <p className="text-xs text-rose-200">Pending {formatCurrency(row.pendingCommission)}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-medium ${
+                              row.isPaidReferrer
+                                ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-100"
+                                : "border-rose-400/25 bg-rose-400/10 text-rose-100"
+                            }`}
+                          >
+                            {row.isPaidReferrer ? "Paid referrer" : "Not commission-ready"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{row.conversionRate}% paid conversion</span>
+                        </div>
+                      </div>
+                    ))}
+                    {stats.referralLeaderboard.length === 0 && (
+                      <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                        No referral activity found for the selected filters.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card className="rounded-lg border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.1),transparent_28%),linear-gradient(135deg,rgba(16,32,51,0.98),rgba(10,23,39,0.98))] shadow-sm lg:col-span-2">
             <CardContent className="p-5">
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">Live System Activity</h3>
-                  <p className="text-sm text-muted-foreground">Recent signups, payments, and completion milestones.</p>
+                  <p className="text-sm text-muted-foreground">Recent signups, payments, KYC, wallet, and completion milestones.</p>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -505,6 +709,10 @@ export default function AdminDashboard() {
                           <Banknote className="h-4 w-4" />
                         ) : item.type === "milestone" ? (
                           <Target className="h-4 w-4" />
+                        ) : item.type === "kyc" ? (
+                          <ShieldCheck className="h-4 w-4" />
+                        ) : item.type === "wallet" ? (
+                          <Wallet className="h-4 w-4" />
                         ) : (
                           <Users className="h-4 w-4" />
                         )}

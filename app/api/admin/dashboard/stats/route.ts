@@ -5,6 +5,7 @@ import { createSupabaseClientWithToken } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 const successStatuses = new Set(['success', 'successful', 'confirmed', 'paid']);
+const referralCommissionAmount = 1500;
 
 type StudentRow = {
   id: number;
@@ -21,6 +22,10 @@ type StudentRow = {
   tasks_completed: number | null;
   progress_percentage: number | null;
   average_score: number | null;
+  referral_code?: string | null;
+  id_verified?: boolean | null;
+  bvn?: string | null;
+  nin?: string | null;
 };
 
 type PaymentRow = {
@@ -33,6 +38,26 @@ type PaymentRow = {
   subscription_plan: string | null;
   full_name: string | null;
   email: string | null;
+};
+
+type ReferralRow = {
+  id?: number | string | null;
+  created_at?: string | null;
+  status?: string | null;
+  referrer_id?: number | string | null;
+  referred_user_id?: number | string | null;
+  referee_id?: number | string | null;
+  referred_id?: number | string | null;
+  reward_amount?: number | string | null;
+  amount_earned?: number | string | null;
+};
+
+type WalletRow = {
+  user_id: string | null;
+  account_number: string | null;
+  account_name?: string | null;
+  bank_name?: string | null;
+  updated_at?: string | null;
 };
 
 const getDays = (timeRange: string) => {
@@ -93,6 +118,26 @@ const isActiveStudent = (student: StudentRow) => {
 
   return new Date(student.subscription_expires_at).getTime() >= Date.now();
 };
+
+const isPaidStudent = (student?: StudentRow | null) => {
+  if (!student) return false;
+
+  const plan = normalize(student.subscription_plan);
+  const status = normalize(student.subscription_status);
+  const isPaidPlan = Boolean(plan) && plan !== 'trial' && plan !== 'free';
+
+  return isPaidPlan && (status === 'paid' || isActiveStudent(student));
+};
+
+const isWithinDateWindow = (value: string | null | undefined, dateWindow: ReturnType<typeof getDateWindow>) => {
+  if (!value) return true;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return true;
+  return date >= dateWindow.startDate && date <= dateWindow.endDate;
+};
+
+const getReferredUserId = (referral: ReferralRow) =>
+  referral.referred_user_id ?? referral.referee_id ?? referral.referred_id ?? null;
 
 const matchesStudentFilters = (
   student: StudentRow,
@@ -219,7 +264,11 @@ export async function GET(request: Request) {
         has_completed_onboarding,
         tasks_completed,
         progress_percentage,
-        average_score
+        average_score,
+        referral_code,
+        id_verified,
+        bvn,
+        nin
       `)
       .eq('role', 'student')
       .order('created_at', { ascending: false });
@@ -243,6 +292,26 @@ export async function GET(request: Request) {
 
     if (paymentError) {
       console.warn('Admin stats payments query failed:', paymentError.message);
+    }
+
+    const { data: referrals, error: referralError } = await supabase
+      .from('referrals')
+      .select('*');
+
+    if (referralError) {
+      console.warn('Admin stats referrals query failed:', referralError.message);
+    }
+
+    const { data: wallets, error: walletError } = await supabase
+      .from('wallets')
+      .select('user_id, account_number, account_name, bank_name, updated_at')
+      .gte('updated_at', dateWindow.startDateIso)
+      .lte('updated_at', dateWindow.endDateIso)
+      .order('updated_at', { ascending: false })
+      .limit(8);
+
+    if (walletError) {
+      console.warn('Admin stats wallets query failed:', walletError.message);
     }
 
     const filteredPayments = ((payments || []) as PaymentRow[]).filter((payment) => {
@@ -279,6 +348,102 @@ export async function GET(request: Request) {
       return diffDays >= 0 && diffDays <= 7;
     }).length;
 
+    const studentsByTableId = new Map(allStudents.map((student) => [String(student.id), student]));
+    const studentsByAuthId = new Map(
+      allStudents
+        .filter((student) => student.auth_id)
+        .map((student) => [String(student.auth_id), student]),
+    );
+    const resolveStudent = (id: number | string | null | undefined) => {
+      if (id === null || id === undefined) return null;
+      const normalizedId = String(id);
+      return studentsByTableId.get(normalizedId) || studentsByAuthId.get(normalizedId) || null;
+    };
+
+    const referralAccumulator = new Map<
+      string,
+      {
+        referrer: StudentRow;
+        totalReferrals: number;
+        paidReferrals: number;
+        successfulReferrals: number;
+      }
+    >();
+
+    ((referrals || []) as ReferralRow[])
+      .filter((referral) => isWithinDateWindow(referral.created_at, dateWindow))
+      .forEach((referral) => {
+        const referrer = resolveStudent(referral.referrer_id);
+        if (!referrer || !matchesStudentFilters(referrer, filters)) return;
+
+        const referredStudent = resolveStudent(getReferredUserId(referral));
+        const key = String(referrer.id);
+        const current = referralAccumulator.get(key) || {
+          referrer,
+          totalReferrals: 0,
+          paidReferrals: 0,
+          successfulReferrals: 0,
+        };
+
+        const referredIsPaid = isPaidStudent(referredStudent);
+        const referrerIsPaid = isPaidStudent(referrer);
+
+        current.totalReferrals += 1;
+        if (referredIsPaid) current.paidReferrals += 1;
+        if (referrerIsPaid && referredIsPaid) current.successfulReferrals += 1;
+
+        referralAccumulator.set(key, current);
+      });
+
+    const referralRows = Array.from(referralAccumulator.values())
+      .map((entry) => {
+        const referrerIsPaid = isPaidStudent(entry.referrer);
+        const pendingCommissionReferrals = Math.max(entry.paidReferrals - entry.successfulReferrals, 0);
+
+        return {
+          studentId: entry.referrer.auth_id || String(entry.referrer.id),
+          name: entry.referrer.full_name || entry.referrer.email || 'Student',
+          email: entry.referrer.email || 'N/A',
+          referralCode: entry.referrer.referral_code || 'N/A',
+          plan: entry.referrer.subscription_plan || 'N/A',
+          status: entry.referrer.subscription_status || 'inactive',
+          isPaidReferrer: referrerIsPaid,
+          totalReferrals: entry.totalReferrals,
+          paidReferrals: entry.paidReferrals,
+          successfulReferrals: entry.successfulReferrals,
+          pendingCommissionReferrals,
+          conversionRate: entry.totalReferrals
+            ? Number(((entry.paidReferrals / entry.totalReferrals) * 100).toFixed(1))
+            : 0,
+          commissionEarned: entry.successfulReferrals * referralCommissionAmount,
+          pendingCommission: pendingCommissionReferrals * referralCommissionAmount,
+        };
+      })
+      .sort((a, b) => {
+        if (b.successfulReferrals !== a.successfulReferrals) return b.successfulReferrals - a.successfulReferrals;
+        if (b.commissionEarned !== a.commissionEarned) return b.commissionEarned - a.commissionEarned;
+        return b.totalReferrals - a.totalReferrals;
+      })
+      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+    const referralLeaderboard = referralRows.slice(0, 10);
+
+    const referralSummary = referralRows.reduce(
+      (summary, row) => ({
+        totalReferrals: summary.totalReferrals + row.totalReferrals,
+        paidReferrals: summary.paidReferrals + row.paidReferrals,
+        successfulReferrals: summary.successfulReferrals + row.successfulReferrals,
+        commissionEarned: summary.commissionEarned + row.commissionEarned,
+        pendingCommission: summary.pendingCommission + row.pendingCommission,
+      }),
+      {
+        totalReferrals: 0,
+        paidReferrals: 0,
+        successfulReferrals: 0,
+        commissionEarned: 0,
+        pendingCommission: 0,
+      },
+    );
+
     const recentSignups = studentsInRange.slice(0, 5).map((student) => ({
       type: 'signup',
       user: student.full_name || student.email || 'New student',
@@ -309,7 +474,35 @@ export async function GET(request: Request) {
         tone: 'purple',
       }));
 
-    const activityItems = [...recentPayments, ...recentSignups, ...recentMilestones]
+    const recentKycCompletions = studentsInRange
+      .filter((student) => Boolean(student.id_verified) && Boolean(student.bvn || student.nin))
+      .slice(0, 5)
+      .map((student) => ({
+        type: 'kyc',
+        user: student.full_name || student.email || 'Student',
+        action: 'completed KYC details for Earn Money',
+        time: formatActivityTime(student.created_at),
+        timestamp: student.created_at ? new Date(student.created_at).getTime() : 0,
+        tone: 'amber',
+      }));
+
+    const recentWallets = ((wallets || []) as WalletRow[])
+      .filter((wallet) => wallet.account_number && wallet.account_number !== '****')
+      .slice(0, 5)
+      .map((wallet) => {
+        const walletOwner = resolveStudent(wallet.user_id);
+
+        return {
+          type: 'wallet',
+          user: walletOwner?.full_name || wallet.account_name || walletOwner?.email || 'Student wallet',
+          action: `created a Global Wallet${wallet.bank_name ? ` with ${wallet.bank_name}` : ''}`,
+          time: formatActivityTime(wallet.updated_at),
+          timestamp: wallet.updated_at ? new Date(wallet.updated_at).getTime() : 0,
+          tone: 'rose',
+        };
+      });
+
+    const activityItems = [...recentPayments, ...recentSignups, ...recentMilestones, ...recentKycCompletions, ...recentWallets]
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 8);
 
@@ -330,6 +523,9 @@ export async function GET(request: Request) {
       avgScore,
       totalTasksCompleted,
       expiringSoon,
+      referralCommissionAmount,
+      referralSummary,
+      referralLeaderboard,
       chartData: {
         signups: buildSeries(dateWindow, studentsInRange),
         active: buildSeries(dateWindow, studentsInRange.filter(isActiveStudent)),
