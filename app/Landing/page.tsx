@@ -17,10 +17,12 @@ import PricingSection from "../components/landing/PricingSection";
 import TrustBand from "../components/landing/TrustBand";
 import FaqSection from "../components/landing/FaqSection";
 import FooterSection from "../components/landing/FooterSection";
+import FreeTrialPopup from "../components/landing/FreeTrialPopup";
 
 const Landing = () => {
   return (
  <div className="min-h-screen bg-[hsla(207,36%,95%,1)] pt-16">
+  <FreeTrialPopup />
   <Navbar />
   <HeroSection />
   {/* <CompanyLogoWall /> */}
