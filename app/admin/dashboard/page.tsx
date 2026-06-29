@@ -420,7 +420,7 @@ export default function AdminDashboard() {
                     value={startDate}
                     max={endDate}
                     onChange={(event) => setStartDate(event.target.value)}
-                    className="h-10 w-full min-w-0 border-border/30 bg-[#102033] pl-9 text-sm"
+                    className="h-10 w-full min-w-0 border-border/30 bg-[#102033] pl-6 m-2 text-sm"
                   />
                 </label>
                 <label className="relative min-w-0">
@@ -431,7 +431,7 @@ export default function AdminDashboard() {
                     min={startDate}
                     max={todayInput}
                     onChange={(event) => setEndDate(event.target.value)}
-                    className="h-10 w-full min-w-0 border-border/30 bg-[#102033] pl-9 text-sm"
+                    className="h-10 w-full min-w-0 border-border/30 bg-[#102033] pl-6 m-2 text-sm"
                   />
                 </label>
               </div>
