@@ -100,19 +100,16 @@ export default function FreeTrialPopup() {
           </div>
         </div>
 
-        <div className="grid gap-3 bg-slate-50 px-5 py-5 sm:grid-cols-3 sm:px-7">
+        <div className="grid grid-cols-2 gap-3 bg-slate-50 px-5 py-5 sm:px-7">
           <div className="rounded-2xl border border-slate-200 bg-white p-3">
             <Sparkles className="mb-2 h-4 w-4 text-violet-600" />
             <p className="text-xs font-bold text-slate-900">Real task practice</p>
           </div>
+
           <div className="rounded-2xl border border-slate-200 bg-white p-3">
             <Timer className="mb-2 h-4 w-4 text-cyan-600" />
             <p className="text-xs font-bold text-slate-900">No payment today</p>
           </div>
-          {/* <div className="rounded-2xl border border-slate-200 bg-white p-3">
-            <Check className="mb-2 h-4 w-4 text-emerald-600" />
-            <p className="text-xs font-bold text-slate-900">Cancel anytime</p>
-          </div> */}
         </div>
       </DialogContent>
     </Dialog>
