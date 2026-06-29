@@ -168,6 +168,23 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
+const formatCountryName = (value?: string | null) => {
+  if (!value) return "N/A";
+  const normalized = String(value).trim();
+  if (!normalized) return "N/A";
+
+  const regionCode = normalized.length === 2 || normalized.length === 3 ? normalized.toUpperCase() : normalized;
+  try {
+    const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+    const name = displayNames.of(regionCode);
+    if (name) return name;
+  } catch {
+    // Fallback to original value if Intl.DisplayNames is unavailable or invalid code
+  }
+
+  return normalized;
+};
+
 const formatCurrency = (amount?: number | null) =>
   new Intl.NumberFormat("en-NG", {
     style: "currency",
@@ -536,7 +553,7 @@ export function AdminStudentProfileModal({
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <InfoItem icon={Mail} label="Email" value={profile.email} theme={infoThemes[0]} />
                     <InfoItem icon={Phone} label="Phone" value={profile.phone} theme={infoThemes[1]} />
-                    <InfoItem icon={MapPin} label="Country" value={profile.country} theme={infoThemes[2]} />
+                    <InfoItem icon={MapPin} label="Country" value={formatCountryName(profile.country)} theme={infoThemes[2]} />
                     <InfoItem icon={User} label="Nationality" value={profile.nationality} theme={infoThemes[3]} />
                     <InfoItem icon={Calendar} label="Date of birth" value={formatDate(profile.dateOfBirth)} theme={infoThemes[4]} />
                     <InfoItem icon={Briefcase} label="Occupation" value={profile.occupation} theme={infoThemes[5]} />
