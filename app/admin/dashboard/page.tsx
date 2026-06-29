@@ -579,9 +579,9 @@ export default function AdminDashboard() {
                     Successful commission requires both the referrer and referred student to be on paid plans.
                   </p>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
+                {/* <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
                   {formatCurrency(stats.referralCommissionAmount)} per successful referral
-                </div>
+                </div> */}
               </div>
 
               <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
