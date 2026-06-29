@@ -616,11 +616,6 @@ export function AdminStudentProfileModal({
                         )}
                       </div>
                     ))}
-                    {(!profile.portfolioItems || profile.portfolioItems.length === 0) && (
-                      <div className="rounded-lg border border-dashed border-border/50 p-5 text-sm text-muted-foreground">
-                        No portfolio items have been generated yet.
-                      </div>
-                    )}
                   </div>
                 </div>
 
