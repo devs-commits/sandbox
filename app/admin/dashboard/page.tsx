@@ -410,20 +410,20 @@ export default function AdminDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-background/20 p-3 shadow-inner sm:grid-cols-2 xl:flex xl:items-end">
-            <div className="sm:col-span-2 xl:col-span-1">
+            <div className="sm:col-span-2 xl:col-span-1 max-w-full xl:max-w-[520px] w-full">
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Date range</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <label className="relative">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 min-w-0">
+                <label className="relative min-w-0">
                   <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-300" />
                   <Input
                     type="date"
                     value={startDate}
                     max={endDate}
                     onChange={(event) => setStartDate(event.target.value)}
-                    className="h-10 border-border/30 bg-[#102033] pl-9 text-sm"
+                    className="h-10 w-full min-w-0 border-border/30 bg-[#102033] pl-9 text-sm"
                   />
                 </label>
-                <label className="relative">
+                <label className="relative min-w-0">
                   <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-300" />
                   <Input
                     type="date"
@@ -431,7 +431,7 @@ export default function AdminDashboard() {
                     min={startDate}
                     max={todayInput}
                     onChange={(event) => setEndDate(event.target.value)}
-                    className="h-10 border-border/30 bg-[#102033] pl-9 text-sm"
+                    className="h-10 w-full min-w-0 border-border/30 bg-[#102033] pl-9 text-sm"
                   />
                 </label>
               </div>
