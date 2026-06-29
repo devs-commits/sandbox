@@ -470,7 +470,7 @@ export default function AdminDashboard() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All plans</SelectItem>
-                <SelectItem value="trial">Free trial</SelectItem>
+                {/* <SelectItem value="trial">Free trial</SelectItem> */}
                 <SelectItem value="monthly">Monthly</SelectItem>
                 <SelectItem value="quarterly">Quarterly</SelectItem>
               </SelectContent>
@@ -482,8 +482,8 @@ export default function AdminDashboard() {
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
+                {/* <SelectItem value="trial">Trial</SelectItem> */}
+                {/* <SelectItem value="paid">Paid</SelectItem> */}
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
@@ -531,9 +531,9 @@ export default function AdminDashboard() {
               theme="cyan"
             />
             <StatCard
-              title="Active Students"
-              value={stats.activeStudents.toLocaleString()}
-              helper="Students with active, unexpired office access."
+              title="Paid Students"
+              value={stats.paidStudents.toLocaleString()}
+              helper="Students on paid plans in the selected scope."
               icon={UserCheck}
               data={stats.chartData.active}
               theme="emerald"
