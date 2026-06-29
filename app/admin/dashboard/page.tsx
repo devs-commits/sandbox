@@ -503,10 +503,10 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-border/30 bg-[#102033]/70 px-3 py-2 text-xs text-muted-foreground">
+        {/* <div className="mb-4 inline-flex max-w-full items-center gap-2 rounded-full border border-border/30 bg-[#102033]/70 px-3 py-2 text-xs text-muted-foreground">
           <Filter className="h-3.5 w-3.5" />
           Cards and activity are recalculated from the selected dashboard filters.
-        </div>
+        </div> */}
 
         {errorMessage && (
           <div className="mb-4 rounded-lg border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
