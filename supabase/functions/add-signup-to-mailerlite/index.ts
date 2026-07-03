@@ -48,6 +48,15 @@ serve(async (req: Request) => {
       );
     }
 
+    const normalizedPlan = (data.subscriptionPlan || "monthly")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+
+    const isFreeTrial = ["trial", "freetrial", "free-trial", "free_trial"].includes(normalizedPlan);
+    const signupSegment = isFreeTrial ? "free_trial" : "paid";
+
     // Add to MailerLite
     const mlResponse = await fetch(
       "https://connect.mailerlite.com/api/subscribers",
@@ -65,7 +74,9 @@ serve(async (req: Request) => {
             country: data.country || "",
             track: data.track || "",
             experience_level: data.experienceLevel || "",
-            subscription_plan: data.subscriptionPlan || "monthly",
+            subscription_plan: normalizedPlan,
+            signup_segment: signupSegment,
+            // is_paid: isFreeTrial ? "false" : "true",
           },
           groups: [mlGroupId],
           status: "active",
