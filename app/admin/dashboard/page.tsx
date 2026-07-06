@@ -17,13 +17,15 @@ import {
   Activity,
   Banknote,
   CalendarDays,
+  CircleAlert,
+  ClipboardX,
   Download,
-  Filter,
   Gift,
   GraduationCap,
   RefreshCw,
   Share2,
   ShieldCheck,
+  ShieldX,
   Target,
   TrendingUp,
   Trophy,
@@ -76,7 +78,9 @@ interface DashboardStats {
   letterEligibleStudents: number;
   letterDownloadsTracked: boolean;
   avgScore: number;
-  totalTasksCompleted: number;
+  unverifiedStudents: number;
+  firstTaskPendingStudents: number;
+  noProgressStudents: number;
   expiringSoon: number;
   referralCommissionAmount: number;
   referralSummary: ReferralSummary;
@@ -101,7 +105,9 @@ const emptyStats: DashboardStats = {
   letterEligibleStudents: 0,
   letterDownloadsTracked: false,
   avgScore: 0,
-  totalTasksCompleted: 0,
+  unverifiedStudents: 0,
+  firstTaskPendingStudents: 0,
+  noProgressStudents: 0,
   expiringSoon: 0,
   referralCommissionAmount: 1500,
   referralSummary: {
@@ -349,7 +355,10 @@ export default function AdminDashboard() {
       ["Course completion rate", `${stats.courseCompletionRate}%`],
       ["Letter eligible students", stats.letterEligibleStudents],
       ["Average score", stats.avgScore],
-      ["Tasks completed", stats.totalTasksCompleted],
+      ["Unverified students", stats.unverifiedStudents],
+      ["First task pending", stats.firstTaskPendingStudents],
+      ["No progress students", stats.noProgressStudents],
+      ["Expiring in 7 days", stats.expiringSoon],
       ["Referral total", stats.referralSummary.totalReferrals],
       ["Paid referred students", stats.referralSummary.paidReferrals],
       ["Successful referrals", stats.referralSummary.successfulReferrals],
@@ -748,16 +757,34 @@ export default function AdminDashboard() {
                     </div>
                     <span className="font-semibold text-foreground">{stats.avgScore}%</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border border-violet-400/15 bg-violet-400/10 p-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-rose-400/15 bg-rose-400/10 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-md bg-rose-400/15 p-2 text-rose-200">
+                        <ShieldX className="h-4 w-4" />
+                      </div>
+                      <span className="text-sm text-muted-foreground">ID not verified</span>
+                    </div>
+                    <span className="font-semibold text-foreground">{stats.unverifiedStudents.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-violet-400/15 bg-violet-400/10 p-3">
                     <div className="flex items-center gap-3">
                       <div className="rounded-md bg-violet-400/15 p-2 text-violet-200">
+                        <ClipboardX className="h-4 w-4" />
+                      </div>
+                      <span className="text-sm text-muted-foreground">First task pending</span>
+                    </div>
+                    <span className="font-semibold text-foreground">{stats.firstTaskPendingStudents.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/15 bg-amber-400/10 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-md bg-amber-400/15 p-2 text-amber-200">
                         <Target className="h-4 w-4" />
                       </div>
-                      <span className="text-sm text-muted-foreground">Tasks completed</span>
+                      <span className="text-sm text-muted-foreground">No progress yet</span>
                     </div>
-                    <span className="font-semibold text-foreground">{stats.totalTasksCompleted.toLocaleString()}</span>
+                    <span className="font-semibold text-foreground">{stats.noProgressStudents.toLocaleString()}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border border-amber-400/15 bg-amber-400/10 p-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/15 bg-amber-400/10 p-3">
                     <div className="flex items-center gap-3">
                       <div className="rounded-md bg-amber-400/15 p-2 text-amber-200">
                         <Download className="h-4 w-4" />
