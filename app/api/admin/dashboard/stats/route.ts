@@ -26,6 +26,7 @@ type StudentRow = {
   id_verified?: boolean | null;
   bvn?: string | null;
   nin?: string | null;
+  is_first_task?: boolean | null;
 };
 
 type PaymentRow = {
@@ -268,7 +269,8 @@ export async function GET(request: Request) {
         referral_code,
         id_verified,
         bvn,
-        nin
+        nin,
+        is_first_task
       `)
       .eq('role', 'student')
       .order('created_at', { ascending: false });
@@ -341,7 +343,9 @@ export async function GET(request: Request) {
     const avgScore = studentsInRange.length
       ? Math.round(studentsInRange.reduce((sum, student) => sum + Number(student.average_score || 0), 0) / studentsInRange.length)
       : 0;
-    const totalTasksCompleted = studentsInRange.reduce((sum, student) => sum + Number(student.tasks_completed || 0), 0);
+    const unverifiedStudents = studentsInRange.filter((student) => !student.id_verified).length;
+    const firstTaskPendingStudents = studentsInRange.filter((student) => student.is_first_task !== false).length;
+    const noProgressStudents = studentsInRange.filter((student) => Number(student.tasks_completed || 0) === 0).length;
     const expiringSoon = filteredStudents.filter((student) => {
       if (!isActiveStudent(student) || !student.subscription_expires_at) return false;
       const diffDays = Math.ceil((new Date(student.subscription_expires_at).getTime() - Date.now()) / 86400000);
@@ -521,7 +525,9 @@ export async function GET(request: Request) {
       letterEligibleStudents,
       letterDownloadsTracked: false,
       avgScore,
-      totalTasksCompleted,
+      unverifiedStudents,
+      firstTaskPendingStudents,
+      noProgressStudents,
       expiringSoon,
       referralCommissionAmount,
       referralSummary,

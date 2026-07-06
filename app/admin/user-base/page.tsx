@@ -10,6 +10,7 @@ import {
   Award,
   Building2,
   BriefcaseBusiness,
+  CalendarDays,
   Gift,
   Search,
   SlidersHorizontal,
@@ -43,6 +44,7 @@ type RawStudentRecord = EnrollmentSource & {
   average_score?: number | string | null;
   wallet_balance?: number | string | null;
   id_verified?: boolean | null;
+  is_first_task?: boolean | null;
 };
 
 type RawRecruiterRecord = {
@@ -51,6 +53,7 @@ type RawRecruiterRecord = {
   full_name?: string | null;
   company_name?: string | null;
   email?: string | null;
+  created_at?: string | null;
   subscription_status?: string | null;
   subscription_expires_at?: string | null;
 };
@@ -60,6 +63,7 @@ type RecruiterListItem = {
   internalId: number | string;
   name: string;
   email: string;
+  createdAt: string | null;
   status: string;
   expiresOn: string;
   daysLeft: string;
@@ -88,6 +92,35 @@ const enterpriseData = [
   { company: "GTBank", plan: "Monthly", status: "Expired", expiresOn: "Mar 15, 2025", daysLeft: "0 days" },
   { company: "Dangote Group", plan: "Yearly", status: "Active", expiresOn: "Dec 31, 2025", daysLeft: "280 days" },
 ];
+
+const toDateInput = (date: Date) => date.toISOString().split("T")[0];
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const getDateBoundary = (value: string, endOfDay = false) => {
+  if (!value) return null;
+  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const isWithinDateRange = (value: string | null | undefined, startDate: string, endDate: string) => {
+  if (!startDate && !endDate) return true;
+  if (!value) return false;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const startBoundary = getDateBoundary(startDate);
+  const endBoundary = getDateBoundary(endDate, true);
+
+  if (startBoundary && date < startBoundary) return false;
+  if (endBoundary && date > endBoundary) return false;
+  return true;
+};
 
 const formatCourseName = (course?: string | null) => {
   if (!course) return "N/A";
@@ -132,12 +165,15 @@ const mapStudentRecord = (s: RawStudentRecord): StudentListItem => ({
   averageScore: Number(s.average_score || 0),
   walletBalance: Number(s.wallet_balance || 0),
   idVerified: Boolean(s.id_verified),
+  hasReceivedFirstTask: s.is_first_task === false,
 });
 
 export default function UserBase() {
   const [activeTab, setActiveTab] = useState("students");
   const [search, setSearch] = useState("");
   const [rowsToShow, setRowsToShow] = useState("10");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [filterBy, setFilterBy] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
   const [enrollmentFilter, setEnrollmentFilter] = useState("all");
@@ -180,6 +216,7 @@ export default function UserBase() {
               internalId: r.id || "",
               name: r.full_name || r.company_name || "Unknown",
               email: r.email || "N/A",
+              createdAt: r.created_at || null,
               status: r.subscription_status || "Active",
               expiresOn: r.subscription_expires_at ? new Date(r.subscription_expires_at).toLocaleDateString() : "N/A",
               daysLeft,
@@ -195,6 +232,13 @@ export default function UserBase() {
 
     fetchData();
   }, [authenticatedFetch]);
+
+  const setQuickRange = (days: number) => {
+    const end = new Date();
+    setEndDate(toDateInput(end));
+    setStartDate(toDateInput(addDays(end, -(days - 1))));
+    setCurrentPage(1);
+  };
 
   const filteredData = useMemo<UserBaseRow[]>(() => {
     const query = search.trim().toLowerCase();
@@ -217,6 +261,7 @@ export default function UserBase() {
           .toLowerCase();
 
         const matchesSearch = !query || searchable.includes(query);
+        const matchesDate = isWithinDateRange(student.startDate, startDate, endDate);
         const matchesCourse = courseFilter === "all" || student.course === courseFilter;
         const normalizedStatus = String(student.status || "").toLowerCase();
         const normalizedPlan = String(student.plan || "").toLowerCase();
@@ -238,7 +283,7 @@ export default function UserBase() {
           (verificationFilter === "verified" && student.idVerified) ||
           (verificationFilter === "unverified" && !student.idVerified);
 
-        return matchesSearch && matchesCourse && matchesEnrollment && matchesProgress && matchesVerification;
+        return matchesSearch && matchesDate && matchesCourse && matchesEnrollment && matchesProgress && matchesVerification;
       });
     }
 
@@ -250,7 +295,8 @@ export default function UserBase() {
           recruiter.email.toLowerCase().includes(query);
         const matchesFilter =
           filterBy === "all" || recruiter.status.toLowerCase() === filterBy;
-        return matchesSearch && matchesFilter;
+        const matchesDate = isWithinDateRange(recruiter.createdAt, startDate, endDate);
+        return matchesSearch && matchesFilter && matchesDate;
       });
     }
 
@@ -261,16 +307,18 @@ export default function UserBase() {
         enterprise.plan.toLowerCase().includes(query);
       const matchesFilter =
         filterBy === "all" || enterprise.status.toLowerCase() === filterBy;
-      return matchesSearch && matchesFilter;
+      const matchesDate = isWithinDateRange(enterprise.expiresOn, startDate, endDate);
+      return matchesSearch && matchesFilter && matchesDate;
     });
-  }, [activeTab, search, filterBy, students, recruiters, courseFilter, enrollmentFilter, progressFilter, verificationFilter]);
+  }, [activeTab, search, filterBy, students, recruiters, courseFilter, enrollmentFilter, progressFilter, verificationFilter, startDate, endDate]);
 
   const studentSummary = useMemo(() => {
-    const active = students.filter((student) => String(student.status).toLowerCase() === "active" && !isExpired(student.subscriptionExpiresAt)).length;
-    const trial = students.filter((student) => String(student.plan).toLowerCase() === "trial").length;
-    const ready = students.filter((student) => student.tasksCompleted >= 12).length;
+    const scopedStudents = activeTab === "students" ? (filteredData as StudentListItem[]) : students;
+    const active = scopedStudents.filter((student) => String(student.status).toLowerCase() === "active" && !isExpired(student.subscriptionExpiresAt)).length;
+    const trial = scopedStudents.filter((student) => String(student.plan).toLowerCase() === "trial").length;
+    const ready = scopedStudents.filter((student) => student.tasksCompleted >= 12).length;
     return { active, trial, ready };
-  }, [students]);
+  }, [activeTab, filteredData, students]);
 
   const itemsPerPage = parseInt(rowsToShow);
   const totalItems = filteredData.length;
@@ -286,6 +334,8 @@ export default function UserBase() {
 
   const resetFilters = () => {
     setSearch("");
+    setStartDate("");
+    setEndDate("");
     setFilterBy("all");
     setCourseFilter("all");
     setEnrollmentFilter("all");
@@ -450,43 +500,109 @@ export default function UserBase() {
                 Reset filters
               </Button>
             </div>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
-            <div className="lg:col-span-2">
-              <p className="mb-2 text-sm text-muted-foreground">Search</p>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder={activeTab === "students" ? "Name, email, ID, course, country, phone" : "Search by name or email"}
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(240px,0.8fr)_minmax(360px,1.2fr)]">
+                <div>
+                <p className="mb-2 text-sm text-muted-foreground">Search</p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder={activeTab === "students" ? "Name, email, DB ID, course, country, phone" : "Search by name or email"}
+                    value={search}
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="border-border/30 bg-[#102033] pl-10"
+                  />
+                </div>
+              </div>
+
+                <div className="rounded-lg border border-cyan-400/10 bg-white/[0.03] p-3">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {activeTab === "students" ? "Enrollment date" : activeTab === "recruiters" ? "Created date" : "Expiry date"}
+                    </p>
+                    <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap">
+                      {[
+                        { label: "7D", days: 7 },
+                        { label: "30D", days: 30 },
+                        { label: "90D", days: 90 },
+                      ].map((range) => (
+                        <button
+                          key={range.label}
+                          type="button"
+                          onClick={() => setQuickRange(range.days)}
+                          className="rounded-md border border-border/30 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground transition hover:border-cyan-400/40 hover:text-cyan-200"
+                        >
+                          {range.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStartDate("");
+                          setEndDate("");
+                          setCurrentPage(1);
+                        }}
+                        className="rounded-md border border-border/30 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground transition hover:border-violet-400/40 hover:text-violet-200"
+                      >
+                        All
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="relative">
+                      <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-300" />
+                      <Input
+                        type="date"
+                        value={startDate}
+                        max={endDate || undefined}
+                        onChange={(event) => {
+                          setStartDate(event.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="border-border/30 bg-[#102033] pl-10"
+                      />
+                    </label>
+                    <label className="relative">
+                      <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-300" />
+                      <Input
+                        type="date"
+                        value={endDate}
+                        min={startDate || undefined}
+                        onChange={(event) => {
+                          setEndDate(event.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="border-border/30 bg-[#102033] pl-10"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                <div>
+                <p className="mb-2 text-sm text-muted-foreground">Show</p>
+                <Select
+                  value={rowsToShow}
+                  onValueChange={(value) => {
+                    setRowsToShow(value);
                     setCurrentPage(1);
                   }}
-                  className="border-border/30 bg-[#102033] pl-10"
-                />
+                >
+                  <SelectTrigger className="border-border/30 bg-[#102033]">
+                    <SelectValue placeholder="10 rows" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="6">6 rows</SelectItem>
+                    <SelectItem value="10">10 rows</SelectItem>
+                    <SelectItem value="25">25 rows</SelectItem>
+                    <SelectItem value="50">50 rows</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm text-muted-foreground">Show</p>
-              <Select
-                value={rowsToShow}
-                onValueChange={(value) => {
-                  setRowsToShow(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="border-border/30 bg-[#102033]">
-                  <SelectValue placeholder="10 rows" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="6">6 rows</SelectItem>
-                  <SelectItem value="10">10 rows</SelectItem>
-                  <SelectItem value="25">25 rows</SelectItem>
-                  <SelectItem value="50">50 rows</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             {activeTab === "students" ? (
               <>
@@ -564,6 +680,7 @@ export default function UserBase() {
                 </Select>
               </div>
             )}
+              </div>
             </div>
           </div>
 
