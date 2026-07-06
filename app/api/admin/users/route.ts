@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     if (type === 'student') {
       const { data, error } = await supabaseAdmin
         .from('users')
-        .select('*')
+        .select('*, is_first_task')
         .eq('role', 'student')
         .order('created_at', { ascending: false });
 

@@ -1,4 +1,4 @@
-import { Eye, Loader2, MoreHorizontal, Pencil } from "lucide-react";
+import { Eye, Loader2, MoreHorizontal, Pencil, ShieldCheck, ShieldX } from "lucide-react";
 import { TabsContent } from "../../ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 import { AdminStudentProfileModal } from "./AdminStudentProfileModal";
@@ -49,6 +49,7 @@ export interface StudentListItem {
   averageScore: number;
   walletBalance: number;
   idVerified: boolean;
+  hasReceivedFirstTask: boolean | null;
   fullData?: StudentProfileData;
 }
 
@@ -100,13 +101,16 @@ export default function StudentTab({
     <div>
       <TabsContent value="students" className="mt-0">
         <div className="overflow-x-auto rounded-lg border border-cyan-400/20 bg-[#102033]/70 shadow-sm">
-          <Table className="min-w-[820px]">
+          <Table className="min-w-[1080px]">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-cyan-500/20 via-violet-500/15 to-emerald-500/10 hover:from-cyan-500/20 hover:via-violet-500/15 hover:to-emerald-500/10">
                 <TableHead className="text-foreground font-semibold">Student</TableHead>
+                <TableHead className="text-foreground font-semibold">Email</TableHead>
                 <TableHead className="text-foreground font-semibold">Course</TableHead>
                 <TableHead className="text-foreground font-semibold">Enrollment Status</TableHead>
+                <TableHead className="text-foreground font-semibold">ID Verification</TableHead>
                 <TableHead className="text-foreground font-semibold">Progress</TableHead>
+                <TableHead className="text-foreground font-semibold">First Task</TableHead>
                 <TableHead className="text-foreground font-semibold">Score</TableHead>
                 <TableHead className="text-right text-foreground font-semibold">Action</TableHead>
               </TableRow>
@@ -121,14 +125,27 @@ export default function StudentTab({
                       </div>
                       <div className="min-w-0">
                         <p className="truncate font-medium text-foreground">{student.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{student.email}</p>
                       </div>
                     </div>
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{student.email}</TableCell>
                   <TableCell className="text-muted-foreground">{student.courseLabel || student.course}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={statusClass(student.enrollmentStatus)}>
                       {student.enrollmentStatus}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={
+                        student.idVerified
+                          ? "gap-1.5 border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                          : "gap-1.5 border-rose-500/30 bg-rose-500/15 text-rose-200"
+                      }
+                    >
+                      {student.idVerified ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldX className="h-3.5 w-3.5" />}
+                      {student.idVerified ? "Verified" : "Unverified"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -144,6 +161,14 @@ export default function StudentTab({
                         />
                       </div>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={student.hasReceivedFirstTask ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300" : "border-amber-400/20 bg-amber-400/10 text-amber-100"}
+                    >
+                      {student.hasReceivedFirstTask ? "Received" : student.hasReceivedFirstTask === null ? "Unknown" : "Pending"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-xs font-medium text-amber-100">
@@ -183,7 +208,7 @@ export default function StudentTab({
               ))}
               {paginatedData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                     No students match the current filters.
                   </TableCell>
                 </TableRow>
