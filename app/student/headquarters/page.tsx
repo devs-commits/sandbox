@@ -29,7 +29,7 @@ function HeadquartersContent() {
   const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [streak, setStreak] = useState(0);
+  // const [streak, setStreak] = useState(0);
   const [tasksCompleted, setTasksCompleted] = useState(0);
   const [downloadingWork, setDownloadingWork] = useState(false);
   const [downloadingVisa, setDownloadingVisa] = useState(false);
@@ -63,24 +63,24 @@ function HeadquartersContent() {
     }
   };
 
-  const updateStreak = async () => {
-    if (!user) return;
-    try {
-      const response = await fetch("/api/users/streak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.streak !== undefined) {
-          setStreak(data.streak);
-        }
-      }
-    } catch (error) {
-      console.error("Error updating streak:", error);
-    }
-  };
+  // const updateStreak = async () => {
+  //   if (!user) return;
+  //   try {
+  //     const response = await fetch("/api/users/streak", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ userId: user.id }),
+  //     });
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       if (data.streak !== undefined) {
+  //         setStreak(data.streak);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error updating streak:", error);
+  //   }
+  // };
 
   // Handle download after letterData is set and component is rendered
   useEffect(() => {
@@ -119,7 +119,7 @@ function HeadquartersContent() {
 
   useEffect(() => {
     fetchUserData();
-    updateStreak();
+    // updateStreak();
   }, [user]);
 
   const handleDownloadLetter = async (type: "work" | "visa") => {
@@ -176,7 +176,7 @@ function HeadquartersContent() {
       <StudentHeader title="Headquarters" />
       <div className="p-4 lg:p-6 space-y-6">
         <SubscriptionLineCounter user={user} />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour="hq-stats">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3" data-tour="hq-stats">
           <div className="bg-muted-foreground/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <FileText size={18} />
             <div>
@@ -184,13 +184,13 @@ function HeadquartersContent() {
               <span className="text-sm font-semibold">{tasksCompleted}</span>
             </div>
           </div>
-          <div className="bg-green-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
+          {/* <div className="bg-green-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3">
             <Clock size={18} />
             <div>
               <span className="text-sm">Streak: </span>
               <span className="text-sm font-semibold">Day {streak}</span>
             </div>
-          </div>
+          </div> */}
           <div className="bg-red-500/15 border border-border rounded-xl px-4 py-3 flex items-center gap-3 animate-pulse">
             <Eye size={18} />
             <span className="text-sm font-semibold">3 Recruiters viewing</span>
@@ -212,10 +212,10 @@ function HeadquartersContent() {
                 <p className="text-sm text-muted-foreground">Complete tasks to unlock verified immigration references.</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-medium">
+            {/* <div className="flex items-center gap-2 bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-medium">
               <Flame size={14} />
               DAY {streak} STREAK
-            </div>
+            </div> */}
           </div>
           <div className="mb-6">
             <div className="relative w-full bg-muted rounded-full h-2 overflow-hidden">
