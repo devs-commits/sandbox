@@ -179,6 +179,7 @@ export default function UserBase() {
   const [enrollmentFilter, setEnrollmentFilter] = useState("all");
   const [progressFilter, setProgressFilter] = useState("all");
   const [verificationFilter, setVerificationFilter] = useState("all");
+  const [taskReceivedFilter, setTaskReceivedFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [recruiters, setRecruiters] = useState<RecruiterListItem[]>([]);
@@ -282,8 +283,12 @@ export default function UserBase() {
           verificationFilter === "all" ||
           (verificationFilter === "verified" && student.idVerified) ||
           (verificationFilter === "unverified" && !student.idVerified);
+        const matchesTaskReceived =
+          taskReceivedFilter === "all" ||
+          (taskReceivedFilter === "received" && student.hasReceivedFirstTask === true) ||
+          (taskReceivedFilter === "not-received" && student.hasReceivedFirstTask === false);
 
-        return matchesSearch && matchesDate && matchesCourse && matchesEnrollment && matchesProgress && matchesVerification;
+        return matchesSearch && matchesDate && matchesCourse && matchesEnrollment && matchesProgress && matchesVerification && matchesTaskReceived;
       });
     }
 
@@ -310,7 +315,7 @@ export default function UserBase() {
       const matchesDate = isWithinDateRange(enterprise.expiresOn, startDate, endDate);
       return matchesSearch && matchesFilter && matchesDate;
     });
-  }, [activeTab, search, filterBy, students, recruiters, courseFilter, enrollmentFilter, progressFilter, verificationFilter, startDate, endDate]);
+  }, [activeTab, search, filterBy, students, recruiters, courseFilter, enrollmentFilter, progressFilter, verificationFilter, taskReceivedFilter, startDate, endDate]);
 
   const studentSummary = useMemo(() => {
     const scopedStudents = activeTab === "students" ? (filteredData as StudentListItem[]) : students;
@@ -341,6 +346,7 @@ export default function UserBase() {
     setEnrollmentFilter("all");
     setProgressFilter("all");
     setVerificationFilter("all");
+    setTaskReceivedFilter("all");
     setCurrentPage(1);
   };
 
@@ -648,6 +654,19 @@ export default function UserBase() {
                       <SelectItem value="in-progress">In progress</SelectItem>
                       <SelectItem value="letter-ready">Letter ready</SelectItem>
                       <SelectItem value="high-score">80+ score</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm text-muted-foreground">First Task</p>
+                  <Select value={taskReceivedFilter} onValueChange={(value) => { setTaskReceivedFilter(value); setCurrentPage(1); }}>
+                    <SelectTrigger className="border-border/30 bg-[#102033]">
+                      <SelectValue placeholder="All tasks" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tasks</SelectItem>
+                      <SelectItem value="received">Task received</SelectItem>
+                      <SelectItem value="not-received">No task yet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
