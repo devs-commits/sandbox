@@ -40,7 +40,6 @@ type RawStudentRecord = EnrollmentSource & {
   country?: string | null;
   phone?: string | null;
   tasks_completed?: number | string | null;
-  progress_percentage?: number | string | null;
   average_score?: number | string | null;
   wallet_balance?: number | string | null;
   id_verified?: boolean | null;
@@ -146,27 +145,32 @@ const deriveEnrollmentStatus = (student: EnrollmentSource) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-const mapStudentRecord = (s: RawStudentRecord): StudentListItem => ({
-  id: String(s.auth_id || ""),
-  internalId: s.id || "",
-  name: s.full_name || "Unknown",
-  email: s.email || "N/A",
-  course: s.track || "N/A",
-  courseLabel: formatCourseName(s.track),
-  enrollmentStatus: deriveEnrollmentStatus(s),
-  status: s.subscription_status || "inactive",
-  plan: s.subscription_plan || "N/A",
-  subscriptionExpiresAt: s.subscription_expires_at || null,
-  startDate: s.start_date || s.created_at || null,
-  country: s.country || "N/A",
-  phone: s.phone || "",
-  tasksCompleted: Number(s.tasks_completed || 0),
-  progress: Number(s.progress_percentage || 0),
-  averageScore: Number(s.average_score || 0),
-  walletBalance: Number(s.wallet_balance || 0),
-  idVerified: Boolean(s.id_verified),
-  hasReceivedFirstTask: s.is_first_task === false,
-});
+const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
+  const tasksCompleted = Number(s.tasks_completed || 0);
+  const progress = Math.min(Math.round((tasksCompleted / 24) * 100), 100);
+  
+  return {
+    id: String(s.auth_id || ""),
+    internalId: s.id || "",
+    name: s.full_name || "Unknown",
+    email: s.email || "N/A",
+    course: s.track || "N/A",
+    courseLabel: formatCourseName(s.track),
+    enrollmentStatus: deriveEnrollmentStatus(s),
+    status: s.subscription_status || "inactive",
+    plan: s.subscription_plan || "N/A",
+    subscriptionExpiresAt: s.subscription_expires_at || null,
+    startDate: s.start_date || s.created_at || null,
+    country: s.country || "N/A",
+    phone: s.phone || "",
+    tasksCompleted,
+    progress,
+    averageScore: Number(s.average_score || 0),
+    walletBalance: Number(s.wallet_balance || 0),
+    idVerified: Boolean(s.id_verified),
+    hasReceivedFirstTask: s.is_first_task === false,
+  };
+};
 
 export default function UserBase() {
   const [activeTab, setActiveTab] = useState("students");
@@ -393,7 +397,7 @@ export default function UserBase() {
               country: profile.country || student.country,
               phone: profile.phone || student.phone,
               tasksCompleted: Number(profile.tasksCompleted ?? student.tasksCompleted),
-              progress: Number(profile.progressPercentage ?? student.progress),
+              progress: Math.min(Math.round((Number(profile.tasksCompleted ?? student.tasksCompleted) / 24) * 100), 100),
               averageScore: Number(profile.averageScore ?? student.averageScore),
               walletBalance: Number(profile.walletBalance ?? student.walletBalance),
               idVerified: Boolean(profile.idVerified),

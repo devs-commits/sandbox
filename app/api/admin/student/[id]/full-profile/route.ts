@@ -14,7 +14,6 @@ const editableFields: Record<string, string> = {
   skills: 'skills',
   averageScore: 'average_score',
   tasksCompleted: 'tasks_completed',
-  progressPercentage: 'progress_percentage',
   walletBalance: 'wallet_balance',
   currentStreak: 'current_streak',
   cvUrl: 'cv_url',
@@ -34,7 +33,6 @@ const editableFields: Record<string, string> = {
 const numericFields = new Set([
   'averageScore',
   'tasksCompleted',
-  'progressPercentage',
   'walletBalance',
   'currentStreak',
 ]);
@@ -84,7 +82,6 @@ const studentSelect = `
   bvn,
   nin,
   tasks_completed,
-  progress_percentage,
   subscription_status,
   start_date,
   subscription_plan,
@@ -173,6 +170,7 @@ async function fetchStudentProfile(authId: string) {
   ]);
 
   const tasksCompleted = Number(student.tasks_completed ?? taskCount ?? 0);
+  const progressPercentage = Math.min(Math.round((tasksCompleted / 24) * 100), 100);
   const skills = Array.isArray(student.skills)
     ? student.skills
     : typeof student.skills === 'string'
@@ -197,7 +195,7 @@ async function fetchStudentProfile(authId: string) {
       lastActive: student.last_activity_date ? new Date(student.last_activity_date).toLocaleString() : null,
       averageScore: Math.round(Number(student.average_score || 0)),
       tasksCompleted,
-      progressPercentage: Number(student.progress_percentage || 0),
+      progressPercentage,
       walletBalance: Number(student.wallet_balance || 0),
       currentStreak: Number(student.current_streak || 0),
       skills,

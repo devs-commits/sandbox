@@ -113,7 +113,7 @@ export const StudentSidebar = () => {
         // Fetch User Record natively (including tasks_completed directly!)
         const { data: userRes, error: usersError } = await supabase
           .from("users")
-          .select("track, subscription_status, subscription_expires_at, tasks_completed, progress_percentage, current_streak")
+          .select("track, subscription_status, subscription_expires_at, tasks_completed, current_streak")
           .eq("auth_id", currentId)
           .maybeSingle();
         

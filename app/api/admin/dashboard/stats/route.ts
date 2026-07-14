@@ -20,7 +20,6 @@ type StudentRow = {
   subscription_expires_at?: string | null;
   has_completed_onboarding?: boolean | null;
   tasks_completed: number | null;
-  progress_percentage: number | null;
   average_score: number | null;
   referral_code?: string | null;
   id_verified?: boolean | null;
@@ -264,7 +263,6 @@ export async function GET(request: Request) {
         subscription_expires_at,
         has_completed_onboarding,
         tasks_completed,
-        progress_percentage,
         average_score,
         referral_code,
         id_verified,
