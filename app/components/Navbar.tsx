@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import wdcNewLogo from "../../public/wdc_labs_logo.png";
@@ -8,21 +7,13 @@ import actdLogo from "../../public/actd-logos.png";
 import ndpcLogo from "../../public/ndpc.png";
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
    <nav className="fixed top-0 left-0 right-0 bg-[hsla(207,36%,95%,1)] backdrop-blur-md border-b border-border/50 shadow-sm z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="flex items-center justify-between py-3">
 
-          <Link href="https://labs.wdc.ng/signup" target="_blank">
+          <Link href="/">
             <Image
               src={wdcNewLogo}
               alt="WildFusion Digital Centre"

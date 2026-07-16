@@ -19,10 +19,10 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const SidebarContent = () => (
+  const renderSidebarContent = () => (
     <>
       <div className="flex items-center gap-2 mb-4 mt-5 ml-5 max-w-3xl">
-        <Link href="https://labs.wdc.ng/signup" target="_blank">
+        <Link href="/">
           <Image
             src={wdcNewLogo}
             alt="WildFusion Digital Centre"
@@ -93,11 +93,11 @@ export default function AdminSidebar() {
         >
           <X size={24} />
         </button>
-        <SidebarContent />
+        {renderSidebarContent()}
       </aside>
 
       <aside className="hidden lg:flex bg-background min-h-screen w-64 flex-col border-r border-sidebar-border sticky top-0 self-start">
-        <SidebarContent />
+        {renderSidebarContent()}
       </aside>
     </>
   );

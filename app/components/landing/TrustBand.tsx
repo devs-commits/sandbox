@@ -29,8 +29,10 @@ export default function TrustBand() {
       <div className="max-w-[1400px] mx-auto px-4 mb-4">
         <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Secured Transactions & Regulatory Compliance</p>
       </div>
-      <div className="animate-marquee-logos flex gap-10 md:gap-16 opacity-70 grayscale hover:grayscale-0 transition-all duration-500 items-center mt-4 sm:mt-6 px-4">
-        {logos}{logos}{logos}
+      <div className="w-full max-w-full overflow-hidden [overflow-x:clip]">
+        <div className="animate-marquee-logos flex gap-10 md:gap-16 opacity-70 grayscale hover:grayscale-0 transition-all duration-500 items-center mt-4 sm:mt-6 px-4">
+          {logos}{logos}{logos}
+        </div>
       </div>
     </section>
   )

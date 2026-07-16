@@ -5,7 +5,7 @@ import { motion } from "framer-motion"
 
 export default function ProblemSection() {
   return (
-    <section id="problem" className="py-12 sm:py-20 bg-gradient-to-b from-slate-50 to-white border-y border-slate-200">
+    <section id="problem" className="overflow-hidden [overflow-x:clip] py-12 sm:py-20 bg-gradient-to-b from-slate-50 to-white border-y border-slate-200">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <motion.div 
@@ -35,7 +35,7 @@ export default function ProblemSection() {
             
             <div className="space-y-2">
               <p className="text-lg sm:text-xl font-semibold text-blue-600 leading-relaxed">
-                You don't need another certificate.
+                You don&apos;t need another certificate.
               </p>
               <p className="text-lg sm:text-xl font-bold text-[#12263f] leading-relaxed">
                 You need experience.
@@ -49,7 +49,7 @@ export default function ProblemSection() {
             
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-4 rounded-r-xl">
               <p className="text-sm sm:text-base font-semibold text-[#12263f] mb-1">
-                That's where WDC Labs is different.
+                That&apos;s where WDC Labs is different.
               </p>
               <p className="text-sm text-slate-700 leading-relaxed">
                 Instead of watching videos, you complete real tasks in a simulated workplace environment.
@@ -58,7 +58,7 @@ export default function ProblemSection() {
             
             <div className="inline-flex items-center text-slate-700 bg-white border-2 border-red-200 shadow-sm px-4 py-3 rounded-xl text-sm sm:text-base font-medium w-full sm:w-auto hover:border-red-300 transition-colors">
               <XCircle className="w-5 h-5 text-red-500 mr-3 shrink-0" />
-              <span className="font-semibold">Theory alone won't get you hired.</span>
+              <span className="font-semibold">Theory alone won&apos;t get you hired.</span>
             </div>
           </motion.div>
         </div>

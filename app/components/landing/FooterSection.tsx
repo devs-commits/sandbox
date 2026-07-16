@@ -13,7 +13,7 @@ export default function FooterSection() {
             <div className="flex items-center gap-2 mb-4">
               {/* <div className="w-8 h-8 bg-blue-600 rounded text-white flex items-center justify-center font-bold">W</div>
               <span className="font-bold text-xl sm:text-2xl text-white">WDC Labs</span> */}
-              <Link href="https://labs.wdc.ng/signup" target="_blank">
+              <Link href="/">
               <Image
               src={wdcNewLogo}
               alt="WildFusion Digital Centre"
