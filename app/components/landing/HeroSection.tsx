@@ -1,31 +1,45 @@
 'use client'
 
-import { ArrowRight, Users, FileCheck, PlaneTakeoff } from "lucide-react"
-import { useEffect, useState } from "react"
-import heroImg from "../../../public/hero-african-team.png"
+import { ArrowRight, FileCheck, PlaneTakeoff } from "lucide-react"
+import { useState } from "react"
+import heroImg from "../../../public/students.jpg"
 import Image from "next/image"
 
-export default function HeroSection() {
-  const [greeting, setGreeting] = useState("Hello")
-  const [enrollmentCount, setEnrollmentCount] = useState(70)
-  const totalCapacity = 100
+const billingPlans = {
+  monthly: {
+    label: "Monthly",
+    price: "₦15,000",
+    cadence: "/month",
+    note: "Start today. Pay as you go.",
+    badge: null,
+    savings: null,
+  },
+  quarterly: {
+    label: "3 Months",
+    price: "₦40,500",
+    cadence: "/3 months",
+    note: "Pay once for the full experience.",
+    badge: "Save 10%",
+    savings: "Save ₦4,500",
+  },
+}
 
-  useEffect(() => {
-    const hour = new Date().getHours()
-    if (hour < 12) setGreeting("Good morning")
-    else if (hour < 17) setGreeting("Good afternoon")
-    else setGreeting("Good evening")
-  }, [])
+export default function HeroSection() {
+  const [billingCycle, setBillingCycle] = useState<keyof typeof billingPlans>("monthly")
+  const greeting = "Hello"
+  const enrollmentCount = 70
+  const totalCapacity = 100
 
   const pct = (enrollmentCount / totalCapacity) * 100
   const spots = totalCapacity - enrollmentCount
+  const selectedPlan = billingPlans[billingCycle]
 
   return (
     <section className="relative pt-4 pb-16 lg:pb-24 overflow-hidden bg-white">
       <div className="absolute inset-0 bg-dots opacity-50 z-0" />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <p className="text-center text-sm text-slate-600 mb-6">
-          <span className="font-bold text-[#12263f]">{greeting}!</span> Join Nigeria's fastest-growing tech career accelerator
+          <span className="font-bold text-[#12263f]">{greeting}!</span> Join Nigeria&apos;s fastest-growing tech career accelerator
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -53,7 +67,8 @@ export default function HeroSection() {
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight mb-3 leading-[1.15] text-[#12263f]">
-              Get the Experience Employers Actually Want
+              Get the Experience Employers Actually Want{" "}
+              <span className="text-blue-600">in 3 Months</span>
             </h1>
 
             <p className="text-lg sm:text-xl font-semibold text-blue-600 mb-4">
@@ -80,9 +95,55 @@ export default function HeroSection() {
               Complete real-world tasks, build a portfolio, and become job-ready.
             </p>
 
-            <p className="text-base sm:text-lg font-bold text-[#12263f] mb-6">
-              Starting at ₦15,000/month.
-            </p>
+            <div className="mb-6 max-w-md mx-auto lg:mx-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-sm font-bold text-slate-600">
+                {(Object.keys(billingPlans) as Array<keyof typeof billingPlans>).map((planKey) => {
+                  const plan = billingPlans[planKey]
+                  const isSelected = billingCycle === planKey
+
+                  return (
+                    <button
+                      key={planKey}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => setBillingCycle(planKey)}
+                      className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 transition-all ${
+                        isSelected
+                          ? "bg-[#12263f] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-white/70 hover:text-[#12263f]"
+                      }`}
+                    >
+                      <span>{plan.label}</span>
+                      {plan.badge && (
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${
+                            isSelected ? "bg-white/20 text-white" : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {plan.badge}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Starting at</p>
+                  <div className="flex flex-wrap items-baseline gap-1">
+                    <span className="text-3xl font-extrabold text-[#12263f]">{selectedPlan.price}</span>
+                    <span className="text-sm font-semibold text-slate-500">{selectedPlan.cadence}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{selectedPlan.note}</p>
+                </div>
+                {selectedPlan.savings && (
+                  <span className="w-max rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
+                    {selectedPlan.savings}
+                  </span>
+                )}
+              </div>
+            </div>
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start items-stretch sm:items-center gap-4">
               <a href="https://labs.wdc.ng/signup" className="w-full sm:w-auto px-8 py-4 bg-[#12263f] text-white font-bold rounded-xl hover:bg-blue-600 transition-all shadow-[0_0_20px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2 transform hover:-translate-y-1 text-center">
@@ -114,7 +175,7 @@ export default function HeroSection() {
 
           {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] lg:h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-slate-100 mt-8 lg:mt-0">
-            <Image src={heroImg} alt="Young African professionals collaborating on tech projects at WDC Labs" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
+            <Image src={heroImg} alt="Students collaborating with laptops while building practical tech skills" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#12263f]/90 via-[#12263f]/30 to-transparent" />
             <div className="absolute bottom-4 sm:bottom-6 left-4 right-4 sm:left-6 sm:right-6 space-y-3">
               {[
