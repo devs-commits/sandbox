@@ -138,6 +138,7 @@ export default function ProfileSetup() {
     setIsGenerating(true);
 
     try {
+      // 🔥 FIX: Removed transaction_pin from here! It belongs in the wallets table.
       const { error: userError } = await supabase.from("users").update({ 
           full_name: fullName, 
           phone: safePhone, 
@@ -145,12 +146,12 @@ export default function ProfileSetup() {
           nin: nin, 
           date_of_birth: safeDob, 
           address: safeAddress, 
-          occupation: safeOccupation,
-          transaction_pin: pin // 🔥 Ensure it saves to users table
+          occupation: safeOccupation
       }).eq("auth_id", user?.id);
 
       if (userError) throw new Error("DB Error: " + userError.message);
 
+      // Initialize the wallet via your backend
       const res = await fetch("/api/wallet/initialize", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id }),
@@ -159,7 +160,7 @@ export default function ProfileSetup() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Provider issue. Please contact support.");
 
-      // Also sync it to wallets table just in case your old queries rely on it
+      // 🔥 FIX: Now that the wallet is initialized, we securely update the PIN here.
       await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
       
       toast.success("Virtual Account Generated Successfully!", { icon: <ShieldCheck className="text-emerald-500" /> });

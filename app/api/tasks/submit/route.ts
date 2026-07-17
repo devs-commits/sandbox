@@ -30,7 +30,8 @@ export async function POST(request: Request) {
 
     const activeUserId = user_id || userId;
     const activeTaskId = task_id || taskId;
-    const finalFileUrl = file_url || fileUrl || "";
+// THE FIX: Fallback to null instead of "" for strict Python validation
+    const finalFileUrl = file_url || fileUrl || null;
     const finalFileContent = file_content || taskContent || "";
     const finalTaskTitle = task_title || taskTitle || "Task Submission";
     const finalTaskBrief = task_brief || taskBrief || "";

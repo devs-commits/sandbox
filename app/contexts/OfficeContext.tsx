@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+"use client";
+
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty, ArchiveItem } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
@@ -249,7 +251,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
     fetchBounties();
   }, [userId]);
 
-  // 🔥 CORE FIX: Extracted fetchTasks so we can trigger it manually!
   const fetchTasks = useCallback(async () => {
     if (!userId) {
       setIsLoadingTasks(false);
@@ -334,7 +335,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             });
             setCurrentTask(newTask);
 
-            // Successfully received via Realtime
             setIsGeneratingTask(false);
             setGenerationStatusText("Fetch Missing Task");
 
@@ -726,7 +726,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
       return; 
     }
 
-    // 🔥 Capture current task count before requesting the new one
     const initialTaskCount = tasks.length;
 
     setIsGeneratingTask(true);
@@ -812,7 +811,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      // 🔥 THE 60-SECOND POLLING ENGINE:
       let attempts = 0;
       let taskFound = false;
 
@@ -886,7 +884,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         timestamp: new Date(),
       });
       setIsExpanded(true);
-      return; // Stops the submission dead in its tracks
+      return; 
     }
 
     const nextAttemptNumber = currentAttempts + 1;
@@ -931,7 +929,8 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           user_id: userId,
           task_id: taskId,
-          file_url: fileUrl || (file ? file.name : ''), 
+          // 🔥 CRITICAL FIX: Explicitly passing `null` if empty. Passing `file.name` here crashes Python's HttpUrl validator!
+          file_url: fileUrl || null, 
           fileName: file ? file.name : 'submission',
           file_content: notes, 
           task_title: task?.title || 'Unknown Task',
@@ -941,7 +940,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
             content: m.message
           })),
           userLevel: userLevel, 
-          attempt_number: nextAttemptNumber // Passes exact attempt logic to Sola's Brain
+          attempt_number: nextAttemptNumber 
         })
       });
 
@@ -960,7 +959,6 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         
-        // 🔥 Successfully processed by backend, log the attempt!
         localStorage.setItem(attemptKey, nextAttemptNumber.toString());
 
         addChatMessage({
