@@ -5,8 +5,21 @@ import Link from "next/link";
 import Image from "next/image";
 
 import {
-  LayoutGrid, Briefcase, FolderOpen, Wallet, DollarSign,
-  Menu, X, Lock, Trophy, Target, Shield, BarChart3, Megaphone, Award,
+  LayoutGrid,
+  Briefcase,
+  FolderOpen,
+  Wallet,
+  DollarSign,
+  Menu,
+  X,
+  Lock,
+  Trophy,
+  Target,
+  Shield,
+  BarChart3,
+  Megaphone,
+  Award,
+  Settings,
 } from "lucide-react";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -229,6 +242,19 @@ const currentWeek = Math.min(completedTasksCount + 1, 24);
         >
           <DollarSign size={18} /><span className="text-sm font-medium">Earn Money</span>
         </Link>
+        <Link
+  href="/student/profile"
+  onClick={() => setMobileOpen(false)}
+  className={cn(
+    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+    pathname === "/student/profile"
+      ? "bg-primary/20 text-primary"
+      : "text-sidebar-foreground hover:bg-sidebar-accent"
+  )}
+>
+  <Settings size={18} />
+  <span className="text-sm font-medium">Profile Settings</span>
+</Link>
       </nav>
 
       <div className="px-3 pb-3">

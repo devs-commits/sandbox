@@ -2,16 +2,32 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { StudentHeader } from "../../components/students/StudentHeader";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint, Calendar, Phone, MapPin, Briefcase, XCircle, Info } from "lucide-react";
+import { StudentHeader } from "@/app/components/students/StudentHeader";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import {
+  ShieldCheck,
+  Landmark,
+  Lock,
+  Loader2,
+  CheckCircle2,
+  Fingerprint,
+  Calendar,
+  Phone,
+  MapPin,
+  Briefcase,
+  XCircle,
+  Info,
+  FileText,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/contexts/AuthContexts";
 
-// 🔥 Import the unified SetPinModal instead of using the custom Dialog
-import { SetPinModal } from "../../components/auth/SetPinModal";
+// 🔥 Absolute imports guarantee no "Module Not Found" errors
+import { SetPinModal } from "@/app/components/auth/SetPinModal";
+import { CVUploadUI } from "@/app/components/students/office/CVUploadUI";
 
 export default function ProfileSetup() {
   const { user } = useAuth();
@@ -20,11 +36,10 @@ export default function ProfileSetup() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  // State flags
   const [hasWallet, setHasWallet] = useState(false); 
   const [hasPin, setHasPin] = useState(false);
+  const [hasCv, setHasCv] = useState(false); 
 
-  // Form State
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [dob, setDob] = useState("");
@@ -33,11 +48,9 @@ export default function ProfileSetup() {
   const [address, setAddress] = useState("");
   const [occupation, setOccupation] = useState("");
   
-  // Setup PIN State (Only used during initial generation)
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
 
-  // Modal PIN State (Used for changing PIN later)
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
 
   useEffect(() => {
@@ -53,7 +66,7 @@ export default function ProfileSetup() {
           
         const { data: walletData } = await supabase
           .from("wallets")
-          .select("account_number, transaction_pin") // 🔥 Add transaction_pin here!
+          .select("account_number, transaction_pin") 
           .eq("user_id", user.id)
           .maybeSingle();
           
@@ -69,11 +82,14 @@ export default function ProfileSetup() {
             setDob(userData.date_of_birth.split('T')[0]);
           }
 
+          if (userData.cv_url || userData.bio) {
+            setHasCv(true);
+          }
+
           if (userData.is_complete || (walletData?.account_number && walletData.account_number !== "****")) {
             setHasWallet(true);
           }
 
-          // 🔥 CHANGED: Now correctly checks the wallets table for the PIN
           if (walletData?.transaction_pin) {
             setHasPin(true);
           }
@@ -94,20 +110,14 @@ export default function ProfileSetup() {
     const safeOccupation = occupation ? occupation : null;
     const safePhone = phone ? phone : null;
 
-    // ==========================================
-    // 1. EDIT MODE: Save flexible fields ONLY
-    // ==========================================
     if (hasWallet) {
       setIsGenerating(true);
       try {
         const { error: editError } = await supabase.from("users").update({ 
-          phone: safePhone, 
-          address: safeAddress, 
-          occupation: safeOccupation 
+          phone: safePhone, address: safeAddress, occupation: safeOccupation 
         }).eq("auth_id", user?.id);
 
         if (editError) throw editError;
-
         toast.success("Profile updated successfully!");
       } catch (error) {
         toast.error("Failed to update profile.");
@@ -117,19 +127,13 @@ export default function ProfileSetup() {
       return;
     }
 
-    // ==========================================
-    // 2. SETUP MODE: Generating Wallet First Time
-    // ==========================================
     if (!fullName) return toast.error("Full Name is required.");
     if (!phone) return toast.error("Phone Number is required.");
     if (!dob) return toast.error("Date of Birth is required.");
-    
     if (!bvn) return toast.error("BVN is required.");
     if (bvn.length !== 11) return toast.error("BVN must be exactly 11 digits.");
-    
     if (!nin) return toast.error("NIN is required.");
     if (nin.length !== 11) return toast.error("NIN must be exactly 11 digits.");
-    
     if (!pin) return toast.error("Please set a 4-digit PIN.");
     if (!confirmPin) return toast.error("Please confirm your PIN.");
     if (pin.length !== 4) return toast.error("Transaction PIN must be exactly 4 digits.");
@@ -138,20 +142,15 @@ export default function ProfileSetup() {
     setIsGenerating(true);
 
     try {
-      // 🔥 FIX: Removed transaction_pin from here! It belongs in the wallets table.
+      // 1. Update basic user data
       const { error: userError } = await supabase.from("users").update({ 
-          full_name: fullName, 
-          phone: safePhone, 
-          bvn: bvn, 
-          nin: nin, 
-          date_of_birth: safeDob, 
-          address: safeAddress, 
-          occupation: safeOccupation
+          full_name: fullName, phone: safePhone, bvn: bvn, nin: nin, 
+          date_of_birth: safeDob, address: safeAddress, occupation: safeOccupation
       }).eq("auth_id", user?.id);
 
       if (userError) throw new Error("DB Error: " + userError.message);
 
-      // Initialize the wallet via your backend
+      // 2. Initialize the Wallet
       const res = await fetch("/api/wallet/initialize", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id }),
@@ -160,10 +159,18 @@ export default function ProfileSetup() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Provider issue. Please contact support.");
 
-      // 🔥 FIX: Now that the wallet is initialized, we securely update the PIN here.
-      await supabase.from("wallets").update({ transaction_pin: pin }).eq("user_id", user?.id);
-      
-      toast.success("Virtual Account Generated Successfully!", { icon: <ShieldCheck className="text-emerald-500" /> });
+      // 3. 🔥 SECURE FIX: Set the PIN via the Admin API route (Bypasses RLS perfectly!)
+      const pinRes = await fetch("/api/wallet/update-pin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id, pin: pin })
+      });
+
+      if (!pinRes.ok) {
+         toast.warning("Wallet created, but PIN setup failed due to security policies. You can set it later in settings.");
+      } else {
+         toast.success("Virtual Account Generated Successfully!", { icon: <ShieldCheck className="text-emerald-500" /> });
+      }
+
       router.push("/student/earn"); 
 
     } catch (error) {
@@ -339,14 +346,134 @@ export default function ProfileSetup() {
 
              <div className="h-px w-full bg-white/5"></div>
 
-             {/* SECTION 4: Security (Conditional Rendering) */}
+             {/* SECTION 4: Career Profile */}
+<div className="space-y-6">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-emerald-500">
+        <Briefcase size={16} />
+        Career Profile
+      </h3>
+
+      <p className="mt-2 max-w-2xl text-xs leading-relaxed text-white/40">
+        Help WDC Labs understand your experience, skills and career goals.
+      </p>
+    </div>
+
+    {hasCv && (
+      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+        <CheckCircle2 size={13} />
+        Profile complete
+      </span>
+    )}
+  </div>
+
+  {hasCv ? (
+    <div className="group relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-emerald-500/[0.08] via-white/[0.035] to-cyan-500/[0.05] p-5 sm:p-6">
+      <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
+
+      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
+            <FileText className="h-6 w-6 text-emerald-400" />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-white">
+                Career profile saved
+              </h4>
+
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            </div>
+
+            <p className="mt-1.5 max-w-md text-xs leading-relaxed text-white/45">
+              Your uploaded CV or professional summary is available to
+              personalise your career recommendations and portfolio.
+            </p>
+          </div>
+        </div>
+
+        <div className="w-full sm:w-auto sm:min-w-[190px]">
+          <CVUploadUI
+            userId={user?.id || ""}
+            compact
+            onSuccess={() => setHasCv(true)}
+          />
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-[#111b2f] via-[#0d1729] to-[#0a1425] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-[80px]" />
+
+      <div className="relative border-b border-white/[0.07] p-5 sm:p-7">
+        <div className="flex items-start gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
+            <Sparkles className="h-5 w-5 text-emerald-400" />
+          </div>
+
+          <div>
+            <h4 className="text-base font-bold text-white">
+              Complete your career profile
+            </h4>
+
+            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-white/45 sm:text-sm">
+              Upload your CV or write a professional summary. This is optional
+              for wallet generation, but it helps the AI provide more relevant
+              career guidance, tasks and portfolio recommendations.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="
+          relative p-4 sm:p-6
+          [&>div]:rounded-2xl
+          [&>div]:border-white/[0.08]
+          [&>div]:bg-white/[0.025]
+          [&>div]:shadow-none
+          [&_textarea]:min-h-[130px]
+          [&_textarea]:rounded-2xl
+          [&_textarea]:border-white/[0.08]
+          [&_textarea]:bg-[#0a1324]
+          [&_textarea]:text-white
+          [&_textarea]:placeholder:text-slate-500
+          [&_textarea]:focus:border-emerald-400/40
+          [&_textarea]:focus:ring-2
+          [&_textarea]:focus:ring-emerald-500/10
+          [&_button]:min-h-12
+          [&_button]:rounded-xl
+          [&_button]:font-bold
+          [&_button]:normal-case
+          [&_button]:tracking-normal
+        "
+      >
+        <CVUploadUI
+          userId={user?.id || ""}
+          onSuccess={() => setHasCv(true)}
+        />
+      </div>
+
+      <div className="relative flex items-center gap-2 border-t border-white/[0.06] px-5 py-4 text-[11px] text-white/35 sm:px-7">
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400/70" />
+        Your career information is stored securely and used to personalise your
+        WDC Labs experience.
+      </div>
+    </div>
+  )}
+</div>
+
+             <div className="h-px w-full bg-white/5"></div>
+
+             {/* SECTION 5: Security */}
              <div className="space-y-6">
                 <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
                   <Lock size={16} /> Wallet Security
                 </h3>
                 
                 {hasWallet ? (
-                  /* SECURE EDIT MODE: Clean toggle button instead of empty inputs */
                   <div className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl">
                     <div>
                       <h4 className="text-sm font-bold text-white">Transaction PIN</h4>
@@ -361,7 +488,6 @@ export default function ProfileSetup() {
                     </Button>
                   </div>
                 ) : (
-                  /* SETUP MODE: Show PIN fields required for creation */
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <div className="flex justify-between items-end mb-2">
@@ -406,7 +532,6 @@ export default function ProfileSetup() {
                 )}
              </div>
 
-             {/* SUBMIT BUTTON */}
              <div className="pt-6">
                 <Button 
                   onClick={handleAction} disabled={isGenerating}
@@ -420,13 +545,11 @@ export default function ProfileSetup() {
         </div>
       </main>
 
-      {/* 🔥 The only PIN UI component we need! Replaces the old custom Dialog */}
       <SetPinModal 
         open={isPinModalOpen} 
         onClose={() => setIsPinModalOpen(false)} 
         userId={user?.id} 
         onSuccess={(newPin: string) => {
-          // Instantly update the local state
           setHasPin(true);
           setIsPinModalOpen(false);
           if (!hasWallet) {

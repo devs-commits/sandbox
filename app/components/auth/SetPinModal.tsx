@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { PinInput } from "./PinInput";
-import { Loader2, ShieldCheck, LockIcon, Fingerprint, AlertCircle } from "lucide-react";
+import { Loader2, ShieldCheck, LockIcon, Fingerprint } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { toast } from "sonner";
 
 // Steps: 0: Verify Old, 1: New, 2: Confirm, 3: OTP Identity Check
 export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any) {
-  const [step, setStep] = useState(0); 
+  const [step, setStep] = useState(0);
   const [newPin, setNewPin] = useState("");
   const [currentDbPin, setCurrentDbPin] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -20,16 +20,17 @@ export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any
     if (open && userId) {
       const checkExistingPin = async () => {
         setIsLoading(true);
+
         try {
           const { data } = await supabase
             .from("wallets")
             .select("transaction_pin")
             .eq("user_id", userId)
             .maybeSingle();
-          
+
           const existingPin = data?.transaction_pin;
           setCurrentDbPin(existingPin || null);
-          
+
           // Start at Step 0 (Verify) if they have a PIN, otherwise Step 1 (Set New)
           setStep(existingPin ? 0 : 1);
         } catch (error) {
@@ -38,6 +39,7 @@ export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any
           setIsLoading(false);
         }
       };
+
       checkExistingPin();
     }
   }, [open, userId]);
@@ -62,11 +64,12 @@ export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any
 
   const handleRequestOTP = async () => {
     setIsSaving(true);
+
     // Simulate sending OTP to userEmail
     setTimeout(() => {
       setIsSaving(false);
       setStep(3);
-      toast.success(`Verification code sent to ${userEmail || 'your email'}`);
+      toast.success(`Verification code sent to ${userEmail || "your email"}`);
     }, 1200);
   };
 
@@ -93,19 +96,32 @@ export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any
       return;
     }
 
-    setIsSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from("wallets")
-        .update({ transaction_pin: val })
-        .eq("user_id", userId)
-        .select();
+    if (!userId) {
+      toast.error("Unable to identify the current user.");
+      return;
+    }
 
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error("RLS Block: Update failed.");
+    setIsSaving(true);
+
+    try {
+      // Securely update the PIN through the server API.
+      const res = await fetch("/api/wallet/update-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          pin: newPin,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to secure PIN");
+      }
 
       toast.success("Transaction PIN updated!");
-      onSuccess(val); 
+      onSuccess?.(newPin);
       onClose();
     } catch (err: any) {
       console.error("🔥 PIN SAVE ERROR:", err);
@@ -116,12 +132,19 @@ export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any
   };
 
   return (
-    <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!val) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-[2rem] p-8">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-4" />
-            <p className="text-xs text-white/40 uppercase tracking-widest font-bold">Securing Session...</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold">
+              Securing Session...
+            </p>
           </div>
         ) : (
           <>
@@ -129,34 +152,48 @@ export function SetPinModal({ open, onClose, userId, userEmail, onSuccess }: any
               <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
                 {step === 0 && <LockIcon className="text-amber-500" size={32} />}
                 {step === 3 && <Fingerprint className="text-blue-500" size={32} />}
-                {(step === 1 || step === 2) && <ShieldCheck className="text-emerald-500" size={32} />}
+                {(step === 1 || step === 2) && (
+                  <ShieldCheck className="text-emerald-500" size={32} />
+                )}
               </div>
+
               <DialogTitle className="text-2xl font-bold text-center">
                 {step === 0 && "Verify Current PIN"}
                 {step === 3 && "Email Verification"}
                 {step === 1 && "Set New PIN"}
                 {step === 2 && "Confirm New PIN"}
               </DialogTitle>
+
               <p className="text-white/40 text-sm text-center">
-                {step === 0 && "Enter your current PIN to authorize this change."}
-                {step === 3 && `Enter the 4-digit code sent to ${userEmail || 'your email'}.`}
-                {step === 1 && "Create a new 4-digit PIN for your wallet."}
-                {step === 2 && "Re-enter your new PIN to confirm."}
+                {step === 0 &&
+                  "Enter your current PIN to authorize this change."}
+                {step === 3 &&
+                  `Enter the 4-digit code sent to ${
+                    userEmail || "your email"
+                  }.`}
+                {step === 1 &&
+                  "Create a new 4-digit PIN for your wallet."}
+                {step === 2 &&
+                  "Re-enter your new PIN to confirm."}
               </p>
             </DialogHeader>
 
             <div className="py-6 flex flex-col items-center">
-              <PinInput 
-                key={step} 
+              <PinInput
+                key={step}
                 onComplete={
-                  step === 0 ? handleVerifyOldPin : 
-                  step === 3 ? handleVerifyOTP : 
-                  step === 1 ? handleCompleteNewPin : handleSavePin
-                } 
+                  step === 0
+                    ? handleVerifyOldPin
+                    : step === 3
+                    ? handleVerifyOTP
+                    : step === 1
+                    ? handleCompleteNewPin
+                    : handleSavePin
+                }
               />
 
               {step === 0 && (
-                <button 
+                <button
                   onClick={handleRequestOTP}
                   className="mt-6 text-xs text-emerald-400 hover:text-emerald-300 font-bold hover:underline transition-all"
                 >

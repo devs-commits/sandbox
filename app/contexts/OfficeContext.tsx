@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty, ArchiveItem } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
@@ -57,7 +57,11 @@ interface OfficeContextType extends OfficeState {
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
 
-export function OfficeProvider({ children }: { children: ReactNode }) {
+interface OfficeProviderProps {
+  children: ReactNode;
+}
+
+export function OfficeProvider({ children }: OfficeProviderProps) {
   const { user } = useAuth();
   const router = useRouter(); 
 
@@ -1170,7 +1174,7 @@ export function OfficeProvider({ children }: { children: ReactNode }) {
 export function useOffice() {
   const context = useContext(OfficeContext);
   if (!context) {
-    throw new Error('useOffice must be used within OfficeProvider');
+    throw new Error('useOffice must be used within an <OfficeProvider>. Wrap the component tree that calls useOffice with OfficeProvider.');
   }
   return context;
 }

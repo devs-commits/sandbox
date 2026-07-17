@@ -1,10 +1,56 @@
 "use client";
-import { OfficeProvider, useOffice } from './../../contexts/OfficeContext';
-import { LobbyScreen } from '../../components/students/office/LobbyScreen';
-import { OfficeDashboard } from '../../components/students/office/OfficeDashboard';
+
+import { useState, useEffect } from 'react';
+import { OfficeProvider, useOffice } from '@/app/contexts/OfficeContext';
+import { LobbyScreen } from '@/app/components/students/office/LobbyScreen';
+import { OfficeDashboard } from '@/app/components/students/office/OfficeDashboard';
+import { CVUploadUI } from '@/app/components/students/office/CVUploadUI';
+import { useAuth } from '@/app/contexts/AuthContexts';
+import { supabase } from '@/lib/supabase';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Target, X } from 'lucide-react';
 
 function OfficeContent() {
   const { phase, isLoadingOnboarding, subscription } = useOffice();
+  const { user } = useAuth();
+  
+  const [hasCv, setHasCv] = useState(true); 
+  const [showCvWidget, setShowCvWidget] = useState(false);
+
+  useEffect(() => {
+    const checkCvStatus = async () => {
+      if (!user?.id) return;
+      
+      // If they dismissed the widget this session, leave them alone.
+      if (sessionStorage.getItem(`dismissed_cv_${user.id}`)) {
+        return;
+      }
+
+      try {
+        // Fetch both cv_url and bio so either option completes the career profile.
+        const { data } = await supabase
+          .from('users')
+          .select('cv_url, bio')
+          .eq('auth_id', user.id)
+          .single();
+        
+        // A CV upload OR written bio marks the profile as complete.
+        if (data?.cv_url || data?.bio) {
+          setHasCv(true);
+          setShowCvWidget(false);
+        } else {
+          setHasCv(false);
+          setShowCvWidget(true);
+        }
+      } catch (err) {
+        console.error("Error checking career profile status:", err);
+      }
+    };
+    
+    if (phase === 'working') {
+      checkCvStatus();
+    }
+  }, [user, phase]);
 
   if (isLoadingOnboarding) {
     return (
@@ -17,21 +63,12 @@ function OfficeContent() {
     );
   }
 
-  // --- REFINED IRONCLAD LOCK ---
   const today = new Date();
-  
-  // Strict check: Is the string null, undefined, or empty?
   const hasNoExpiryDate = !subscription?.expiresAt;
-  
-  // Safe Date parsing: handles null or invalid strings
   const expiryDate = subscription?.expiresAt ? new Date(subscription.expiresAt) : null;
-  
-  // Check: Is it past expiry OR is the date object invalid (NaN)?
   const isPastExpiry = !expiryDate || isNaN(expiryDate.getTime()) || expiryDate <= today;
-  
   const isInactive = subscription?.status !== 'active';
 
-  // If any check fails, block the component immediately
   if (!subscription || isInactive || hasNoExpiryDate || isPastExpiry) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md p-8 text-center">
@@ -54,12 +91,54 @@ function OfficeContent() {
     );
   }
 
-  // 3. Normal Flow
   if (phase === 'lobby') {
     return <LobbyScreen />;
   }
 
-  return <OfficeDashboard />;
+  return (
+    <>
+      <OfficeDashboard />
+
+      <AnimatePresence>
+        {!hasCv && showCvWidget && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-6 right-6 z-50 w-[320px] bg-card border border-primary/30 rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="bg-primary/10 p-4 border-b border-primary/20 flex justify-between items-start">
+              <div>
+                <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                  <Target size={16} className="text-primary"/> Action Required
+                </h4>
+                <p className="text-xs text-muted-foreground mt-1">Upload your CV or write a bio to unlock personalized career coaching.</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowCvWidget(false);
+                  sessionStorage.setItem(`dismissed_cv_${user?.id}`, 'true');
+                }} 
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 bg-background/50">
+              <CVUploadUI 
+                userId={user?.id || ''} 
+                compact 
+                onSuccess={() => {
+                  setHasCv(true);
+                  setShowCvWidget(false);
+                }} 
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
 }
 
 export default function OfficePage() {
