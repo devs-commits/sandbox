@@ -383,3 +383,14 @@
       transform: translateX(100%);
     }
   }
+
+  .phone-input-global .PhoneInputInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.875rem; /* text-sm */
+  width: 100%;
+}
+.phone-input-global .PhoneInputCountry {
+  margin-right: 12px;
+}

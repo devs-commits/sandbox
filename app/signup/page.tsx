@@ -15,12 +15,17 @@ import * as countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
 import { TermsAgreement } from "../components/auth/TermsAgreement";
 
+// 🔥 ADDED: Phone Input Imports
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+
 countries.registerLocale(enLocale);
 declare const PaystackPop: any;
 
 interface SignupData {
   fullName: string;
   email: string;
+  phone: string; // 🔥 ADDED: Mandatory phone field
   password: string;
   role: "student" | "recruiter"; 
   country: string;
@@ -43,7 +48,7 @@ type PaymentDetails = {
   transactionId: string;
 };
 
-// 🔥 HELPER: Safely extract the 30-day cached referral cookie
+// Safely extract the 30-day cached referral cookie
 const getCookie = (name: string) => {
   if (typeof document === 'undefined') return null;
   const value = `; ${document.cookie}`;
@@ -63,12 +68,13 @@ const SignUpContent = () => {
   
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState<string>(""); // 🔥 ADDED: Phone State
+  const [defaultCountryCode, setDefaultCountryCode] = useState<any>("NG"); // Default to Nigeria
   const [password, setPassword] = useState("");
   const [country, setCountry] = useState("");
   const [track, setTrack] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
   
-  // 🔥 REFERRAL STATE
   const [referralLink, setReferralLink] = useState("");
   const [hasValidReferral, setHasValidReferral] = useState(false);
 
@@ -81,11 +87,26 @@ const SignUpContent = () => {
   const [error, setError] = useState("");
   const [wdcPrivacy, setWdcPrivacy] = useState(false);
 
-  // --- COUPON STATE ---
   const [couponCode, setCouponCode] = useState("");
   const [isCouponApplied, setIsCouponApplied] = useState(false);
   const [couponError, setCouponError] = useState("");
   const [isProcessingTrial, setIsProcessingTrial] = useState(false);
+
+  // 🔥 ADDED: Geolocation for Phone Flag
+  useEffect(() => {
+    const fetchCountryCode = async () => {
+      try {
+        const res = await fetch("https://ipapi.co/country/");
+        if (res.ok) {
+          const code = await res.text();
+          setDefaultCountryCode(code.trim());
+        }
+      } catch (err) {
+        console.error("Could not fetch geolocation for flag.", err);
+      }
+    };
+    fetchCountryCode();
+  }, []);
 
   const countryOptions = useMemo(() => {
     const countryNames = countries.getNames("en", { select: "official" });
@@ -103,21 +124,17 @@ const SignUpContent = () => {
     { value: "advanced", label: "Advanced" },
   ];
 
-  // 🔥 Formats "ademola-7vo1" to "Ademola", or "davido" to "Davido"
   const displayRecommender = useMemo(() => {
     if (!referralLink) return "";
-    const baseName = referralLink.split('-')[0]; // Drops the random suffix
-    return baseName.charAt(0).toUpperCase() + baseName.slice(1).toLowerCase(); // Capitalizes cleanly
+    const baseName = referralLink.split('-')[0]; 
+    return baseName.charAt(0).toUpperCase() + baseName.slice(1).toLowerCase(); 
   }, [referralLink]);
 
-  // --- AUTO-APPLY PROMO CODE & REFERRALS ---
   useEffect(() => {
-    // 1. Promo Code Check
     const promoFromUrl = searchParams.get("promo") || searchParams.get("coupon");
     if (promoFromUrl) {
       const normalizedCode = promoFromUrl.trim().toUpperCase();
       setCouponCode(normalizedCode);
-      
       if (normalizedCode === "WDCLABS14") {
         setIsCouponApplied(true);
         setCouponError("");
@@ -125,7 +142,6 @@ const SignUpContent = () => {
       }
     }
 
-    // 2. Referral Check (URL first, then Cookie fallback)
     const refFromUrl = searchParams.get("ref");
     const refFromCookie = getCookie("wdc_referral_id");
     const activeReferral = refFromUrl || refFromCookie;
@@ -151,7 +167,6 @@ const SignUpContent = () => {
     
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
-    
     return () => clearInterval(timer);
   }, [paymentDetails?.localExpiry]);
 
@@ -161,8 +176,9 @@ const SignUpContent = () => {
   const timerExpired = secondsLeft === 0;
 
   const validateForm = () => {
-    if (!fullName || !email || !password || !country || (role === "student" && (!track || !experienceLevel))) {
-      toast.error("Please fill in all details first");
+    // 🔥 ADDED: Validation for phone
+    if (!fullName || !email || !phone || !password || !country || (role === "student" && (!track || !experienceLevel))) {
+      toast.error("Please fill in all details first, including your phone number.");
       return false;
     }
     if (!wdcPrivacy) {
@@ -173,10 +189,10 @@ const SignUpContent = () => {
   };
 
   const handleRegistration = async () => {
-    // We pass the active referral link dynamically directly to the payload
     const signupPayload: SignupData = {
       fullName, 
       email, 
+      phone, // 🔥 ADDED: Inject into payload
       password, 
       role, 
       country,
@@ -213,18 +229,15 @@ const SignUpContent = () => {
 
     try {
       toast.info("Activating your 14-Day Free Trial...", { id: "trial" });
-      
       const reg = await handleRegistration();
       if (!reg.success) throw new Error(reg.error || "Signup failed");
 
-      // Cleanup referral cookie after successful usage
       if (typeof document !== 'undefined') {
         document.cookie = "wdc_referral_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       }
 
       toast.success("Trial Activated! Check your email to verify.", { id: "trial" });
       router.push("/auth/verify-email");
-
     } catch (err: any) {
       toast.error(err.message || "Something went wrong activating your trial.", { id: "trial" });
     } finally {
@@ -241,7 +254,7 @@ const SignUpContent = () => {
       const response = await fetch("/api/payment/create-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, track: role === "student" ? track : "recruiter", role, subscriptionPlan }),
+        body: JSON.stringify({ fullName, email, phone, track: role === "student" ? track : "recruiter", role, subscriptionPlan }),
       });
       
       const data = await response.json();
@@ -291,7 +304,6 @@ const SignUpContent = () => {
 
     try {
       toast.info("Registering your account...", { id: "reg" });
-      
       const reg = await handleRegistration();
       if (!reg.success) throw new Error(reg.error || "Signup failed");
 
@@ -303,12 +315,9 @@ const SignUpContent = () => {
 
       const data = await res.json();
       if (data.success) {
-        
-        // Cleanup referral cookie after successful usage
         if (typeof document !== 'undefined') {
           document.cookie = "wdc_referral_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         }
-
         toast.success("Registration complete. Check your email.", { id: "reg" });
         router.push("/auth/verify-email");
       } else {
@@ -331,7 +340,7 @@ const SignUpContent = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email, fullName, track: role === "student" ? track : "recruiter", role,
+          email, fullName, phone, track: role === "student" ? track : "recruiter", role,
           amount: numericAmount, subscriptionPlan,
           callback_url: `${window.location.origin}/auth/verify-email` 
         }),
@@ -349,7 +358,6 @@ const SignUpContent = () => {
           reference: data.data.reference,
           onSuccess: async (transaction: any) => {
             toast.success("Payment received. Setting up your profile...");
-            
             const reg = await handleRegistration();
             if (!reg.success) {
                 toast.error("Profile creation failed, but payment received. Contact support.");
@@ -362,7 +370,6 @@ const SignUpContent = () => {
                body: JSON.stringify({ reference: transaction.reference, userId: reg.userId })
             });
 
-            // Cleanup referral cookie after successful usage
             if (typeof document !== 'undefined') {
               document.cookie = "wdc_referral_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             }
@@ -410,6 +417,22 @@ const SignUpContent = () => {
             <div className="space-y-3">
               <AuthInput label="Full Name" placeholder="John Doe" value={fullName} onChange={setFullName} />
               <AuthInput label="Email" type="email" placeholder="john@example.com" value={email} onChange={setEmail} />
+              
+              {/* 🔥 ADDED: Beautiful Geolocation Phone Field */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-muted-foreground">Phone Number</label>
+                <div className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-primary">
+                  <PhoneInput
+                    international
+                    defaultCountry={defaultCountryCode}
+                    value={phone}
+                    onChange={(val) => setPhone(val || "")}
+                    className="w-full bg-transparent outline-none border-none phone-input-global"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+              </div>
+
               <AuthInput label="Password" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
               <AuthSelect label="Country" value={country} onChange={setCountry} options={countryOptions} placeholder="Select Country" />
               {role === "student" && (
@@ -417,7 +440,6 @@ const SignUpContent = () => {
                   <AuthSelect label="Track" value={track} onChange={(t) => { setTrack(t); setPaymentDetails(null); }} options={tracks} />
                   <AuthSelect label="Experience" value={experienceLevel} onChange={setExperienceLevel} options={experienceLeveloptions} />
                   
-                  {/* 🔥 UPDATED REFERRAL UI BLOCK */}
                   <div className="space-y-2 mt-2">
                     {hasValidReferral && (
                       <div className="flex items-center gap-2 p-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
