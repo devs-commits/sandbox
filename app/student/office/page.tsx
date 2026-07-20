@@ -20,27 +20,42 @@ function OfficeContent() {
   useEffect(() => {
     const checkCvStatus = async () => {
       if (!user?.id) return;
-      
-      // If they dismissed the widget this session, leave them alone.
-      if (sessionStorage.getItem(`dismissed_cv_${user.id}`)) {
-        return;
-      }
 
       try {
-        // Fetch both cv_url and bio so either option completes the career profile.
-        const { data } = await supabase
+        // 1. Fetch the entire row just in case the column name varies
+        const { data: userData } = await supabase
           .from('users')
-          .select('cv_url, bio')
+          .select('*')
           .eq('auth_id', user.id)
           .single();
+
+        // 2. Check if they are already advanced in the program (Grandfather logic)
+        const { data: progressData } = await supabase
+          .from('user_progression')
+          .select('current_week')
+          .eq('user_id', user.id) 
+          .maybeSingle();
+
+        // 🔥 BULLETPROOF CHECK: Ignores fake "null" strings and empty spaces
+        const hasBio = userData?.bio && userData.bio.trim() !== "" && userData.bio !== "null";
         
-        // A CV upload OR written bio marks the profile as complete.
-        if (data?.cv_url || data?.bio) {
+        // Checks both 'cv_url' and 'resume_url' just in case the DB schema differs
+        const hasCvUrl = 
+          (userData?.cv_url && userData.cv_url.trim() !== "" && userData.cv_url !== "null") ||
+          (userData?.resume_url && userData.resume_url.trim() !== "" && userData.resume_url !== "null");
+
+        const isAdvancedUser = progressData && progressData.current_week > 1;
+
+        // If they have a real CV, real Bio, or are past Week 1, hide it forever!
+        if (hasBio || hasCvUrl || isAdvancedUser) {
           setHasCv(true);
           setShowCvWidget(false);
         } else {
           setHasCv(false);
-          setShowCvWidget(true);
+          // Only show the widget if they haven't dismissed it this session
+          if (!sessionStorage.getItem(`dismissed_cv_${user.id}`)) {
+            setShowCvWidget(true);
+          }
         }
       } catch (err) {
         console.error("Error checking career profile status:", err);

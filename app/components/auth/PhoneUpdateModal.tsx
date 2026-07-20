@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { useAuth } from "../../contexts/AuthContexts"; 
-import { supabase } from "@/lib/supabase"; // Use "../../../lib/supabase" if your alias isn't setup
+import { supabase } from "@/lib/supabase"; 
 
 export const PhoneUpdateModal = () => {
   const { user } = useAuth();
@@ -18,23 +18,40 @@ export const PhoneUpdateModal = () => {
   const [defaultCountryCode, setDefaultCountryCode] = useState<any>("NG");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔥 Trigger the modal if the user is logged in but the phone column is null/empty
+  // 🔥 Trigger the modal only if the DB confirms the phone column is truly empty
   useEffect(() => {
-    // Adding a slight delay so it doesn't flash jarringly on immediate page load
-    const checkUserPhone = setTimeout(() => {
-      if (user && !(user as any).phone) {
-         setIsOpen(true);
-      } else {
-         setIsOpen(false);
+    if (!user?.id) return;
+
+    const verifyPhoneStatus = async () => {
+      try {
+        // Query the database directly to bypass cached context
+        const { data, error } = await supabase
+          .from('users')
+          .select('phone')
+          .eq('auth_id', user.id)
+          .single();
+
+        // If a phone number exists in the DB, NEVER open the modal.
+        if (data?.phone && data.phone.trim() !== "") {
+          setIsOpen(false);
+        } else {
+          setIsOpen(true);
+        }
+      } catch (err) {
+        console.error("Failed to verify phone status", err);
       }
+    };
+
+    const timer = setTimeout(() => {
+      verifyPhoneStatus();
     }, 800);
 
-    return () => clearTimeout(checkUserPhone);
-  }, [user]);
+    return () => clearTimeout(timer);
+  }, [user?.id]);
 
   // 🔥 Auto-fetch Geolocation for the flag
   useEffect(() => {
-    if (!isOpen) return; // Only fetch if the modal actually opens to save API calls
+    if (!isOpen) return; 
     const fetchCountryCode = async () => {
       try {
         const res = await fetch("https://ipapi.co/country/");
@@ -57,7 +74,6 @@ export const PhoneUpdateModal = () => {
     
     setIsSubmitting(true);
     try {
-      // 🔥 FIX: We now point precisely to the 'auth_id' column instead of 'id'
       const { error } = await supabase
         .from('users')
         .update({ phone: phone })
@@ -68,8 +84,8 @@ export const PhoneUpdateModal = () => {
       toast.success("Phone number secured! Welcome back.");
       setIsOpen(false);
       
-      // Force a hard router refresh so the rest of the app gets the updated user object
-      router.refresh();
+      // 🔥 Force a hard browser refresh to instantly pull the new user state system-wide
+      window.location.reload();
 
     } catch (error: any) {
       toast.error(error.message || "Failed to update phone number. Try again.");
@@ -83,9 +99,6 @@ export const PhoneUpdateModal = () => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-md p-4">
-      {/* Notice there is NO close button (X). 
-        They cannot escape this box without submitting. 
-      */}
       <div className="w-full max-w-md bg-card border border-border shadow-2xl rounded-2xl p-6 space-y-6 animate-in zoom-in-95 fade-in duration-300">
         <div className="space-y-2 text-center">
           <div className="mx-auto w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-2">
