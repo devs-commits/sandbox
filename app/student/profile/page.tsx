@@ -39,6 +39,7 @@ export default function ProfileSetup() {
   const [hasWallet, setHasWallet] = useState(false); 
   const [hasPin, setHasPin] = useState(false);
   const [hasCv, setHasCv] = useState(false); 
+  const [isEditingCv, setIsEditingCv] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -150,16 +151,16 @@ export default function ProfileSetup() {
 
       if (userError) throw new Error("DB Error: " + userError.message);
 
-      // 2. Initialize the Wallet
-      const res = await fetch("/api/wallet/initialize", {
+      // 2. Initialize the Wallet securely through backend
+      const res = await fetch("/api/wallet/provision", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id }),
+        body: JSON.stringify({ userId: user?.id, bvn, nin, pin }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Provider issue. Please contact support.");
 
-      // 3. 🔥 SECURE FIX: Set the PIN via the Admin API route (Bypasses RLS perfectly!)
+      // 3. Set the PIN via the Admin API route
       const pinRes = await fetch("/api/wallet/update-pin", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id, pin: pin })
@@ -347,125 +348,135 @@ export default function ProfileSetup() {
              <div className="h-px w-full bg-white/5"></div>
 
              {/* SECTION 4: Career Profile */}
-<div className="space-y-6">
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-emerald-500">
-        <Briefcase size={16} />
-        Career Profile
-      </h3>
+             <div className="space-y-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-emerald-500">
+                      <Briefcase size={16} />
+                      Career Profile
+                    </h3>
+                    <p className="mt-2 max-w-2xl text-xs leading-relaxed text-white/40">
+                      Help WDC Labs understand your experience, skills and career goals.
+                    </p>
+                  </div>
 
-      <p className="mt-2 max-w-2xl text-xs leading-relaxed text-white/40">
-        Help WDC Labs understand your experience, skills and career goals.
-      </p>
-    </div>
+                  {hasCv && !isEditingCv && (
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                      <CheckCircle2 size={13} />
+                      Profile complete
+                    </span>
+                  )}
+                </div>
 
-    {hasCv && (
-      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
-        <CheckCircle2 size={13} />
-        Profile complete
-      </span>
-    )}
-  </div>
+                {hasCv && !isEditingCv ? (
+                  // ✅ CLEAN SUCCESS STATE: No upload form here, just a button to edit
+                  <div className="group relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-emerald-500/[0.08] via-white/[0.035] to-cyan-500/[0.05] p-5 sm:p-6">
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
 
-  {hasCv ? (
-    <div className="group relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-emerald-500/[0.08] via-white/[0.035] to-cyan-500/[0.05] p-5 sm:p-6">
-      <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
+                    <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
+                          <FileText className="h-6 w-6 text-emerald-400" />
+                        </div>
 
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
-            <FileText className="h-6 w-6 text-emerald-400" />
-          </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-white">
+                              Career profile saved
+                            </h4>
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                          </div>
+                          <p className="mt-1.5 max-w-md text-xs leading-relaxed text-white/45">
+                            Your uploaded CV or professional summary is actively personalising your career recommendations and portfolio.
+                          </p>
+                        </div>
+                      </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-bold text-white">
-                Career profile saved
-              </h4>
+                      <div className="w-full sm:w-auto sm:min-w-[140px]">
+                        <Button 
+                          onClick={() => setIsEditingCv(true)}
+                          variant="outline"
+                          className="w-full bg-transparent border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+                        >
+                          Update Profile
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // ✏️ EDIT / EMPTY STATE: Shows the actual form
+                  <div className="relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-[#111b2f] via-[#0d1729] to-[#0a1425] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+                    <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-[80px]" />
 
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            </div>
+                    <div className="relative border-b border-white/[0.07] p-5 sm:p-7 flex justify-between items-start">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
+                          <Sparkles className="h-5 w-5 text-emerald-400" />
+                        </div>
 
-            <p className="mt-1.5 max-w-md text-xs leading-relaxed text-white/45">
-              Your uploaded CV or professional summary is available to
-              personalise your career recommendations and portfolio.
-            </p>
-          </div>
-        </div>
+                        <div>
+                          <h4 className="text-base font-bold text-white">
+                            {hasCv ? "Update your career profile" : "Complete your career profile"}
+                          </h4>
 
-        <div className="w-full sm:w-auto sm:min-w-[190px]">
-          <CVUploadUI
-            userId={user?.id || ""}
-            compact
-            onSuccess={() => setHasCv(true)}
-          />
-        </div>
-      </div>
-    </div>
-  ) : (
-    <div className="relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-[#111b2f] via-[#0d1729] to-[#0a1425] shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
-      <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-[80px]" />
+                          <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-white/45 sm:text-sm">
+                            Upload a new CV or rewrite your professional summary. This helps the AI provide more relevant
+                            career guidance, tasks and portfolio recommendations.
+                          </p>
+                        </div>
+                      </div>
 
-      <div className="relative border-b border-white/[0.07] p-5 sm:p-7">
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
-            <Sparkles className="h-5 w-5 text-emerald-400" />
-          </div>
+                      {/* Add a close button if they are just editing but want to cancel */}
+                      {hasCv && isEditingCv && (
+                        <button 
+                          onClick={() => setIsEditingCv(false)}
+                          className="p-2 text-white/40 hover:text-white transition-colors"
+                        >
+                          <XCircle size={20} />
+                        </button>
+                      )}
+                    </div>
 
-          <div>
-            <h4 className="text-base font-bold text-white">
-              Complete your career profile
-            </h4>
+                    <div
+                      className="
+                        relative p-4 sm:p-6
+                        [&>div]:rounded-2xl
+                        [&>div]:border-white/[0.08]
+                        [&>div]:bg-white/[0.025]
+                        [&>div]:shadow-none
+                        [&_textarea]:min-h-[130px]
+                        [&_textarea]:rounded-2xl
+                        [&_textarea]:border-white/[0.08]
+                        [&_textarea]:bg-[#0a1324]
+                        [&_textarea]:text-white
+                        [&_textarea]:placeholder:text-slate-500
+                        [&_textarea]:focus:border-emerald-400/40
+                        [&_textarea]:focus:ring-2
+                        [&_textarea]:focus:ring-emerald-500/10
+                        [&_button]:min-h-12
+                        [&_button]:rounded-xl
+                        [&_button]:font-bold
+                        [&_button]:normal-case
+                        [&_button]:tracking-normal
+                      "
+                    >
+                      <CVUploadUI
+                        userId={user?.id || ""}
+                        onSuccess={() => {
+                          setHasCv(true);
+                          setIsEditingCv(false); // Close the form automatically on success
+                        }}
+                      />
+                    </div>
 
-            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-white/45 sm:text-sm">
-              Upload your CV or write a professional summary. This is optional
-              for wallet generation, but it helps the AI provide more relevant
-              career guidance, tasks and portfolio recommendations.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="
-          relative p-4 sm:p-6
-          [&>div]:rounded-2xl
-          [&>div]:border-white/[0.08]
-          [&>div]:bg-white/[0.025]
-          [&>div]:shadow-none
-          [&_textarea]:min-h-[130px]
-          [&_textarea]:rounded-2xl
-          [&_textarea]:border-white/[0.08]
-          [&_textarea]:bg-[#0a1324]
-          [&_textarea]:text-white
-          [&_textarea]:placeholder:text-slate-500
-          [&_textarea]:focus:border-emerald-400/40
-          [&_textarea]:focus:ring-2
-          [&_textarea]:focus:ring-emerald-500/10
-          [&_button]:min-h-12
-          [&_button]:rounded-xl
-          [&_button]:font-bold
-          [&_button]:normal-case
-          [&_button]:tracking-normal
-        "
-      >
-        <CVUploadUI
-          userId={user?.id || ""}
-          onSuccess={() => setHasCv(true)}
-        />
-      </div>
-
-      <div className="relative flex items-center gap-2 border-t border-white/[0.06] px-5 py-4 text-[11px] text-white/35 sm:px-7">
-        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400/70" />
-        Your career information is stored securely and used to personalise your
-        WDC Labs experience.
-      </div>
-    </div>
-  )}
-</div>
-
-             <div className="h-px w-full bg-white/5"></div>
+                    <div className="relative flex items-center gap-2 border-t border-white/[0.06] px-5 py-4 text-[11px] text-white/35 sm:px-7">
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400/70" />
+                      Your career information is stored securely and used to personalise your
+                      WDC Labs experience.
+                    </div>
+                  </div>
+                )}
+             </div>
 
              {/* SECTION 5: Security */}
              <div className="space-y-6">

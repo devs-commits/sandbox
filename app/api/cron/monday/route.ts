@@ -19,10 +19,10 @@ export async function POST(request: Request) {
     }
 
     // 2. Fetch all students and their progression
-    // Assuming your users table relates to user_progression
+    // Changed `first_name` to `full_name` to match your database schema
     const { data: progressions, error } = await supabaseAdmin
       .from('user_progression')
-      .select('*, users!inner(email, first_name, track)');
+      .select('*, users!inner(email, full_name, track)');
 
     if (error) throw error;
 
@@ -30,6 +30,10 @@ export async function POST(request: Request) {
       const user = prog.users;
       const currentWeek = prog.current_week;
       const status = prog.week_status;
+      
+      // Safely extract the first name for ZeptoMail and console logs
+      const fullName = user.full_name || "Intern";
+      const firstName = fullName.split(' ')[0];
 
       // Condition A: Student Passed Last Week
       if (status === 'passed_waiting') {
@@ -54,13 +58,13 @@ export async function POST(request: Request) {
         // 2. Send the "Passed / Next Task Ready" Email
         await sendMondayActivationPassedEmail(
           user.email,
-          user.first_name,
+          firstName, // Using the extracted first name
           nextWeek,
           user.track,
           stepData.topic,
           stepData.objective
         );
-        console.log(`✅ Unlocked Week ${nextWeek} for ${user.first_name}`);
+        console.log(`✅ Unlocked Week ${nextWeek} for ${firstName}`);
       }
 
       // Condition B: Student is Stuck/Failing
@@ -68,10 +72,10 @@ export async function POST(request: Request) {
         // Send the "Pending / Catch Up" Email
         await sendMondayActivationPendingEmail(
           user.email,
-          user.first_name,
+          firstName, // Using the extracted first name
           currentWeek
         );
-        console.log(`⏸️ Held ${user.first_name} at Week ${currentWeek}`);
+        console.log(`⏸️ Held ${firstName} at Week ${currentWeek}`);
       }
     }
 
