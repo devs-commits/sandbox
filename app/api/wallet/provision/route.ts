@@ -34,6 +34,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, error: "User profile not found" }, { status: 404 });
     }
 
+    // Server-side only variables (No NEXT_PUBLIC_ needed, bypassing the F03 error)
     const apiKey = process.env.PAYMENT_API_KEY!;
     const merchantId = process.env.PAYMENT_MERCHANT_ID!;
     const baseUrl = process.env.PAYMENT_BASE_URL!;
@@ -47,7 +48,6 @@ export async function POST(req: Request) {
       body: JSON.stringify({ bvn, nin: nin || "" })
     });
 
-    // 🔥 FIX: Safe parsing prevents HTML error page crashes
     const { data: kycData, text: rawKycText } = await safeParseJSON(kycResponse);
 
     if (!kycResponse.ok || !kycData?.success) {
@@ -101,10 +101,8 @@ export async function POST(req: Request) {
         })
       });
 
-      // 🔥 FIX: Safe parsing for the actual provisioning step
       const { data: provisionData, text: rawProvText } = await safeParseJSON(provisionResponse);
       
-      // If the provider rejects the payload outright
       if (!provisionResponse.ok) {
          console.error("Provisioning Rejection:", rawProvText);
          return NextResponse.json({ 
@@ -128,7 +126,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // 🔥 FIX: Check explicitly before trying to save
     if (!account || !account.accountNumber) {
       console.error("Failed to extract account number from provider response");
       return NextResponse.json({ success: false, error: "Failed to generate settlement account" }, { status: 502 });
@@ -142,7 +139,7 @@ export async function POST(req: Request) {
       bvn: bvn,
       account_number: account.accountNumber,
       account_name: account.accountName,
-      bank_name: "Parallex Bank" // Adjust dynamically if provider supports multiple banks
+      bank_name: "Parallex Bank" 
     }).eq('auth_id', userId);
 
     if (userUpdateErr) throw new Error("Failed to update user profile");
@@ -165,7 +162,6 @@ export async function POST(req: Request) {
     });
 
   } catch (error: any) {
-    // 🔥 FINAL CATCH: Log the actual reason instead of a silent crash
     console.error("🔥 Global Provisioning Error:", error.message || error);
     return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
   }

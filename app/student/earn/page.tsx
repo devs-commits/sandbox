@@ -8,7 +8,7 @@ import Image from "next/image";
 import {
   Copy, Link as LinkIcon, ShieldCheckIcon, CheckCircle2, Eye, EyeOff, 
   Loader2, Lock, Coins, Wallet, RotateCw, ChevronRight, UserCircle, 
-  MapPin, Briefcase, Calendar, Info, Edit3 // 🔥 Added Edit3 & Loader2
+  MapPin, Briefcase, Calendar, Info, Edit3 
 } from "lucide-react";
 
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
@@ -65,12 +65,14 @@ export default function EarnMoney() {
   const [profile, setProfile] = useState({ fullName: "", address: "", dob: "", occupation: "", nationality: "", bvn: "", nin: "" });
   
   const [earnData, setEarnData] = useState({ 
+    dbId: 0, // Store DB ID for our secure API call
     earningsBalance: 0, 
     walletTotal: 0, 
     activeReferrals: 0, 
     pendingReferrals: 0,
-    referralCode: "", // 🔥 Added base code state
+    referralCode: "", 
     referralLink: "Loading...", 
+    hasCustomizedRef: false, // 🔥 The Lock Status
     userPin: "", 
     hasPin: false 
   });
@@ -90,16 +92,17 @@ export default function EarnMoney() {
       const { count: pendingCount } = await supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('referrer_id', userData?.id).eq('status', 'pending');
 
       if (userData) {
-        // 🔥 DEFAULT LOGIC: Use DB code, fallback to first name, fallback to slice of UUID
-        const baseCode = userData.referral_code || userData.full_name?.split(" ")[0]?.toLowerCase() || userData.id.substring(0, 6);
+        const baseCode = userData.referral_code || userData.full_name?.split(" ")[0]?.toLowerCase() || userData.id.toString();
 
         setEarnData({
+          dbId: userData.id,
           earningsBalance: userData.earnings || 0,
           walletTotal: walletData?.balance || 0,
           activeReferrals: activeCount || 0,
           pendingReferrals: pendingCount || 0,
           referralCode: baseCode,
           referralLink: userData.id ? `${window.location.origin}/signup?ref=${baseCode}` : "Setup profile",
+          hasCustomizedRef: userData.has_customized_referral || false, // Check if they are locked in
           userPin: walletData?.transaction_pin || "", 
           hasPin: !!walletData?.transaction_pin
         });
@@ -118,7 +121,7 @@ export default function EarnMoney() {
     } catch (err) { console.error(err); }
   };
 
-  // 🔥 CUSTOM VANITY URL SAVING LOGIC
+  // 🔥 COMPLETELY SECURE API-DRIVEN SAVE LOGIC
   const handleSaveReferralCode = async () => {
     if (!newRefCode.trim()) return toast.error("Referral code cannot be empty");
     
@@ -132,33 +135,31 @@ export default function EarnMoney() {
 
     setIsSavingRef(true);
     try {
-      // 1. Check uniqueness (Does anyone else have this code?)
-      const { count } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('referral_code', formattedCode)
-        .neq('auth_id', user?.id);
-        
-      if (count && count > 0) {
-        toast.error("This referral link is already taken by another user.");
+      // Send payload to our secure Next.js Backend route
+      const response = await fetch('/api/referrals/customize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: earnData.dbId,
+          newReferralCode: formattedCode
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Catches 409 Conflict (taken) or 403 Forbidden (already changed)
+        toast.error(result.error || "Failed to update link");
         setIsSavingRef(false);
         return;
       }
 
-      // 2. Update the User Profile
-      const { error } = await supabase
-        .from('users')
-        .update({ referral_code: formattedCode })
-        .eq('auth_id', user?.id);
-        
-      if (error) throw error;
-
-      toast.success("Custom referral link updated successfully!");
+      toast.success(result.message || "Custom referral link firmly locked in!");
       setIsEditingRef(false);
-      fetchEarnData(); // Refresh UI to apply new link to social buttons
+      fetchEarnData(); // Refresh UI to kill the edit button and update link
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update referral link.");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsSavingRef(false);
     }
@@ -284,36 +285,48 @@ export default function EarnMoney() {
                   <h3 className="text-xl font-bold text-white tracking-tight">Referral Network</h3>
               </div>
               
-              {/* 🔥 NEW CUSTOMIZER BOX */}
-              <div className="p-5 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl mb-10 group hover:border-indigo-400/50 transition-all flex items-center justify-between min-h-[72px]">
-                  {isEditingRef ? (
-                    <div className="flex items-center gap-2 flex-1 w-full">
-                       <span className="text-indigo-400/50 text-xs hidden sm:inline">.../signup?ref=</span>
-                       <Input 
-                         value={newRefCode} 
-                         onChange={(e) => setNewRefCode(e.target.value)} 
-                         className="flex-1 bg-white/5 border-white/10 text-white h-9 rounded-xl text-xs font-mono focus-visible:ring-1 focus-visible:ring-indigo-500"
-                         placeholder="custom-link"
-                         autoFocus
-                       />
-                       <Button onClick={handleSaveReferralCode} disabled={isSavingRef} className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-4 font-bold tracking-widest rounded-xl transition-all">
-                          {isSavingRef ? <Loader2 className="animate-spin" size={14} /> : "SAVE"}
-                       </Button>
-                       <Button onClick={() => setIsEditingRef(false)} variant="ghost" className="h-9 text-white/40 hover:text-white px-3 rounded-xl">Cancel</Button>
-                    </div>
-                  ) : (
-                    <>
-                       <p className="font-mono text-indigo-400 text-xs truncate mr-4 select-all flex-1">{earnData.referralLink}</p>
-                       <div className="flex items-center gap-2 shrink-0">
-                          <button onClick={() => { setNewRefCode(earnData.referralCode); setIsEditingRef(true); }} className="p-2.5 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Customize Link">
-                             <Edit3 size={16} />
-                          </button>
-                          <button onClick={() => { navigator.clipboard.writeText(earnData.referralLink); toast.success("Unique Link Copied!"); }} className="p-2.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all" title="Copy Link">
-                             <Copy size={16} />
-                          </button>
-                       </div>
-                    </>
-                  )}
+              {/* 🔥 NEW SECURE CUSTOMIZER BOX */}
+              <div className="flex flex-col mb-10">
+                <div className="p-5 bg-indigo-500/5 border border-indigo-500/20 rounded-3xl group hover:border-indigo-400/50 transition-all flex items-center justify-between min-h-[72px]">
+                    {isEditingRef ? (
+                      <div className="flex items-center gap-2 flex-1 w-full">
+                         <span className="text-indigo-400/50 text-xs hidden sm:inline">.../signup?ref=</span>
+                         <Input 
+                           value={newRefCode} 
+                           onChange={(e) => setNewRefCode(e.target.value)} 
+                           className="flex-1 bg-white/5 border-white/10 text-white h-9 rounded-xl text-xs font-mono focus-visible:ring-1 focus-visible:ring-indigo-500"
+                           placeholder="custom-link"
+                           autoFocus
+                         />
+                         <Button onClick={handleSaveReferralCode} disabled={isSavingRef} className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-4 font-bold tracking-widest rounded-xl transition-all">
+                            {isSavingRef ? <Loader2 className="animate-spin" size={14} /> : "SAVE"}
+                         </Button>
+                         <Button onClick={() => setIsEditingRef(false)} variant="ghost" className="h-9 text-white/40 hover:text-white px-3 rounded-xl">Cancel</Button>
+                      </div>
+                    ) : (
+                      <>
+                         <p className="font-mono text-indigo-400 text-xs truncate mr-4 select-all flex-1">{earnData.referralLink}</p>
+                         <div className="flex items-center gap-2 shrink-0">
+                            {/* 🔥 Conditionally hide the Edit button if they already customized it */}
+                            {!earnData.hasCustomizedRef && (
+                              <button onClick={() => { setNewRefCode(earnData.referralCode); setIsEditingRef(true); }} className="p-2.5 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Customize Link">
+                                 <Edit3 size={16} />
+                              </button>
+                            )}
+                            <button onClick={() => { navigator.clipboard.writeText(earnData.referralLink); toast.success("Unique Link Copied!"); }} className="p-2.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all" title="Copy Link">
+                               <Copy size={16} />
+                            </button>
+                         </div>
+                      </>
+                    )}
+                </div>
+                
+                {/* 🔥 Badge visually confirming to the user that their link is permanent */}
+                {earnData.hasCustomizedRef && !isEditingRef && (
+                  <p className="text-[10px] text-emerald-500/80 font-bold uppercase tracking-widest mt-3 flex items-center gap-1.5 ml-2">
+                    <ShieldCheckIcon size={12} /> Link Permanently Locked
+                  </p>
+                )}
               </div>
 
               <div className="space-y-6 flex-1">

@@ -459,10 +459,10 @@ export function TaskDashboard() {
               {(previewTask.status as string) !== 'approved' && (previewTask.status as string) !== 'passed' && (previewTask.status as string) !== 'submitted' && (previewTask.status as string) !== 'under-review' && (previewTask.status as string) !== 'under_review' && (
                 <>
                   <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2 min-w-[140px]"><Upload size={16} /> Submit Work</Button>
-                  <Button variant="destructive" onClick={() => handleRegenerate(previewTask)} disabled={(previewTask as any).is_regenerated || isRegenerating} className="flex-1 gap-2 min-w-[140px] bg-red-900/50 hover:bg-red-900 text-red-200 border-none">
+                  {/* <Button variant="destructive" onClick={() => handleRegenerate(previewTask)} disabled={(previewTask as any).is_regenerated || isRegenerating} className="flex-1 gap-2 min-w-[140px] bg-red-900/50 hover:bg-red-900 text-red-200 border-none">
                     {isRegenerating ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
                     {(previewTask as any).is_regenerated ? "Already Regenerated" : "Request New Brief"}
-                  </Button>
+                  </Button> */}
                 </>
               )}
               <Button variant="outline" className="flex-1 gap-2 min-w-[140px]" onClick={() => setDetailTask(previewTask)}><FileText size={16} /> View Full Details</Button>
