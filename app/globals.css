@@ -384,7 +384,6 @@
     }
   }
 
-<<<<<<< HEAD
 .landing-refresh {
   --landing-navy: #07182d;
   --landing-navy-2: #0b2545;
@@ -2233,15 +2232,14 @@
     transition: none;
   }
 }
-=======
   .phone-input-global .PhoneInputInput {
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: 0.875rem; /* text-sm */
-  width: 100%;
-}
-.phone-input-global .PhoneInputCountry {
-  margin-right: 12px;
-}
->>>>>>> f59874a188df52301d556c3c04f959af7258e7e7
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    width: 100%;
+  }
+
+  .phone-input-global .PhoneInputCountry {
+    margin-right: 12px;
+  }
