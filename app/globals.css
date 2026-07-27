@@ -1680,6 +1680,82 @@
   font-weight: 900;
 }
 
+.landing-refresh .ai-qa-section {
+  background: #fff;
+  display: grid;
+  grid-template-columns: 0.82fr 1.18fr;
+  gap: 80px;
+  align-items: start;
+}
+
+.landing-refresh .ai-qa-intro h2 {
+  color: var(--landing-navy);
+  font-size: 56px;
+  line-height: 0.98;
+  margin: 0;
+}
+
+.landing-refresh .ai-qa-intro h2 em {
+  color: var(--landing-blue);
+}
+
+.landing-refresh .ai-qa-intro p {
+  color: var(--landing-muted);
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 520px;
+}
+
+.landing-refresh .ai-qa-list {
+  display: grid;
+  gap: 12px;
+}
+
+.landing-refresh .ai-qa-item {
+  border: 1px solid var(--landing-line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fff 0%, #f8fbfc 100%);
+  overflow: hidden;
+}
+
+.landing-refresh .ai-qa-item button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 20px 22px;
+  color: var(--landing-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.landing-refresh .ai-qa-item button > span {
+  color: var(--landing-blue);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.landing-refresh .ai-qa-item button > strong {
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.landing-refresh .ai-qa-item button > b {
+  color: #789;
+  font-size: 22px;
+}
+
+.landing-refresh .ai-qa-item > p {
+  margin: 0;
+  padding: 0 22px 22px 82px;
+  color: var(--landing-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
 .landing-refresh .faq {
   display: grid;
   grid-template-columns: 0.75fr 1.25fr;
@@ -1860,6 +1936,33 @@
   line-height: 1.1;
 }
 
+.landing-refresh .rotating-course {
+  display: block;
+  min-height: 36px;
+  animation: course-slide-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.landing-refresh .course-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.landing-refresh .course-rail span {
+  border-radius: 999px;
+  background: #eef4f7;
+  color: #607184;
+  padding: 7px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.landing-refresh .course-rail .is-active {
+  background: var(--landing-navy);
+  color: #fff;
+}
+
 .landing-refresh .start-panel > p {
   color: var(--landing-muted);
   font-size: 13px;
@@ -1876,6 +1979,17 @@
   font-weight: 900;
   display: flex;
   justify-content: space-between;
+}
+
+@keyframes course-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing-refresh footer {
@@ -1957,6 +2071,7 @@
 
   .landing-refresh .problem-section,
   .landing-refresh .outcomes,
+  .landing-refresh .ai-qa-section,
   .landing-refresh .faq {
     grid-template-columns: 1fr;
   }
@@ -2054,6 +2169,7 @@
   .landing-refresh .section-intro h2,
   .landing-refresh .sample h2,
   .landing-refresh .outcomes h2,
+  .landing-refresh .ai-qa-intro h2,
   .landing-refresh .faq h2,
   .landing-refresh .activation h2 {
     font-size: 42px;
@@ -2182,6 +2298,20 @@
     gap: 35px;
   }
 
+  .landing-refresh .ai-qa-section {
+    gap: 35px;
+  }
+
+  .landing-refresh .ai-qa-item button {
+    grid-template-columns: 32px 1fr auto;
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .landing-refresh .ai-qa-item > p {
+    padding: 0 16px 18px 60px;
+  }
+
   .landing-refresh .activation {
     margin: 0 12px 18px;
     padding: 55px 22px;
@@ -2229,6 +2359,14 @@
   }
 
   .landing-refresh .button {
+    transition: none;
+  }
+
+  .landing-refresh .rotating-course {
+    animation: none;
+  }
+
+  .landing-refresh .course-rail span {
     transition: none;
   }
 }

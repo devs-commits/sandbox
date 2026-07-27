@@ -135,7 +135,7 @@ const SignUpContent = () => {
     if (promoFromUrl) {
       const normalizedCode = promoFromUrl.trim().toUpperCase();
       setCouponCode(normalizedCode);
-      if (normalizedCode === "WDCLABS14") {
+      if (normalizedCode === "FIRSTTASK") {
         setIsCouponApplied(true);
         setCouponError("");
         toast.success("🎉 Promo Link Active! Your 14-day free trial is unlocked.");
@@ -212,10 +212,10 @@ const SignUpContent = () => {
 
   const handleApplyCoupon = () => {
     const normalizedCode = couponCode.trim().toUpperCase();
-    if (normalizedCode === "WDCLABS14") {
+    if (normalizedCode === "FIRSTTASK") {
       setIsCouponApplied(true);
       setCouponError("");
-      toast.success("🎉 WDCLABS14 Applied! 14-day free trial unlocked.");
+      toast.success("🎉 FIRSTTASK Applied! 14-day free trial unlocked.");
     } else {
       setIsCouponApplied(false);
       setCouponError("Invalid coupon code. Please try again.");
@@ -480,7 +480,7 @@ const SignUpContent = () => {
                 </div>
               ) : (
                 <div className="p-3 bg-green-100 text-green-800 rounded-md border border-green-300 text-sm font-bold flex justify-between items-center">
-                  <span>🎉 WDCLABS14 Applied! (Free Trial)</span>
+                  <span>🎉 FIRSTTASK Applied! (Free Trial)</span>
                   <button type="button" onClick={() => setIsCouponApplied(false)} className="text-green-800 hover:text-green-900 transition-colors">
                     <X size={16} />
                   </button>

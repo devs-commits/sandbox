@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import actdLogo from "../../public/actd-logos.png";
 import wdcLogo from "../../public/wdc-logo copy.jpg";
 import wdcLabsLogo from "../../public/wdc_labs_logo.png";
@@ -32,6 +32,12 @@ const tracks = {
 };
 
 type TrackKey = keyof typeof tracks;
+type AiFaq = {
+  question: string;
+  answer: string;
+};
+
+const trackOrder = Object.keys(tracks) as TrackKey[];
 
 const faqs = [
   [
@@ -60,8 +66,32 @@ const faqs = [
   ],
 ];
 
+const aiFaqs: AiFaq[] = [
+  {
+    question: "How does the AI manager work?",
+    answer:
+      "Your AI manager gives you realistic briefs, context, deadlines and feedback the way a workplace lead would. It helps you practise execution, communication and decision-making instead of only watching lessons.",
+  },
+  {
+    question: "Does AI replace human support on WDC Labs?",
+    answer:
+      "No. AI supports the daily work experience by guiding tasks and reviews, while the programme team remains available for support, policies and account questions.",
+  },
+  {
+    question: "What does the AI review in my assignments?",
+    answer:
+      "It reviews how clearly you understand the brief, the quality of your output, your reasoning, communication and readiness for workplace expectations.",
+  },
+  {
+    question: "Can AI feedback help me build a stronger portfolio?",
+    answer:
+      "Yes. Each round of feedback helps you improve the same way work reviews do, so your portfolio shows better thinking, cleaner deliverables and clearer explanations over time.",
+  },
+];
+
 const supportLink = "https://chat.whatsapp.com/IWMuvfGQhTJHCXBMlfGzir?mode=gi_t";
 const privacyLink = "https://wdc.ng/privacy-policy/";
+const signupPromoLink = "/signup?promo=FIRSTTASK";
 
 function Arrow() {
   return <span aria-hidden="true">↗</span>;
@@ -102,8 +132,22 @@ function PartnerLogos() {
 
 export default function Landing() {
   const [activeTrack, setActiveTrack] = useState<TrackKey>("analytics");
+  const [rotatingTrack, setRotatingTrack] = useState<TrackKey>("analytics");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [openAiFaq, setOpenAiFaq] = useState<number | null>(0);
   const selected = tracks[activeTrack];
+  const rotatingCourse = tracks[rotatingTrack];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setRotatingTrack((currentTrack) => {
+        const currentIndex = trackOrder.indexOf(currentTrack);
+        return trackOrder[(currentIndex + 1) % trackOrder.length];
+      });
+    }, 12000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   const scrollToStart = () => {
     document.querySelector("#first-task")?.scrollIntoView({ behavior: "smooth" });
@@ -118,6 +162,7 @@ export default function Landing() {
           <a href="#sample-task">Career tracks</a>
           <a href="#outcomes">Outcomes</a>
           <a href="#pricing">Pricing</a>
+          <a href="#ai-qa">AI Q&A</a>
         </nav>
         <div className="header-actions">
           <PartnerLogos />
@@ -188,7 +233,7 @@ export default function Landing() {
               </div>
               <div className="task-bottom">
                 <span>Progress · 38%</span>
-                <Link href="/signup">
+                <Link href={signupPromoLink}>
                   Continue task →
                 </Link>
               </div>
@@ -501,7 +546,7 @@ export default function Landing() {
               <li>Verified portfolio development</li>
               <li>Monthly performance summary</li>
             </ul>
-            <Link className="plan-button" href="/signup">
+            <Link className="plan-button" href={signupPromoLink}>
               Start with a free task <Arrow />
             </Link>
           </article>
@@ -521,11 +566,51 @@ export default function Landing() {
               <li>Career Readiness Score</li>
               <li>Recommendation eligibility</li>
             </ul>
-            <Link className="plan-button bright" href="/signup">
+            <Link className="plan-button bright" href={signupPromoLink}>
               Try your first task free <Arrow />
             </Link>
             <small>One payment. No recurring billing.</small>
           </article>
+        </div>
+      </section>
+
+      <section className="ai-qa-section section-pad" id="ai-qa">
+        <div className="ai-qa-intro">
+          {/* <span className="section-label">AI-OPTIMIZED Q&A</span> */}
+          <h2>
+            How AI helps you
+            <br />
+            <em>practise real work.</em>
+          </h2>
+          <p>
+            Focused answers about the AI manager, feedback and how WDC Labs uses AI inside the work experience.
+          </p>
+        </div>
+        <div className="ai-qa-list" itemScope itemType="https://schema.org/FAQPage">
+          {aiFaqs.map((faq, index) => (
+            <article
+              className="ai-qa-item"
+              key={faq.question}
+              itemScope
+              itemProp="mainEntity"
+              itemType="https://schema.org/Question"
+            >
+              <button
+                type="button"
+                aria-expanded={openAiFaq === index}
+                onClick={() => setOpenAiFaq(openAiFaq === index ? null : index)}
+              >
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong itemProp="name">{faq.question}</strong>
+                <b>{openAiFaq === index ? "−" : "+"}</b>
+              </button>
+              {openAiFaq === index && (
+                <p itemScope itemProp="acceptedAnswer" itemType="https://schema.org/Answer">
+                  <span itemProp="text">{faq.answer}</span>
+                </p>
+              )}
+            </article>
+          ))}
         </div>
       </section>
 
@@ -575,9 +660,18 @@ export default function Landing() {
         </div>
         <div className="start-form start-panel">
           <span className="start-kicker">STARTING WITH</span>
-          <strong>{selected.label}</strong>
-          <p>You can confirm or change your track on the signup page before creating your account.</p>
-          <Link href="/signup" className="start-cta">
+          <strong className="rotating-course" key={rotatingTrack}>
+            {rotatingCourse.label}
+          </strong>
+          <div className="course-rail" aria-label="Available career tracks">
+            {trackOrder.map((trackKey) => (
+              <span key={trackKey} className={trackKey === rotatingTrack ? "is-active" : ""}>
+                {tracks[trackKey].label}
+              </span>
+            ))}
+          </div>
+          <p>You can choose or change your track on the signup page before creating your account.</p>
+          <Link href={signupPromoLink} className="start-cta">
             Start free assignment <Arrow />
           </Link>
           <small>
@@ -603,6 +697,7 @@ export default function Landing() {
               <a href="#how-it-works">How it works</a>
               <a href="#sample-task">Career tracks</a>
               <a href="#pricing">Pricing</a>
+              <a href="#ai-qa">AI Q&A</a>
             </div>
             <div>
               <strong>Support</strong>
