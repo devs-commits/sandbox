@@ -427,7 +427,7 @@
 }
 
 .landing-refresh .section-pad {
-  padding: 112px max(28px, calc((100vw - 1200px) / 2));
+  padding: 84px max(28px, calc((100vw - 1200px) / 2));
 }
 
 .landing-refresh .site-header {
@@ -557,12 +557,12 @@
 }
 
 .landing-refresh .hero {
-  min-height: 670px;
+  min-height: 640px;
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
-  gap: 70px;
+  gap: 58px;
   align-items: center;
-  padding: 74px max(28px, calc((100vw - 1200px) / 2)) 80px;
+  padding: 60px max(28px, calc((100vw - 1200px) / 2)) 64px;
   background: radial-gradient(circle at 84% 24%, #e3fbfd 0, rgba(227, 251, 253, 0) 30%),
     linear-gradient(180deg, #fff 0, #f8fbfc 100%);
   overflow: hidden;
@@ -915,7 +915,7 @@
   background: #f4f8fa;
   display: grid;
   grid-template-columns: 0.85fr 1.15fr;
-  gap: 75px;
+  gap: 52px;
   align-items: center;
 }
 
@@ -1043,7 +1043,7 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0;
-  margin-top: 55px;
+  margin-top: 40px;
   border-top: 1px solid var(--landing-line);
 }
 
@@ -1094,7 +1094,7 @@
 .landing-refresh .sample-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 80px;
+  gap: 48px;
   align-items: end;
 }
 
@@ -1120,7 +1120,7 @@
 .landing-refresh .track-tabs {
   display: flex;
   gap: 8px;
-  margin: 50px 0 18px;
+  margin: 34px 0 16px;
 }
 
 .landing-refresh .track-tabs button {
@@ -1352,7 +1352,7 @@
   display: grid;
   grid-template-columns: 1.2fr 0.9fr 0.9fr;
   gap: 18px;
-  margin-top: 45px;
+  margin-top: 32px;
 }
 
 .landing-refresh .proof-grid article {
@@ -1497,7 +1497,7 @@
   color: white;
   display: grid;
   grid-template-columns: 0.82fr 1.18fr;
-  gap: 90px;
+  gap: 56px;
 }
 
 .landing-refresh .outcomes h2 {
@@ -1568,7 +1568,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 18px;
   max-width: 920px;
-  margin: 50px auto 0;
+  margin: 36px auto 0;
 }
 
 .landing-refresh .plan-card {
@@ -1684,7 +1684,7 @@
   background: #fff;
   display: grid;
   grid-template-columns: 0.82fr 1.18fr;
-  gap: 80px;
+  gap: 56px;
   align-items: start;
 }
 
@@ -1759,7 +1759,7 @@
 .landing-refresh .faq {
   display: grid;
   grid-template-columns: 0.75fr 1.25fr;
-  gap: 90px;
+  gap: 56px;
 }
 
 .landing-refresh .faq-intro > p {
@@ -1817,14 +1817,14 @@
 }
 
 .landing-refresh .activation {
-  margin: 0 max(18px, calc((100vw - 1320px) / 2)) 24px;
+  margin: 0 max(18px, calc((100vw - 1320px) / 2)) 18px;
   border-radius: 25px;
   background: linear-gradient(135deg, #0a2750, #07182d 65%);
   color: white;
-  padding: 75px;
+  padding: 56px;
   display: grid;
   grid-template-columns: 1fr 420px;
-  gap: 80px;
+  gap: 56px;
   align-items: center;
   position: relative;
   overflow: hidden;
@@ -1994,7 +1994,7 @@
 
 .landing-refresh footer {
   background: #fff;
-  padding: 65px max(28px, calc((100vw - 1200px) / 2)) 25px;
+  padding: 48px max(28px, calc((100vw - 1200px) / 2)) 25px;
 }
 
 .landing-refresh .footer-top {
