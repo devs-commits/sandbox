@@ -169,7 +169,7 @@ export default function Landing() {
           <Link className="text-link" href="/login">
             Sign in
           </Link>
-          <a className="button button-small" href="#first-task">
+          <a className="button button-small" href={signupPromoLink}>
             Try your first task <Arrow />
           </a>
         </div>
