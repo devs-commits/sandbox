@@ -1,5 +1,4 @@
 "use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -42,7 +41,7 @@ const trackOrder = Object.keys(tracks) as TrackKey[];
 const faqs = [
   [
     "Is the first assignment really free?",
-    "Yes. You can choose a track, complete one workplace assignment and receive a performance review before deciding whether to continue.",
+    "Yes. You can choose a track, complete one workplace task in 7 days and receive a performance review before deciding whether to continue.",
   ],
   [
     "Do I need previous experience?",
@@ -50,7 +49,7 @@ const faqs = [
   ],
   [
     "How much time should I set aside?",
-    "Plan for about 8-12 focused hours per week. You can work around your schedule, but every assignment has a realistic deadline.",
+    "Plan for about 6-10 focused hours per week. You can work around your schedule, but every task has a realistic deadline.",
   ],
   [
     "What will be in my portfolio?",
