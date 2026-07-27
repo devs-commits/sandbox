@@ -165,7 +165,7 @@ export default function Landing() {
           <a href="#ai-qa">AI Q&A</a>
         </nav>
         <div className="header-actions">
-          <PartnerLogos />
+          {/* <PartnerLogos /> */}
           <Link className="text-link" href="/login">
             Sign in
           </Link>
@@ -260,9 +260,9 @@ export default function Landing() {
           <strong>ACTD</strong> accredited institution
         </span>
         <span className="trust-divider" />
-        <span>
+        {/* <span>
           Payments secured by <strong>Paystack</strong>
-        </span>
+        </span> */}
         <span className="trust-divider" />
         <span>
           <strong>NDPA</strong> data protection
