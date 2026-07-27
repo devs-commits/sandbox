@@ -138,7 +138,7 @@ const SignUpContent = () => {
       if (normalizedCode === "FIRSTTASK") {
         setIsCouponApplied(true);
         setCouponError("");
-        toast.success("🎉 Promo Link Active! Your 14-day free trial is unlocked.");
+        toast.success("🎉 Promo Link Active! Your 7 days free trial is unlocked.");
       }
     }
 
