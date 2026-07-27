@@ -20,6 +20,7 @@ import {
   Megaphone,
   Award,
   Settings,
+  Users, // 🔥 Added Users icon for the Squad menu
 } from "lucide-react";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -30,17 +31,21 @@ import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContexts";
 import CareerJourneyModal from "../gamification/CareerJourneyModal";
 
+// 🔥 Added Squad to the menu items
 const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
+  { label: "Squad", icon: Users, path: "/student/squad" }, 
 ];
 
+// 🔥 Added Squad to the tour targets
 const tourTargetByPath: Record<string, string> = {
   "/student/office": "sidebar-office",
   "/student/portfolio": "sidebar-portfolio",
   "/student/wallet": "sidebar-wallet",
+  "/student/squad": "sidebar-squad", 
 };
 
 const GAMIFICATION_TRACKS = {
@@ -157,9 +162,9 @@ export const StudentSidebar = () => {
           }
 
           console.log("================================");
-console.log("DB TRACK:", userRes.track);
-console.log("CURRENT TRACK STATE:", currentTrack);
-console.log("================================");
+          console.log("DB TRACK:", userRes.track);
+          console.log("CURRENT TRACK STATE:", currentTrack);
+          console.log("================================");
         }
       } catch (err) {
         console.error("Sidebar: Critical failure connecting to DB:", err);
@@ -181,8 +186,8 @@ console.log("================================");
     };
   }, [user?.id]);
 
-  // 🔥 THE FIX: Current week is tasks completed + 1
-const currentWeek = Math.min(completedTasksCount + 1, 24);
+  // THE FIX: Current week is tasks completed + 1
+  const currentWeek = Math.min(completedTasksCount + 1, 24);
   const currentTrackData = GAMIFICATION_TRACKS[currentTrack] || GAMIFICATION_TRACKS["data-analytics"];
   const progressPercentage = Math.min((currentWeek / 24) * 100, 100);
 
@@ -243,18 +248,18 @@ const currentWeek = Math.min(completedTasksCount + 1, 24);
           <DollarSign size={18} /><span className="text-sm font-medium">Earn Money</span>
         </Link>
         <Link
-  href="/student/profile"
-  onClick={() => setMobileOpen(false)}
-  className={cn(
-    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-    pathname === "/student/profile"
-      ? "bg-primary/20 text-primary"
-      : "text-sidebar-foreground hover:bg-sidebar-accent"
-  )}
->
-  <Settings size={18} />
-  <span className="text-sm font-medium">Profile Settings</span>
-</Link>
+          href="/student/profile"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+            pathname === "/student/profile"
+              ? "bg-primary/20 text-primary"
+              : "text-sidebar-foreground hover:bg-sidebar-accent"
+          )}
+        >
+          <Settings size={18} />
+          <span className="text-sm font-medium">Profile Settings</span>
+        </Link>
       </nav>
 
       <div className="px-3 pb-3">

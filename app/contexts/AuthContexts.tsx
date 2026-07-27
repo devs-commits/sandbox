@@ -36,7 +36,8 @@ interface SignupData {
   track?: string;
   experienceLevel?: string;
   referralLink?: string;
-  subscriptionPlan?: string; // 🔥 Added to ensure we can read "trial" vs "monthly"
+  squadSlug?: string; // 🔥 ADDED: Included for the squad auto-join engine
+  subscriptionPlan?: string; 
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -157,39 +158,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(result.session);
       }
 
-      // 🔥 WDC LABS REFERRAL ENGINE: Runs silently after successful account creation
       const newAuthId = result.user?.id || result.data?.user?.id;
       
+      // 🔥 WDC LABS REFERRAL ENGINE: Runs silently after successful account creation
       if (data.referralLink && newAuthId) {
         try {
-          // 1. Fetch the newly created user's numeric DB ID
           const { data: newUserDB } = await supabase
             .from('users')
             .select('id')
             .eq('auth_id', newAuthId)
             .single();
 
-          // 2. Fetch the referrer's numeric DB ID using the vanity code (e.g., "odogwu")
           const { data: referrerDB } = await supabase
             .from('users')
             .select('id')
             .eq('referral_code', data.referralLink.toLowerCase().trim())
             .maybeSingle();
 
-          // 3. If both exist, lock in the referral link!
           if (newUserDB && referrerDB) {
-            // Determine status based on the subscription plan chosen at signup
-            const referralStatus = 'pending';
-            
             await supabase.from('referrals').insert({
               referrer_id: referrerDB.id,
               referred_user_id: newUserDB.id,
-              status: referralStatus
+              status: 'pending'
             });
             console.log("WDC Labs: Referral Successfully Linked.");
           }
         } catch (refError) {
           console.error("WDC Labs: Referral linking failed quietly:", refError);
+        }
+      }
+
+      // 🔥 WDC LABS SQUAD ENGINE: Auto-join squad silently
+      if (data.squadSlug && newAuthId) {
+        try {
+          const squadRes = await fetch('/api/squad/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: newAuthId, slug: data.squadSlug }),
+          });
+          const squadData = await squadRes.json();
+          if (squadData.success) {
+            console.log("WDC Labs: Successfully auto-joined squad.");
+          } else {
+            console.warn("WDC Labs: Squad auto-join failed:", squadData.error);
+          }
+        } catch (squadErr) {
+          console.error("WDC Labs: Squad auto-join failed quietly:", squadErr);
         }
       }
 

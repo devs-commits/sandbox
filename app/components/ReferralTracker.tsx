@@ -1,30 +1,52 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 
 export function ReferralTracker() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   useEffect(() => {
-    // 1. Check if the URL has a ?ref= parameter
+    // 1. Get referral code from query params (?ref=...)
     const refCode = searchParams.get("ref");
     
+    // 2. Extract squad slug from URL path (e.g., /squad/growth-builders)
+    let squadSlug = searchParams.get("squad"); // Fallback if passed as a query
+    if (pathname?.startsWith("/squad/")) {
+      const parts = pathname.split("/");
+      if (parts.length > 2 && parts[2]) {
+        squadSlug = parts[2];
+      }
+    }
+
+    const maxAge = 2592000; // Exactly 30 days in seconds
+
+    // 3. Lock in the Referral Code (First-click attribution)
     if (refCode) {
-      // 2. Check if a referral cookie already exists
-      const existingCookie = document.cookie
+      const existingRefCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('wdc_referral_id='));
 
-      // 3. Only set the cookie if it DOES NOT exist (First-click attribution)
-      if (!existingCookie) {
-        // max-age=2592000 equals exactly 30 days in seconds
-        document.cookie = `wdc_referral_id=${refCode}; path=/; max-age=2592000; SameSite=Lax`;
+      if (!existingRefCookie) {
+        document.cookie = `wdc_referral_id=${refCode}; path=/; max-age=${maxAge}; SameSite=Lax`;
         console.log("WDC Labs: Referral cached globally.");
       }
     }
-  }, [searchParams]);
 
-  // This component works entirely in the background, so it renders nothing
+    // 4. Lock in the Squad Slug
+    if (squadSlug) {
+      const existingSquadCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('wdc_squad_id='));
+
+      if (!existingSquadCookie) {
+        document.cookie = `wdc_squad_id=${squadSlug}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        console.log(`WDC Labs: Squad '${squadSlug}' cached globally.`);
+      }
+    }
+  }, [searchParams, pathname]);
+
+  // Works entirely in the background
   return null; 
 }

@@ -18,7 +18,7 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
           .from('users')
           .select('subscription_status, start_date, subscription_expires_at')
           .eq('auth_id', user.id)
-          .single();
+          .maybeSingle()
 
         if (error) throw error;
 

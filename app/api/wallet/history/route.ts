@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import https from "https"; // Raw Node.js module
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Standard fetch for the balance check
+// Standard fetch for both balance check and the new POST transactions check
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 15000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -22,56 +21,36 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 1
   }
 }
 
-// 🔥 THE FIX: A raw HTTP client that forces a GET request to accept a JSON body
-function forceGetWithBody(urlStr: string, headers: any, bodyData: any, timeoutMs = 15000): Promise<any> {
-    return new Promise((resolve, reject) => {
-        const url = new URL(urlStr);
-        const payload = JSON.stringify(bodyData);
-
-        const options = {
-            hostname: url.hostname,
-            path: url.pathname + url.search,
-            method: 'GET', // Forcing GET
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload)
-            },
-            timeout: timeoutMs
-        };
-
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => { data += chunk; });
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, data: JSON.parse(data) });
-                } catch (e) {
-                    resolve({ status: res.statusCode, text: data });
-                }
-            });
-        });
-
-        req.on('error', (e) => reject(e));
-        req.on('timeout', () => { req.destroy(); reject(new Error('Provider timeout')); });
-        
-        // Write the body to the GET request!
-        req.write(payload);
-        req.end();
-    });
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const { userId, accountNumber, page = 1, limit = 15 } = await req.json();
+    // 🔥 FIX 1: Read the body ONLY ONCE to prevent the fatal stream crash
+    const body = await req.json().catch(() => ({}));
+    const { userId, page = 1, limit = 15 } = body;
+    let { accountNumber } = body;
 
-    if (!userId || !accountNumber) {
-      return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+
+    // 🔥 SMART LOOKUP: If frontend didn't pass accountNumber, grab it securely from DB
+    if (!accountNumber) {
+        const { data: walletObj } = await supabaseAdmin
+            .from('wallets')
+            .select('account_number')
+            .eq('user_id', userId)
+            .single();
+        
+        if (walletObj?.account_number && walletObj.account_number !== "****") {
+            accountNumber = walletObj.account_number;
+        } else {
+            return NextResponse.json({ error: "No active settlement account found." }, { status: 400 });
+        }
     }
 
     const apiKey = process.env.PAYMENT_API_KEY!;
     const merchantId = process.env.PAYMENT_MERCHANT_ID!;
-    const baseUrl = process.env.PAYMENT_BASE_URL;
+    // 🔥 FIX 2: Force the standalone URL so we don't loop back to our own server
+    const baseUrl = process.env.STANDALONE_PAYMENT_BASE_URL || process.env.PAYMENT_BASE_URL;
 
     let liveBalance = undefined;
     let providerTransactions = [];
@@ -89,34 +68,50 @@ export async function POST(req: NextRequest) {
             const balanceData = await balanceRes.json();
             if (balanceData?.data?.result?.[0]?.availableBalance !== undefined) {
               liveBalance = Number(balanceData.data.result[0].availableBalance);
+              
+              // Sync the mirrored balance to both tables
               await supabaseAdmin.from('wallets').update({ balance: liveBalance }).eq('user_id', userId);
+              await supabaseAdmin.from('users').update({ wallet_balance: liveBalance }).eq('auth_id', userId);
             }
           }
       }
 
-      // 2. FETCH LIVE TRANSACTIONS (Using the Force Method)
-      console.log(`\n🔵 [API] Forcing GET with Body to: ${baseUrl}/transactions`);
+      // 2. FETCH LIVE TRANSACTIONS (Using standard POST)
+      console.log(`\n🔵 [API] Fetching Transactions via POST to: ${baseUrl}/transactions`);
       
-      const txRes = await forceGetWithBody(
+      const txRes = await fetchWithTimeout(
           `${baseUrl}/transactions`, 
-          { "x-api-key": apiKey, "merchant-id": merchantId },
-          { accountNumber: String(accountNumber), page, limit } // Sending the exact body Postman used
+          {
+              method: 'POST',
+              headers: { 
+                  "x-api-key": apiKey, 
+                  "merchant-id": merchantId,
+                  "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ accountNumber: String(accountNumber), page, limit })
+          }
       );
 
-      if (txRes.status === 200 && txRes.data?.success && txRes.data?.data?.result) {
-          console.log(`🟢 [API] Success! Found ${txRes.data.data.result.length} transactions.`);
-          providerTransactions = txRes.data.data.result;
-          const pagedInfo = txRes.data.data.pagedInfo || {};
-          paginationData = { hasNext: pagedInfo.hasNext || false, totalPages: pagedInfo.totalPages || 1 };
+      if (txRes.ok) {
+          const txData = await txRes.json();
+          if (txData?.success && txData?.data?.result) {
+              console.log(`🟢 [API] Success! Found ${txData.data.result.length} transactions.`);
+              providerTransactions = txData.data.result;
+              const pagedInfo = txData.data.pagedInfo || {};
+              paginationData = { hasNext: pagedInfo.hasNext || false, totalPages: pagedInfo.totalPages || 1 };
+          } else {
+              console.error(`🔴 [API] Provider Failure (Success flag missing):`, txData);
+          }
       } else {
-          console.error(`🔴 [API] Provider Failure (${txRes.status}):`, txRes.data || txRes.text);
+          const errorText = await txRes.text();
+          console.error(`🔴 [API] Provider Failure (${txRes.status}):`, errorText);
       }
 
     } catch (providerError: any) {
        console.error("🔴 [API] Provider Sync Error:", providerError.message);
     }
 
-    // 3. FALLBACK
+    // 3. FALLBACK TO TEAM MIRROR
     if (providerTransactions.length === 0 && page === 1) {
         console.log("🟠 [API] Activating Local Database Fallback...");
         const { data: localTx } = await supabaseAdmin
@@ -144,6 +139,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
+    console.error("Fatal Ledger Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
