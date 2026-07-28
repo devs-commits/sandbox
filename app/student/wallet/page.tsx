@@ -283,8 +283,8 @@ export default function GlobalWallet() {
             </section>
 
             <div className="flex justify-center pt-10 pb-20">
-                <a href="https://www.maplerad.com/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
-                    External Payouts Secured by <span className="text-white/60">Maplerad</span> <ExternalLink size={10} />
+                <a href="https://www.supplysmart.co/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
+                    Wallet system powered by <span className="text-white/60">Supply Smart</span> <ExternalLink size={10} />
                 </a>
             </div>
           </>

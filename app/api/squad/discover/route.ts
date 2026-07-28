@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+// 🔥 FIX: Use the Admin client to bypass RLS and guarantee the data fetches
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,8 +14,8 @@ export async function GET(request: Request) {
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
   try {
-    // 1. Fetch everyone safely without strict SQL filters
-    const { data: peers, error: peersError } = await supabase
+    // 1. Fetch everyone safely without strict SQL filters, using Admin Client
+    const { data: peers, error: peersError } = await supabaseAdmin
       .from("users")
       .select("auth_id, full_name, current_identity, tasks_completed, track")
       .neq("auth_id", userId) 
@@ -22,7 +28,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: true, learners: [] });
     }
 
-    // 2. THE FIX: Assign a safe ID in JavaScript to any dummy users missing one
+    // 2. Assign a safe ID in JavaScript to any dummy users missing one
     const formattedPeers = peers.map((p, index) => ({
         ...p,
         safe_id: p.auth_id && p.auth_id.trim() !== "" ? p.auth_id : `dummy-${index}-${Date.now()}`
@@ -31,11 +37,17 @@ export async function GET(request: Request) {
     const peerIds = formattedPeers.map(p => p.safe_id);
     
     // 3. Fetch Squad Status
-    const { data: squadMemberships } = await supabase.from("squad_members").select("user_id").in("user_id", peerIds);
+    const { data: squadMemberships } = await supabaseAdmin
+        .from("squad_members")
+        .select("user_id")
+        .in("user_id", peerIds);
     const usersInSquads = new Set(squadMemberships?.map(sm => sm.user_id) || []);
 
     // 4. Fetch Badges
-    const { data: badges } = await supabase.from("user_badges").select("user_id").in("user_id", peerIds);
+    const { data: badges } = await supabaseAdmin
+        .from("user_badges")
+        .select("user_id")
+        .in("user_id", peerIds);
     const badgeCounts: Record<string, number> = {};
     badges?.forEach(b => { badgeCounts[b.user_id] = (badgeCounts[b.user_id] || 0) + 1; });
 

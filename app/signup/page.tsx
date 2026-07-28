@@ -74,9 +74,15 @@ const SignUpContent = () => {
   const [track, setTrack] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
   
+  // Referral & Squad States
   const [referralLink, setReferralLink] = useState("");
   const [squadSlug, setSquadSlug] = useState("");
   const [hasValidReferral, setHasValidReferral] = useState(false);
+  
+  // 🔥 NEW: Referral Verification States
+  const [isVerifyingReferral, setIsVerifyingReferral] = useState(false);
+  const [referralError, setReferralError] = useState("");
+  const [verifiedReferralName, setVerifiedReferralName] = useState("");
 
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -125,17 +131,18 @@ const SignUpContent = () => {
   ];
 
   const displayRecommender = useMemo(() => {
+    if (verifiedReferralName) return verifiedReferralName;
     if (!referralLink) return "";
     const baseName = referralLink.split('-')[0]; 
     return baseName.charAt(0).toUpperCase() + baseName.slice(1).toLowerCase(); 
-  }, [referralLink]);
+  }, [referralLink, verifiedReferralName]);
 
   useEffect(() => {
     const promoFromUrl = searchParams.get("promo") || searchParams.get("coupon");
     if (promoFromUrl) {
       const normalizedCode = promoFromUrl.trim().toUpperCase();
       setCouponCode(normalizedCode);
-      if (normalizedCode === "FIRSTTASK") {
+      if (normalizedCode === "WDCLABS14") {
         setIsCouponApplied(true);
         setTrialDays(14);
         setCouponError("");
@@ -219,7 +226,7 @@ const SignUpContent = () => {
       country,
       track: role === "student" ? track : undefined,
       experienceLevel: role === "student" ? experienceLevel : undefined,
-      referralLink: role === "student" && referralLink ? referralLink : undefined,
+      referralLink: role === "student" && referralLink && hasValidReferral ? referralLink : undefined,
       squadSlug: role === "student" && squadSlug ? squadSlug : undefined, 
       subscriptionPlan: isCouponApplied ? trialPlanString : subscriptionPlan, 
     };
@@ -234,7 +241,7 @@ const SignUpContent = () => {
 
   const handleApplyCoupon = () => {
     const normalizedCode = couponCode.trim().toUpperCase();
-    if (normalizedCode === "FIRSTTASK") {
+    if (normalizedCode === "WDCLABS14") {
       setIsCouponApplied(true);
       setTrialDays(14);
       setCouponError("");
@@ -247,6 +254,38 @@ const SignUpContent = () => {
     } else {
       setIsCouponApplied(false);
       setCouponError("Invalid coupon code. Please try again.");
+    }
+  };
+
+  // 🔥 NEW: Function to verify the referral code with your backend
+  const handleVerifyReferral = async () => {
+    if (!referralLink.trim()) {
+      setReferralError("Please enter a referral code.");
+      return;
+    }
+    
+    setIsVerifyingReferral(true);
+    setReferralError("");
+
+    try {
+      // Connect this to your actual backend endpoint to check the code
+      const res = await fetch(`/api/auth/verify-referral?code=${referralLink}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setHasValidReferral(true);
+        if (data.inviterName) setVerifiedReferralName(data.inviterName);
+        toast.success("🎉 Referral code verified!");
+      } else {
+        setHasValidReferral(false);
+        setReferralError(data.error || "Invalid referral code. Please check and try again.");
+      }
+    } catch (err) {
+      // If endpoint doesn't exist yet, we can fallback to accepting it optimistically,
+      // or strictly show an error. Here we show an error.
+      setReferralError("Failed to verify code. Please try again later.");
+    } finally {
+      setIsVerifyingReferral(false);
     }
   };
 
@@ -438,9 +477,8 @@ const SignUpContent = () => {
   return (
     <div className="min-h-screen flex bg-background w-full">
       
-      {/* 🔥 1/3 LEFT PANEL: Sticky positioning & Gradient Text */}
+      {/* 🔥 1/3 LEFT PANEL */}
       <div className="hidden lg:flex flex-col w-1/3 bg-primary/5 border-r border-border p-12 justify-between relative overflow-hidden h-screen sticky top-0">
-        {/* Background decorative blob */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20 pointer-events-none">
            <div className="absolute -top-[20%] -left-[20%] w-[70%] h-[50%] rounded-full bg-primary/20 blur-3xl"></div>
            <div className="absolute bottom-[10%] right-[10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-3xl"></div>
@@ -452,7 +490,6 @@ const SignUpContent = () => {
           </Link>
           
           <div className="pt-12">
-            {/* 🔥 Gradient added here */}
             <h1 className="text-4xl font-black mb-6 leading-tight bg-gradient-to-r from-primary to-indigo-600 bg-clip-text text-transparent pb-1">
               Build Real Experience.<br/> Get Hired Faster.
             </h1>
@@ -461,22 +498,10 @@ const SignUpContent = () => {
             </p>
             
             <ul className="space-y-5">
-              <li className="flex items-center gap-3 text-foreground font-medium">
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-                Industry-simulated daily tasks
-              </li>
-              <li className="flex items-center gap-3 text-foreground font-medium">
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-                AI-powered feedback & grading
-              </li>
-              <li className="flex items-center gap-3 text-foreground font-medium">
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-                Automated CV & Portfolio generation
-              </li>
-              <li className="flex items-center gap-3 text-foreground font-medium">
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-                Squad accountability & networking
-              </li>
+              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Industry-simulated daily tasks</li>
+              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> AI-powered feedback & grading</li>
+              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Automated CV & Portfolio generation</li>
+              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Squad accountability & networking</li>
             </ul>
           </div>
         </div>
@@ -486,20 +511,15 @@ const SignUpContent = () => {
         </div>
       </div>
 
-      {/* 🔥 2/3 RIGHT PANEL: The Form (Scrolls normally) */}
+      {/* 🔥 2/3 RIGHT PANEL */}
       <div className="w-full lg:w-2/3 flex flex-col items-center justify-center p-4 md:p-8 lg:p-12 relative min-h-screen">
         
-        {/* Close Button */}
-        <button 
-          onClick={() => router.back()} 
-          className="absolute top-6 right-6 p-2 bg-secondary text-muted-foreground rounded-full hover:bg-secondary/80 hover:text-foreground transition-colors z-20"
-        >
+        <button onClick={() => router.back()} className="absolute top-6 right-6 p-2 bg-secondary text-muted-foreground rounded-full hover:bg-secondary/80 hover:text-foreground transition-colors z-20">
           <X className="w-5 h-5" />
         </button>
 
         <div className="w-full max-w-2xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 lg:pb-0">
           
-          {/* Mobile Header (Only shows on mobile) */}
           <div className="lg:hidden text-center space-y-2 mb-8">
             <h1 className="text-3xl font-black text-foreground">Join WDC Labs</h1>
             <p className="text-muted-foreground">Kickstart your tech career today.</p>
@@ -541,22 +561,50 @@ const SignUpContent = () => {
               )}
             </div>
 
-            {/* Referrals & Squads */}
+            {/* 🔥 UPDATED: Referrals & Squads Section */}
             {role === "student" && (
               <div className="space-y-3">
-                {hasValidReferral && (
-                  <div className="flex items-center gap-2 p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
-                      <span className="text-lg">🎉</span> You were invited by <strong className="font-bold tracking-wider">{displayRecommender}</strong>
+                {!hasValidReferral ? (
+                  <div className="flex flex-col space-y-2">
+                    <label className="text-sm font-semibold text-muted-foreground">Referral Code (Optional)</label>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="text" 
+                        placeholder="Did someone invite you? Enter code" 
+                        value={referralLink}
+                        onChange={(e) => {
+                          setReferralLink(e.target.value);
+                          setReferralError("");
+                        }}
+                        className="flex h-11 w-full rounded-md border border-input bg-secondary px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={handleVerifyReferral} 
+                        variant="secondary" 
+                        className="h-11 px-6 font-bold"
+                        disabled={isVerifyingReferral || !referralLink.trim()}
+                      >
+                        {isVerifyingReferral ? <Loader2 className="w-5 h-5 animate-spin" /> : "Verify"}
+                      </Button>
+                    </div>
+                    {referralError && <p className="text-red-500 text-xs font-medium">{referralError}</p>}
                   </div>
-                )}
-                
-                {!hasValidReferral && (
-                    <AuthInput 
-                      label="Referral Code (Optional)" 
-                      placeholder="Did someone invite you? Enter their code." 
-                      value={referralLink} 
-                      onChange={setReferralLink} 
-                    />
+                ) : (
+                  <div className="flex justify-between items-center p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
+                      <span><span className="text-lg mr-2">🎉</span> You were invited by <strong className="font-bold tracking-wider">{displayRecommender}</strong></span>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setHasValidReferral(false);
+                          setReferralLink("");
+                          setVerifiedReferralName("");
+                        }} 
+                        className="text-indigo-500 hover:text-indigo-700 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                  </div>
                 )}
 
                 {squadSlug && (

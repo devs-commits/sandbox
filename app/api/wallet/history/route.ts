@@ -23,8 +23,10 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 1
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, page = 1, limit = 15 } = await req.json();
-    let { accountNumber } = await req.json().catch(() => ({}));
+    // 🔥 FIX 1: Read the body ONLY ONCE to prevent the fatal stream crash
+    const body = await req.json().catch(() => ({}));
+    const { userId, page = 1, limit = 15 } = body;
+    let { accountNumber } = body;
 
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
@@ -47,7 +49,8 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.PAYMENT_API_KEY!;
     const merchantId = process.env.PAYMENT_MERCHANT_ID!;
-    const baseUrl = process.env.PAYMENT_BASE_URL;
+    // 🔥 FIX 2: Force the standalone URL so we don't loop back to our own server
+    const baseUrl = process.env.STANDALONE_PAYMENT_BASE_URL || process.env.PAYMENT_BASE_URL;
 
     let liveBalance = undefined;
     let providerTransactions = [];
@@ -66,14 +69,14 @@ export async function POST(req: NextRequest) {
             if (balanceData?.data?.result?.[0]?.availableBalance !== undefined) {
               liveBalance = Number(balanceData.data.result[0].availableBalance);
               
-              // Sync the mirrored balance to both tables so your team can read it!
+              // Sync the mirrored balance to both tables
               await supabaseAdmin.from('wallets').update({ balance: liveBalance }).eq('user_id', userId);
               await supabaseAdmin.from('users').update({ wallet_balance: liveBalance }).eq('auth_id', userId);
             }
           }
       }
 
-      // 2. FETCH LIVE TRANSACTIONS (Now using standard POST!)
+      // 2. FETCH LIVE TRANSACTIONS (Using standard POST)
       console.log(`\n🔵 [API] Fetching Transactions via POST to: ${baseUrl}/transactions`);
       
       const txRes = await fetchWithTimeout(
