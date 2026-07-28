@@ -18,27 +18,36 @@ export const PhoneUpdateModal = () => {
   const [defaultCountryCode, setDefaultCountryCode] = useState<any>("NG");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔥 Trigger the modal only if the DB confirms the phone column is truly empty
+  // Trigger the modal only if the DB confirms the phone column is truly empty
   useEffect(() => {
     if (!user?.id) return;
 
     const verifyPhoneStatus = async () => {
       try {
-        // Query the database directly to bypass cached context
+        // 🔥 FIX 1: Use maybeSingle() to prevent hard errors on fetch
         const { data, error } = await supabase
           .from('users')
           .select('phone')
           .eq('auth_id', user.id)
-          .single();
+          .maybeSingle();
 
-        // If a phone number exists in the DB, NEVER open the modal.
-        if (data?.phone && data.phone.trim() !== "") {
+        // 🔥 FIX 2: If there's an actual database error (like a timeout), 
+        // DO NOT trap the user in the modal. Let them through.
+        if (error) {
+          console.error("Failed to verify phone status:", error);
           setIsOpen(false);
-        } else {
+          return;
+        }
+
+        // If the row exists and phone is empty, open it. Otherwise, close it.
+        if (data && (!data.phone || data.phone.trim() === "")) {
           setIsOpen(true);
+        } else {
+          setIsOpen(false);
         }
       } catch (err) {
         console.error("Failed to verify phone status", err);
+        setIsOpen(false); // Failsafe: don't trap the user
       }
     };
 
@@ -49,7 +58,7 @@ export const PhoneUpdateModal = () => {
     return () => clearTimeout(timer);
   }, [user?.id]);
 
-  // 🔥 Auto-fetch Geolocation for the flag
+  // Auto-fetch Geolocation for the flag
   useEffect(() => {
     if (!isOpen) return; 
     const fetchCountryCode = async () => {
@@ -74,17 +83,26 @@ export const PhoneUpdateModal = () => {
     
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      // 🔥 FIX 3: Removed .single() and check the array length instead
+      // This prevents the "Cannot coerce the result to a single JSON object" error
+      // if your database happens to have duplicate rows for the same auth_id.
+      const { data, error } = await supabase
         .from('users')
         .update({ phone: phone })
-        .eq('auth_id', user?.id);
+        .eq('auth_id', user?.id)
+        .select();
 
       if (error) throw error;
+      
+      // If the array is empty, the update didn't touch any rows
+      if (!data || data.length === 0) {
+        throw new Error("Update failed. Please try again or contact support.");
+      }
 
       toast.success("Phone number secured! Welcome back.");
       setIsOpen(false);
       
-      // 🔥 Force a hard browser refresh to instantly pull the new user state system-wide
+      // Force a hard browser refresh to instantly pull the new user state system-wide
       window.location.reload();
 
     } catch (error: any) {

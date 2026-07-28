@@ -31,7 +31,8 @@ export function HeadquartersProvider({ children }: { children: ReactNode }) {
           .from('users')
           .select('has_completed_headquarters_tour')
           .eq('auth_id', user.id)
-          .single();
+          .limit(1)
+          .maybeSingle(); // 🔥 FIX: Lowercase and bulletproofed!
 
         if (error) {
           console.error('Error fetching tour state:', error);

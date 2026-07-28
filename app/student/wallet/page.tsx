@@ -32,15 +32,15 @@ export default function GlobalWallet() {
   
   const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
   const [walletData, setWalletData] = useState({
-    balance: 0, bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
+    bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
   });
   
-  const [liveBalance, setLiveBalance] = useState<number | null>(null);
+  const [liveBalance, setLiveBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showSensitive, setShowSensitive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // 🔥 Pagination States
+  // Pagination States
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,17 +51,18 @@ export default function GlobalWallet() {
   const [wAcc, setWAcc] = useState("");
   const [wAmt, setWAmt] = useState("");
 
-  const fetchTransactionHistory = useCallback(async (accNum: string, pageToLoad = 1) => {
-    if (!accNum || accNum === "****" || !currentUserId) return;
+  const fetchTransactionHistory = useCallback(async (pageToLoad = 1) => {
+    if (!currentUserId) return;
     
     if (pageToLoad === 1) setIsLoadingHistory(true);
     else setIsLoadingMore(true);
 
     try {
+      // 🔥 Fetch ledger directly linked to the user
       const res = await fetch("/api/wallet/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, accountNumber: accNum, page: pageToLoad, limit: 15 }) 
+        body: JSON.stringify({ userId: currentUserId, page: pageToLoad, limit: 15 }) 
       });
       const data = await res.json();
       
@@ -71,11 +72,6 @@ export default function GlobalWallet() {
         } else {
             setTransactions(prev => [...prev, ...(data.transactions || [])]);
         }
-
-        if (data.balance !== undefined && pageToLoad === 1) {
-           setLiveBalance(data.balance); 
-        }
-
         setHasMore(data.pagination?.hasNext || false);
         setCurrentPage(pageToLoad);
       }
@@ -89,35 +85,38 @@ export default function GlobalWallet() {
 
   const fetchWalletData = useCallback(async () => {
     if (!currentUserId) return null;
+    
+    // Fetch Internal Balance directly from users table (NEW logic)
+    const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).single();
+    
+    // Fetch PIN and Details from wallets table if it exists (OLD Logic married in)
     const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', currentUserId).maybeSingle();
     
+    if (userData) {
+      setLiveBalance(userData.wallet_balance || 0);
+    }
+
     if (wallet) {
       setWalletData({
-        balance: wallet.balance || 0,
         bankName: getBankName(wallet.bank_name || "Parallex Bank"),
         accountNumber: wallet.account_number || "****",
         accountName: wallet.account_name || user?.fullName || "User",
         walletReady: !!(wallet.account_number && wallet.account_number !== "****"),
         userPin: wallet.transaction_pin || ""
       });
-      setIsLoadingWallet(false);
-      return wallet;
     }
+    
     setIsLoadingWallet(false);
-    return null;
   }, [currentUserId, user?.fullName]);
 
   useEffect(() => {
     if (!currentUserId) return;
     
-    const init = async () => {
-        const wallet = await fetchWalletData();
-        if (wallet?.account_number) fetchTransactionHistory(wallet.account_number, 1);
-    };
-    init();
+    fetchWalletData();
+    fetchTransactionHistory(1);
 
     const channel = supabase.channel('wallet-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${currentUserId}` }, 
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `auth_id=eq.${currentUserId}` }, 
       () => fetchWalletData()).subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -126,23 +125,21 @@ export default function GlobalWallet() {
   const manualRefresh = async () => {
     setIsSyncing(true);
     try {
-      if (walletData.accountNumber !== "****") {
-          await fetchTransactionHistory(walletData.accountNumber, 1);
-      }
-      toast.success("Account Refreshed");
+      await fetchWalletData();
+      await fetchTransactionHistory(1);
+      toast.success("Ledger Refreshed");
     } finally { 
       setIsSyncing(false); 
     }
   };
 
   const handleLoadMore = () => {
-      if (hasMore && !isLoadingMore) {
-          fetchTransactionHistory(walletData.accountNumber, currentPage + 1);
-      }
+      if (hasMore && !isLoadingMore) fetchTransactionHistory(currentPage + 1);
   };
 
   const onWithdrawSuccess = () => {
-    if (walletData.accountNumber !== "****") fetchTransactionHistory(walletData.accountNumber, 1);
+    fetchWalletData();
+    fetchTransactionHistory(1);
     setActiveModal("success");
   };
 
@@ -153,7 +150,7 @@ export default function GlobalWallet() {
 
   return (
     <>
-      <StudentHeader title="Global Payroll" subtitle="Settlement and Transaction History" />
+      <StudentHeader title="Global Ledger & Payroll" subtitle="Earnings and Transaction History" />
       
       <main className="flex-1 p-4 lg:p-8 space-y-10 max-w-6xl mx-auto">
         
@@ -170,20 +167,21 @@ export default function GlobalWallet() {
                   <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
                       <div className="space-y-4">
                           <div className="flex items-center gap-2">
-                            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">Live Portfolio</div>
+                            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">Available Wallet Balance</div>
                             {isSyncing && <Loader2 size={14} className="animate-spin text-emerald-500/50" />}
                           </div>
-                          <p className="text-white/40 text-sm font-medium">Available Balance</p>
+                          <p className="text-white/40 text-sm font-medium">Available to Withdraw</p>
                           <div className="flex items-center gap-6">
                               <h2 className="text-6xl font-bold text-white tracking-tighter">
-                                  {showSensitive ? `₦${(liveBalance !== null ? liveBalance : walletData.balance).toLocaleString()}` : "₦****"}
+                                  {showSensitive ? `₦${liveBalance.toLocaleString()}` : "₦****"}
                               </h2>
                               <div className="flex items-center gap-2">
-                                  <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-                                  <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5"><RotateCw size={20} className={isSyncing ? "animate-spin" : ""} /></button>
+                                  <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5 transition-colors">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                                  <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5 transition-colors"><RotateCw size={20} className={isSyncing ? "animate-spin" : ""} /></button>
                               </div>
                           </div>
                       </div>
+                      
                       <div className="flex gap-4 mb-2">
                           <Button variant="outline" className="h-14 px-8 bg-white/5 border-white/10 text-white font-bold rounded-2xl hover:bg-white/10" onClick={() => setActiveModal("withdraw")}>
                               <ArrowDownLeft size={20} className="mr-2 text-red-400" /> Withdraw
@@ -195,6 +193,7 @@ export default function GlobalWallet() {
                   </div>
               </div>
 
+              {/* RESTORED BANK DETAILS BLOCK */}
               <div className="px-8 lg:px-12 py-10 bg-black/20 border-y border-white/5 grid grid-cols-1 md:grid-cols-3 gap-10">
                   <div className="space-y-2"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p><p className="text-white font-bold tracking-tight">{walletData.bankName}</p></div>
                   <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
@@ -210,7 +209,7 @@ export default function GlobalWallet() {
 
             {/* TRANSACTION HISTORY */}
             <section className="space-y-6">
-                <h3 className="text-xl font-bold text-white tracking-tight">Transaction History</h3>
+                <h3 className="text-xl font-bold text-white tracking-tight">Ledger History</h3>
                 <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
                     {isLoadingHistory ? (
                        <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20"><Loader2 className="animate-spin" /><p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p></div>
@@ -219,7 +218,6 @@ export default function GlobalWallet() {
                     ) : (
                        <div className="divide-y divide-white/5">
                           {transactions.map((tx, idx) => {
-                              // 🔥 Maps to the exact structure from the Provider's Payload
                               const isLocalInflow = tx.transactionType ? tx.transactionType.toLowerCase() === 'credit' : tx.transaction_type === 'INFLOW';
                               const amount = Number(tx.amount || 0);
                               const fee = Number(tx.fee || 0);
@@ -230,7 +228,7 @@ export default function GlobalWallet() {
                               
                               const ref = tx.referenceTransactionId || tx.transactionId || tx.reference || 'N/A';
                               const status = (tx.status || 'COMPLETED').toUpperCase();
-                              const sourceName = tx.description || tx.fundingMethod || tx.source || 'Supply Smart';
+                              const sourceName = tx.description || tx.fundingMethod || tx.source || 'Squad Referral Bonus';
 
                               return (
                                   <div key={tx._id || tx.id || idx} className="p-5 flex items-start justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-colors">
@@ -254,21 +252,18 @@ export default function GlobalWallet() {
                                           <p className={`text-lg font-bold ${status === 'FAILED' ? 'text-white/20' : isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
                                               {isLocalInflow ? '+' : '-'} ₦{amount.toLocaleString()}
                                           </p>
-                                          
-                                          {/* 🔥 DISPLAY FEES IF THEY EXIST */}
                                           {!isLocalInflow && fee > 0 && status !== 'FAILED' && (
                                              <p className="text-[10px] text-white/40 font-medium mt-1">
                                                 Fee: ₦{fee} <span className="mx-1">•</span> Total: ₦{totalAmount.toLocaleString()}
                                              </p>
                                           )}
-                                          
                                           <p className="text-[9px] text-white/20 font-mono mt-1">Ref: {ref !== 'N/A' ? ref.slice(-10) : 'N/A'}</p>
                                       </div>
                                   </div>
                               );
                           })}
                           
-                          {/* 🔥 LOAD MORE BUTTON */}
+                          {/* LOAD MORE BUTTON */}
                           {hasMore && (
                               <div className="p-6 flex justify-center bg-black/10">
                                   <Button 
@@ -287,14 +282,14 @@ export default function GlobalWallet() {
                 </div>
             </section>
 
-            <div className="flex justify-center pt-10">
-                <a href="https://www.supplysmart.co/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
-                    Wallet and Transfer Powered by <span className="text-white/60">Supply Smart</span> <ExternalLink size={10} />
+            <div className="flex justify-center pt-10 pb-20">
+                <a href="https://www.maplerad.com/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
+                    External Payouts Secured by <span className="text-white/60">Maplerad</span> <ExternalLink size={10} />
                 </a>
             </div>
           </>
-
         ) : (
+          /* RESTORED SETUP WALLET GATE */
           <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
              <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
@@ -311,6 +306,7 @@ export default function GlobalWallet() {
         )}
       </main>
 
+      {/* RESTORED FUNDING MODAL */}
       <Dialog open={activeModal === "fund"} onOpenChange={(v) => !v && setActiveModal("none")}>
         <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
           <DialogHeader>
@@ -320,7 +316,6 @@ export default function GlobalWallet() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 pt-4">
-            
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
                <div>
                   <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-1">Bank Name</p>
@@ -351,7 +346,8 @@ export default function GlobalWallet() {
         </DialogContent>
       </Dialog>
 
-      <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={walletData.balance} userName={walletData.accountName} userPin={walletData.userPin} userId={currentUserId} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={onWithdrawSuccess} />
+      {/* WITHDRAWAL MODALS */}
+      <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={liveBalance} userName={walletData.accountName} userPin={walletData.userPin} userId={currentUserId} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={onWithdrawSuccess} />
       <WithdrawSuccessModal open={activeModal === "success"} onClose={() => setActiveModal("none")} amount={wAmt} />
     </>
   );
