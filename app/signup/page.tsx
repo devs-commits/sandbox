@@ -135,7 +135,7 @@ const SignUpContent = () => {
     if (promoFromUrl) {
       const normalizedCode = promoFromUrl.trim().toUpperCase();
       setCouponCode(normalizedCode);
-      if (normalizedCode === "WDCLABS14") {
+      if (normalizedCode === "FIRSTTASK") {
         setIsCouponApplied(true);
         setTrialDays(14);
         setCouponError("");
@@ -234,7 +234,7 @@ const SignUpContent = () => {
 
   const handleApplyCoupon = () => {
     const normalizedCode = couponCode.trim().toUpperCase();
-    if (normalizedCode === "WDCLABS14") {
+    if (normalizedCode === "FIRSTTASK") {
       setIsCouponApplied(true);
       setTrialDays(14);
       setCouponError("");
