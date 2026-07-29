@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const { fullName, email, track, role, subscriptionPlan } = await req.json();
 
     // The Postman screenshot confirms this base is the one hosting /signupfee
-    const baseUrl = process.env.PAYMENT_BASE_URL?.replace(/\/+$/, ""); 
+    const baseUrl = process.env.PAYMENT_BASE_URL?.replace(/\/+$/, "");
     
     if (!baseUrl || !process.env.PAYMENT_API_KEY) {
       return NextResponse.json({ success: false, message: "Server configuration missing" }, { status: 500 });

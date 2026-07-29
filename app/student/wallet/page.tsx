@@ -86,24 +86,42 @@ export default function GlobalWallet() {
   const fetchWalletData = useCallback(async () => {
     if (!currentUserId) return null;
     
-    // Fetch Internal Balance directly from users table (NEW logic)
-    const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).single();
-    
-    // Fetch PIN and Details from wallets table if it exists (OLD Logic married in)
+    // 1. Fetch PIN and Details from wallets table first to get the Account Number
     const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', currentUserId).maybeSingle();
     
-    if (userData) {
-      setLiveBalance(userData.wallet_balance || 0);
-    }
+    if (wallet && wallet.account_number && wallet.account_number !== "****") {
+      
+      // 2. 🔥 FETCH LIVE BALANCE FROM PROVIDER
+      try {
+        const res = await fetch(`/api/wallet/balance?accountNumber=${wallet.account_number}`);
+        const balData = await res.json();
+        
+        if (balData.success) {
+          setLiveBalance(balData.balance); // This sets the live balance!
+        } else {
+          throw new Error("Live fetch returned false");
+        }
+      } catch (err) {
+        console.error("Live balance fetch error, falling back to local DB:", err);
+        // Fallback to local DB if the live provider is temporarily down
+        const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).single();
+        if (userData) setLiveBalance(userData.wallet_balance || 0);
+      }
 
-    if (wallet) {
       setWalletData({
         bankName: getBankName(wallet.bank_name || "Parallex Bank"),
-        accountNumber: wallet.account_number || "****",
+        accountNumber: wallet.account_number,
         accountName: wallet.account_name || user?.fullName || "User",
-        walletReady: !!(wallet.account_number && wallet.account_number !== "****"),
+        walletReady: true,
         userPin: wallet.transaction_pin || ""
       });
+    } else {
+      // Wallet not ready/provisioned yet
+      setWalletData(prev => ({ ...prev, walletReady: false }));
+      
+      // Also fallback to DB balance just in case they have earnings but haven't provisioned
+      const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).maybeSingle();
+      if (userData) setLiveBalance(userData.wallet_balance || 0);
     }
     
     setIsLoadingWallet(false);

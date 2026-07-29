@@ -23,7 +23,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 1
 
 export async function POST(req: NextRequest) {
   try {
-    // 🔥 FIX 1: Read the body ONLY ONCE to prevent the fatal stream crash
+    // Read the body ONLY ONCE to prevent the fatal stream crash
     const body = await req.json().catch(() => ({}));
     const { userId, page = 1, limit = 15 } = body;
     let { accountNumber } = body;
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    // 🔥 SMART LOOKUP: If frontend didn't pass accountNumber, grab it securely from DB
+    // SMART LOOKUP: If frontend didn't pass accountNumber, grab it securely from DB
     if (!accountNumber) {
         const { data: walletObj } = await supabaseAdmin
             .from('wallets')
@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.PAYMENT_API_KEY!;
     const merchantId = process.env.PAYMENT_MERCHANT_ID!;
-    // 🔥 FIX 2: Force the standalone URL so we don't loop back to our own server
-    const baseUrl = process.env.STANDALONE_PAYMENT_BASE_URL || process.env.PAYMENT_BASE_URL;
+    
+    // 🔥 FIX 1: Use the Static IP Server to prevent the 404
+    const baseUrl = process.env.PAYMENT_BASE_URL?.replace(/\/+$/, "");
 
     let liveBalance = undefined;
     let providerTransactions = [];
@@ -77,10 +78,11 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. FETCH LIVE TRANSACTIONS (Using standard POST)
-      console.log(`\n🔵 [API] Fetching Transactions via POST to: ${baseUrl}/transactions`);
+      // 🔥 FIX 2: Hit /wallet-history, NOT /transactions
+      console.log(`\n🔵 [API] Fetching Transactions via POST to: ${baseUrl}/wallet-history`);
       
       const txRes = await fetchWithTimeout(
-          `${baseUrl}/transactions`, 
+          `${baseUrl}/wallet-history`, 
           {
               method: 'POST',
               headers: { 
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest) {
                   "merchant-id": merchantId,
                   "Content-Type": "application/json"
               },
+              // Ensure we pass the required parameters for the history check
               body: JSON.stringify({ accountNumber: String(accountNumber), page, limit })
           }
       );
