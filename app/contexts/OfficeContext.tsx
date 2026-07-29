@@ -310,8 +310,11 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   useEffect(() => {
     if (!userId) return;
 
+    // 🔥 DYNAMIC CHANNEL FIX 🔥
+    const uniqueChannelName = `realtime-tasks-${userId}-${Date.now()}`;
+
     const taskSubscription = supabase
-      .channel('realtime-tasks')
+      .channel(uniqueChannelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks', filter: `user=eq.${userId}` },
