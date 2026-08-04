@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty, ArchiveItem } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
@@ -84,6 +84,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   
   const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives' | 'bounty'>('desk');
+  const deskRedirectTimeoutRef = useRef<number | null>(null);
   const [showToluWelcome, setShowToluWelcome] = useState(false);
   const [isBioProcessing, setIsBioProcessing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -539,6 +540,28 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
   const setPhase = useCallback((newPhase: OfficePhase) => setPhaseState(newPhase), []);
 
+  const queueReturnToDesk = useCallback((delayMs = 3500) => {
+    if (typeof window === 'undefined') return;
+
+    if (deskRedirectTimeoutRef.current !== null) {
+      window.clearTimeout(deskRedirectTimeoutRef.current);
+      deskRedirectTimeoutRef.current = null;
+    }
+
+    deskRedirectTimeoutRef.current = window.setTimeout(() => {
+      setActiveView('desk');
+      deskRedirectTimeoutRef.current = null;
+    }, delayMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (deskRedirectTimeoutRef.current !== null && typeof window !== 'undefined') {
+        window.clearTimeout(deskRedirectTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const updateTaskStatus = useCallback(async (taskId: string, status: Task['status']) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
     try {
@@ -739,16 +762,20 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     setIsExpanded(true); 
     setMessageCount(0); 
 
+    if (isFirstTask && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setActiveView('meeting');
+    }
+
     if (isFirstTask) {
       await new Promise(r => setTimeout(r, 1000));
 
       const introductionMessages: { agent: AgentName; message: string; delay: number }[] = [
-        { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 12000 },
-        { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 12000 },
-        { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 18000 },
-        { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 16000 },
-        { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 14000 },
-        { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 12000 },
+        { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 24000 },
+        { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 24000 },
+        { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 36000 },
+        { agent: 'Kemi', message: "You do the work, I'll build the career. Even starting from zero, in 12 months, you'll look like a pro on paper.", delay: 32000 },
+        { agent: 'Emem', message: `Welcome ${userName}. I don't care about your background, I care about deadlines. Your first brief is coming in few minutes.`, delay: 28000 },
+        { agent: 'Sola', message: `Hi ${userName}. I'm Sola. I review all technical output. I reject about 60% of first drafts. Don't take it personally.`, delay: 24000 },
       ];
 
       for (const msg of introductionMessages) {
@@ -774,6 +801,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         await new Promise(r => setTimeout(r, 400));
       }
 
+      queueReturnToDesk();
       await new Promise(r => setTimeout(r, 2000));
     }
 
@@ -858,7 +886,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks]);
+  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
