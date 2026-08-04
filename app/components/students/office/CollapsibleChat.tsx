@@ -22,27 +22,25 @@ interface CollapsibleChatProps {
 }
 
 export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
-  const { chatMessages, sendMessage, phase, isExpanded, setIsExpanded, typingAgent } = useOffice();
+  const { chatMessages, chatUnreadCount, sendMessage, phase, isExpanded, setIsExpanded, typingAgent, markChatRead } = useOffice();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const prevMessageCount = useRef(chatMessages.length);
-
-  // Auto-expand when new messages arrive
-  useEffect(() => {
-    if (chatMessages.length > prevMessageCount.current && !isExpanded) {
-      setIsExpanded(true);
-    }
-    prevMessageCount.current = chatMessages.length;
-  }, [chatMessages.length, isExpanded, setIsExpanded]);
-
   // Scroll to bottom when messages change or typing
   useEffect(() => {
     if (isExpanded) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, isExpanded, typingAgent]);
+
+  // The desktop panel is the visible chat surface. Opening it acknowledges all
+  // agent messages, while the hidden desktop panel must not clear mobile unread items.
+  useEffect(() => {
+    if (isExpanded && window.matchMedia('(min-width: 1024px)').matches) {
+      markChatRead();
+    }
+  }, [isExpanded, markChatRead]);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
@@ -63,8 +61,6 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
   };
 
   const isDisabled = phase === 'lobby' || phase === 'tour';
-  const unreadCount = chatMessages.length;
-
   return (
     <div className={cn("fixed bottom-4 right-4 z-50 hidden lg:block", openSans.className)}>
       <AnimatePresence>
@@ -213,9 +209,9 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
             className="w-14 h-14 bg-primary rounded-full shadow-lg flex items-center justify-center relative"
           >
             <MessageSquare className="text-primary-foreground" size={22} />
-            {unreadCount > 0 && (
+            {chatUnreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
               </span>
             )}
           </motion.button>

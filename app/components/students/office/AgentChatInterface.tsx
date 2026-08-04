@@ -16,7 +16,7 @@ const openSans = Open_Sans({
 });
 
 export function AgentChatInterface() {
-  const { chatMessages, sendMessage, phase,typingAgent } = useOffice();
+  const { chatMessages, sendMessage, phase, typingAgent, markChatRead } = useOffice();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -29,6 +29,10 @@ export function AgentChatInterface() {
   useEffect(() => {
     scrollToBottom();
   }, [chatMessages]);
+
+  useEffect(() => {
+    markChatRead();
+  }, [markChatRead]);
 
   const handleSend = async () => {
     if (!input.trim() || isSending) return;

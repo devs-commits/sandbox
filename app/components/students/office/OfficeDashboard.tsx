@@ -47,11 +47,10 @@ export function OfficeDashboard() {
     completeTour,
     activeView,
     setActiveView,
-    chatMessages,
+    chatUnreadCount,
+    markChatRead,
   } = useOffice();
   const [showProfile, setShowProfile] = useState(false);
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const lastReadChatCountRef = useRef(chatMessages.length);
 
   const deskRef = useRef<HTMLButtonElement | null>(null);
   const archivesRef = useRef<HTMLButtonElement | null>(null);
@@ -67,24 +66,9 @@ export function OfficeDashboard() {
 
   const isTourActive = phase === 'tour';
 
-  useEffect(() => {
-    if (activeView === 'meeting') {
-      lastReadChatCountRef.current = chatMessages.length;
-      setUnreadChatCount(0);
-      return;
-    }
-
-    if (chatMessages.length > lastReadChatCountRef.current) {
-      const incomingCount = chatMessages.length - lastReadChatCountRef.current;
-      setUnreadChatCount(prev => prev + incomingCount);
-      lastReadChatCountRef.current = chatMessages.length;
-    }
-  }, [activeView, chatMessages.length]);
-
   const handleNavClick = (view: 'desk' | 'meeting' | 'archives') => {
     if (view === 'meeting') {
-      lastReadChatCountRef.current = chatMessages.length;
-      setUnreadChatCount(0);
+      markChatRead();
     }
     setActiveView(view);
   };
@@ -263,10 +247,15 @@ export function OfficeDashboard() {
             >
               <MessageSquare size={20} />
             </Button>
-            {unreadChatCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center shadow-sm">
-                {unreadChatCount > 9 ? '9+' : unreadChatCount}
-              </span>
+            {chatUnreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: [1, 1.12, 1], opacity: 1, boxShadow: ['0 0 0 rgba(239,68,68,0)', '0 0 0 6px rgba(239,68,68,0.15)', '0 0 0 0 rgba(239,68,68,0)'] }}
+                transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 0.3 }}
+                className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center shadow-sm"
+              >
+                {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+              </motion.span>
             )}
           </div>
           <span className="text-xs text-muted-foreground mt-1">Chat</span>

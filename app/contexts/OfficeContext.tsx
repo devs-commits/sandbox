@@ -41,6 +41,8 @@ interface OfficeContextType extends OfficeState {
   setShowToluWelcome: (show: boolean) => void;
   isBioProcessing: boolean;
   isExpanded: boolean;
+  chatUnreadCount: number;
+  markChatRead: () => void;
   setIsExpanded: (expanded: boolean) => void;
   isFirstTask: boolean;
   userName: string;
@@ -97,6 +99,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
   const userName = user?.fullName || 'New Intern';
   const userId = user?.id || null;
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [unreadCountUserId, setUnreadCountUserId] = useState<string | null>(null);
   
   const [trackName, setTrackName] = useState<string>('General');
 
@@ -111,7 +115,23 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   // ==========================================
   const addChatMessage = useCallback((message: ChatMessage) => {
     setChatMessages(prev => [...prev, message]);
-  }, []);
+
+    if (message.agentName && !message.isTyping) {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+      const isChatVisible = activeView === 'meeting' || (!isMobile && isExpanded);
+
+      if (!isChatVisible) {
+        setChatUnreadCount(prev => prev + 1);
+      }
+    }
+  }, [activeView, isExpanded]);
+
+  const markChatRead = useCallback(() => {
+    setChatUnreadCount(0);
+    if (typeof window !== 'undefined' && userId) {
+      localStorage.setItem(`office-chat-unread-${userId}`, '0');
+    }
+  }, [userId]);
 
   const mapResources = useCallback((resources?: any): ArchiveItem[] => {
     if (!resources) return [];
@@ -190,6 +210,30 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     const key = `office-chat-${userId}-${new Date().toISOString().split('T')[0]}`;
     localStorage.setItem(key, JSON.stringify(chatMessages));
   }, [chatMessages, hasRestoredChat, userId, restoredUserId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const hydrateUnreadCount = () => {
+      if (!userId) {
+        setChatUnreadCount(0);
+        setUnreadCountUserId(null);
+        return;
+      }
+
+      const storedUnread = Number(localStorage.getItem(`office-chat-unread-${userId}`) || '0');
+      setChatUnreadCount(Number.isFinite(storedUnread) && storedUnread > 0 ? storedUnread : 0);
+      setUnreadCountUserId(userId);
+    };
+
+    const hydrationTimer = window.setTimeout(hydrateUnreadCount, 0);
+    return () => window.clearTimeout(hydrationTimer);
+  }, [userId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !userId || unreadCountUserId !== userId) return;
+    localStorage.setItem(`office-chat-unread-${userId}`, String(chatUnreadCount));
+  }, [chatUnreadCount, userId, unreadCountUserId]);
 
 
   // ==========================================
@@ -752,18 +796,27 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         message: "You already have an active task on your desk. Focus on completing it before requesting a new one.",
         timestamp: new Date(),
       });
-      setIsExpanded(true);
       return; 
     }
 
     const initialTaskCount = tasks.length;
 
     setIsGeneratingTask(true);
-    setIsExpanded(true); 
     setMessageCount(0); 
 
-    if (isFirstTask && typeof window !== 'undefined' && window.innerWidth < 1024) {
+    const isMobileTeamIntroduction = isFirstTask
+      && typeof window !== 'undefined'
+      && window.innerWidth < 1024;
+    const isDesktopTeamIntroduction = isFirstTask
+      && typeof window !== 'undefined'
+      && window.innerWidth >= 1024;
+
+    if (isMobileTeamIntroduction) {
       setActiveView('meeting');
+    }
+
+    if (isDesktopTeamIntroduction) {
+      setIsExpanded(true);
     }
 
     if (isFirstTask) {
@@ -801,7 +854,11 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         await new Promise(r => setTimeout(r, 400));
       }
 
-      queueReturnToDesk();
+      // Keep the final introduction visible briefly, then return mobile users
+      // to their desk before the first task arrives.
+      if (isMobileTeamIntroduction) {
+        queueReturnToDesk(1000);
+      }
       await new Promise(r => setTimeout(r, 2000));
     }
 
@@ -891,7 +948,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
       setShouldTriggerTeamIntro(false);
-      setIsExpanded(true); 
       generateTask();
     }
   }, [shouldTriggerTeamIntro, phase, isGeneratingTask, tasks.length, generateTask]);
@@ -918,13 +974,11 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         message: "⚠️ **Daily Limit Reached.** You have already failed 3 attempts today. Review my feedback carefully, study your resources, and come back tomorrow to try again.",
         timestamp: new Date(),
       });
-      setIsExpanded(true);
       return; 
     }
 
     const nextAttemptNumber = currentAttempts + 1;
 
-    setIsExpanded(true);
     updateTaskStatus(taskId, 'submitted');
 
     addChatMessage({
@@ -1154,6 +1208,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         activateSubscription, 
         bounties, 
         chatMessages,
+        chatUnreadCount,
+        markChatRead,
         portfolio,
         tourStep,
         hasCompletedOnboarding,
