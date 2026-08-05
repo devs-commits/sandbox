@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       .update(rawBody)
       .digest('hex');
 
-    // 🚨 LOCAL TESTING BYPASS: Allows you to use Postman to simulate deposits locally
+    // 🚨 LOCAL TESTING BYPASS
     const isLocalTest = process.env.NODE_ENV === "development" && !signature;
 
     if (hash !== signature && !isLocalTest) {
@@ -34,9 +34,14 @@ export async function POST(req: Request) {
       case 'charge.success': {
         const ref = event.data.reference;
         const customerEmail = event.data?.customer?.email;
+        const customerCode = event.data?.customer?.customer_code;
         const amountPaid = event.data.amount / 100; // Convert Kobo to Naira
 
-        // 🔥 IDEMPOTENCY CHECK: Prevent Double-Crediting from Duplicate Webhooks!
+        // 🔥 Extract Metadata from the new Subscription Modal
+        const metaUserId = event.data.metadata?.user_id;
+        const metaPlan = event.data.metadata?.subscription_plan; // "MONTHLY" or "QUARTERLY"
+
+        // 🔥 IDEMPOTENCY CHECK (Wallet)
         const { data: existingTx } = await supabaseAdmin
           .from('wallet_transactions')
           .select('id')
@@ -48,7 +53,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ success: true, message: "Duplicate Ignored" });
         }
 
-        // Attempt to find the payment if it was initiated from the frontend
+        // Attempt to find the payment if it was initiated from the original onboarding flow
         const { data: updatedPayment } = await supabaseAdmin
           .from('payments')
           .update({ payment_status: 'successful', confirmed_at: new Date().toISOString() })
@@ -56,9 +61,40 @@ export async function POST(req: Request) {
           .select('user_id, track, amount, full_name') 
           .maybeSingle();
 
-        // 👉 SCENARIO A: FRONTEND-INITIATED (Wallet Funding via Card or Initial Signup)
-        if (updatedPayment?.user_id) {
+        // 👉 SCENARIO A: DASHBOARD SUBSCRIPTION UPGRADE (From the New Modal)
+        if (metaUserId && metaPlan) {
+          let daysToAdd = metaPlan === 'QUARTERLY' ? 90 : 30;
+
+          const { data: currentUser } = await supabaseAdmin
+            .from('users')
+            .select('subscription_expires_at, full_name')
+            .eq('auth_id', metaUserId)
+            .maybeSingle();
+
+          let baseDate = new Date();
+          if (currentUser?.subscription_expires_at) {
+             const currentExpiry = new Date(currentUser.subscription_expires_at);
+             if (currentExpiry > baseDate) baseDate = currentExpiry; 
+          }
+          const expiryDate = new Date(baseDate);
+          expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+          await supabaseAdmin.from('users').update({ 
+              has_completed_onboarding: true, 
+              subscription_status: 'active', 
+              subscription_plan: metaPlan, // 🔥 Save their chosen plan
+              paystack_customer_code: customerCode, // 🔥 Attach their card for future renewals
+              subscription_expires_at: expiryDate.toISOString(),
+              last_payment_date: new Date().toISOString(), 
+              renewal_status: 'pending'
+          }).eq('auth_id', metaUserId);
           
+          await sendWelcomeSubscriptionEmail(customerEmail, currentUser?.full_name || "Student");
+          console.log(`✅ Subscription Upgraded via Modal for ${metaUserId} (${metaPlan})`);
+        }
+        
+        // 👉 SCENARIO B: FRONTEND-INITIATED (Original Onboarding or Card Wallet Funding)
+        else if (updatedPayment?.user_id) {
           if (updatedPayment.track === 'wallet_funding') {
             const { data: wallet } = await supabaseAdmin
               .from('wallets')
@@ -92,10 +128,15 @@ export async function POST(req: Request) {
             if (txError) console.error("🚨 Card Ledger Insert Error:", txError.message);
           } 
           else {
-            // Initial Subscription Activation
+            // Initial Subscription Activation (Original Onboarding)
             let daysToAdd = 30; 
             const trackString = String(updatedPayment.track || "").toLowerCase();
-            if (trackString.includes('quarterly') || updatedPayment.amount >= 10000) daysToAdd = 90;
+            let assignedPlan = 'MONTHLY';
+            
+            if (trackString.includes('quarterly') || updatedPayment.amount >= 10000) {
+              daysToAdd = 90;
+              assignedPlan = 'QUARTERLY';
+            }
 
             const { data: currentUser } = await supabaseAdmin.from('users').select('subscription_expires_at').eq('auth_id', updatedPayment.user_id).maybeSingle();
             let baseDate = new Date();
@@ -107,17 +148,25 @@ export async function POST(req: Request) {
             expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
             await supabaseAdmin.from('users').update({ 
-                has_completed_onboarding: true, subscription_status: 'active', subscription_expires_at: expiryDate.toISOString(),
-                last_payment_date: new Date().toISOString(), start_date: currentUser?.subscription_expires_at ? undefined : new Date().toISOString(), 
+                has_completed_onboarding: true, 
+                subscription_status: 'active',
+                subscription_plan: assignedPlan, 
+                paystack_customer_code: customerCode,
+                subscription_expires_at: expiryDate.toISOString(),
+                last_payment_date: new Date().toISOString(), 
+                start_date: currentUser?.subscription_expires_at ? undefined : new Date().toISOString(), 
                 renewal_status: 'pending'
               }).eq('auth_id', updatedPayment.user_id);
             
             await sendWelcomeSubscriptionEmail(customerEmail, updatedPayment.full_name);
           }
         } 
-        // 👉 SCENARIO B: BACKGROUND AUTO-RENEWAL
+        
+        // 👉 SCENARIO C: BACKGROUND AUTO-RENEWAL
         else if (event.data.plan?.plan_code) {
           let daysToAdd = event.data.plan.interval === 'quarterly' ? 90 : 30;
+          let renewedPlan = event.data.plan.interval === 'quarterly' ? 'QUARTERLY' : 'MONTHLY';
+
           const { data: userToRenew } = await supabaseAdmin.from('users').select('auth_id, subscription_expires_at').eq('email', customerEmail).maybeSingle();
 
           if (userToRenew) {
@@ -129,10 +178,18 @@ export async function POST(req: Request) {
             const expiryDate = new Date(baseDate);
             expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
-            await supabaseAdmin.from('users').update({ subscription_status: 'active', subscription_expires_at: expiryDate.toISOString(), last_payment_date: new Date().toISOString() }).eq('auth_id', userToRenew.auth_id);
+            await supabaseAdmin.from('users').update({ 
+              subscription_status: 'active', 
+              subscription_plan: renewedPlan,
+              subscription_expires_at: expiryDate.toISOString(), 
+              last_payment_date: new Date().toISOString() 
+            }).eq('auth_id', userToRenew.auth_id);
+            
+            console.log(`✅ Auto-Renewal Processed for ${customerEmail}`);
           }
         }
-        // 👉 SCENARIO C: DIRECT BANK TRANSFER TO VIRTUAL ACCOUNT (DVA)
+        
+        // 👉 SCENARIO D: DIRECT BANK TRANSFER TO VIRTUAL ACCOUNT (DVA)
         else if (event.data.channel === 'dedicated_nuban' || event.data.authorization?.receiver_bank_account) {
           const accountNumber = event.data.authorization?.receiver_bank_account?.account_number;
           
@@ -144,12 +201,10 @@ export async function POST(req: Request) {
               const fundingAmount = amountPaid;
               const balanceAfter = balanceBefore + fundingAmount;
 
-              // 🔥 Extract real bank narration and sender name
               const narration = event.data.authorization?.narration || 'Wallet Funding via Bank Transfer';
               const senderName = event.data.authorization?.sender_name || '';
               const cleanSource = senderName ? `Bank Transfer from ${senderName}` : 'Bank Transfer Deposit';
 
-              // Atomically update balance
               await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('id', wallet.id);
 
               const { error: txError } = await supabaseAdmin.from('wallet_transactions').insert([{
@@ -169,11 +224,8 @@ export async function POST(req: Request) {
                  receiver_info: { account_name: 'WDC Student Wallet', account_number: accountNumber }
               }]);
 
-              if (txError) {
-                  console.error("🚨 DVA Ledger Insert Error:", txError.message);
-              }
+              if (txError) console.error("🚨 DVA Ledger Insert Error:", txError.message);
 
-              // Sync global users table
               const { data: userRecord } = await supabaseAdmin.from('users').select('wallet_balance').eq('auth_id', wallet.user_id).single();
               if (userRecord) {
                  await supabaseAdmin.from('users').update({ wallet_balance: (userRecord.wallet_balance || 0) + fundingAmount }).eq('auth_id', wallet.user_id);

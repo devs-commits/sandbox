@@ -7,7 +7,7 @@ import {
   Eye, EyeOff, ArrowDownLeft, ArrowUpRight, 
   Loader2, Copy, RotateCw, CheckCircle2,
   ArrowUpCircle, ArrowDownCircle, Clock, Landmark, ShieldCheck, XCircle, FileText, Info,
-  Heart
+  Heart, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner"; 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
@@ -33,7 +33,7 @@ export default function GlobalWallet() {
   
   const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
   const [walletData, setWalletData] = useState({
-    bankName: "Wema Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
+    bankName: "Wema Bank", accountNumber: "", accountName: "User", walletReady: false, userPin: ""
   });
   
   const [liveBalance, setLiveBalance] = useState<number>(0);
@@ -127,7 +127,8 @@ export default function GlobalWallet() {
         setLiveBalance(wallet.balance || 0);
         setWalletData({
           bankName: getBankName(wallet.bank_name || "Wema Bank"),
-          accountNumber: wallet.account_number,
+          // 🔥 Ensure wiped account numbers are processed as empty strings
+          accountNumber: wallet.account_number || "", 
           accountName: wallet.account_name || user?.fullName || "User",
           walletReady: true,
           userPin: wallet.transaction_pin || ""
@@ -179,6 +180,7 @@ export default function GlobalWallet() {
   };
 
   const copyAccountNumber = (num: string) => {
+    if (!num) return;
     navigator.clipboard.writeText(num);
     toast.success("Copied to clipboard", { icon: <Copy size={14} className="text-emerald-500"/> });
   };
@@ -188,8 +190,12 @@ export default function GlobalWallet() {
     setActiveModal("detail");
   };
 
-  // 🔥 HELPER: To quickly determine if the selected transaction in the modal was rejected
   const isSelectedTxRejected = selectedTx?.status === 'FAILED' || selectedTx?.status === 'REJECTED';
+
+  // 🔥 CORE LOGIC FOR UI STATE
+  const isNewUser = !walletData.walletReady;
+  const isMigratedUserMissingAccount = walletData.walletReady && !walletData.accountNumber;
+  const isFullyReady = walletData.walletReady && !!walletData.accountNumber;
 
   return (
     <>
@@ -202,15 +208,60 @@ export default function GlobalWallet() {
              <Loader2 className="w-10 h-10 animate-spin text-emerald-500/50 mb-4" />
              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Loading Secure Environment...</p>
           </div>
-        ) : walletData.walletReady ? (
+        ) : isMigratedUserMissingAccount ? (
+          
+          /* 🔥 MIGRATION SCREEN FOR EXISTING USERS */
+          <div className="flex flex-col items-center justify-center py-20 px-4 border border-emerald-500/30 rounded-[2rem] bg-emerald-950/20 shadow-2xl relative overflow-hidden text-center">
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+             
+             <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 flex items-center justify-center rounded-full mb-6 relative z-10 border border-emerald-500/20">
+               <AlertTriangle size={32} />
+             </div>
+             
+             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">System Infrastructure Upgrade</h2>
+             <p className="text-white/60 mb-2 text-sm relative z-10 max-w-lg">
+               We have upgraded our payment provider to <strong>Paystack</strong> to ensure faster and more secure payouts. 
+             </p>
+             <p className="text-emerald-400 mb-10 text-sm relative z-10 font-medium">
+               Your previous balance and transaction history are completely safe. You just need to generate your new Paystack virtual account number to continue.
+             </p>
+             
+             <Link href="/student/profile?tab=security" className="relative z-10">
+              <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
+                GENERATE NEW ACCOUNT NUMBER
+              </Button>
+             </Link>
+          </div>
+
+        ) : isNewUser ? (
+          
+          /* SETUP WALLET GATE FOR BRAND NEW USERS */
+          <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+             <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
+             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Setup Your Settlement Account</h2>
+             <p className="text-white/50 text-center mb-10 max-w-md text-sm leading-relaxed relative z-10">
+               Before you can track your earnings, make deposits, or withdraw funds, you need to configure your banking profile and create your secure wallet.
+             </p>
+             <Link href="/student/profile?tab=security" className="relative z-10">
+              <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
+                CONFIGURE WALLET
+              </Button>
+             </Link>
+          </div>
+
+        ) : (
+          
+          /* MAIN WALLET CARD (ONLY SHOWS IF FULLY READY) */
           <>
-            {/* MAIN WALLET CARD */}
             <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
               <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
                   <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
                       <div className="space-y-4">
                           <div className="flex items-center gap-2">
-                            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">Available Wallet Balance</div>
+                            <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-500 uppercase tracking-widest">
+                              Available Wallet Balance
+                            </div>
                             {isSyncing && <Loader2 size={14} className="animate-spin text-emerald-500/50" />}
                           </div>
                           <p className="text-white/40 text-sm font-medium">Available to Withdraw</p>
@@ -219,8 +270,12 @@ export default function GlobalWallet() {
                                   {showSensitive ? `₦${liveBalance.toLocaleString()}` : "₦****"}
                               </h2>
                               <div className="flex items-center gap-2">
-                                  <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5 transition-colors">{showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-                                  <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5 transition-colors"><RotateCw size={20} className={isSyncing ? "animate-spin" : ""} /></button>
+                                  <button onClick={() => setShowSensitive(!showSensitive)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5 transition-colors">
+                                    {showSensitive ? <EyeOff size={20} /> : <Eye size={20} />}
+                                  </button>
+                                  <button onClick={manualRefresh} disabled={isSyncing} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl text-white/30 border border-white/5 transition-colors">
+                                    <RotateCw size={20} className={isSyncing ? "animate-spin" : ""} />
+                                  </button>
                               </div>
                           </div>
                       </div>
@@ -235,7 +290,6 @@ export default function GlobalWallet() {
                               </Button>
                           </div>
                           
-                          {/* SHARE WALLET BUTTON */}
                           <button 
                             onClick={() => setActiveModal("share")}
                             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 text-emerald-400 h-12 rounded-xl font-bold hover:bg-emerald-500/20 transition-all text-sm shadow-lg shadow-emerald-500/5"
@@ -246,17 +300,24 @@ export default function GlobalWallet() {
                   </div>
               </div>
 
-              {/* BANK DETAILS BLOCK */}
               <div className="px-8 lg:px-12 py-10 bg-black/20 border-y border-white/5 grid grid-cols-1 md:grid-cols-3 gap-10">
-                  <div className="space-y-2"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p><p className="text-white font-bold tracking-tight">{walletData.bankName}</p></div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p>
+                    <p className="text-white font-bold tracking-tight">{walletData.bankName}</p>
+                  </div>
                   <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
                       <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Settlement Account</p>
                       <div className="flex items-center gap-3">
                           <p className="text-white font-mono text-xl font-bold tracking-widest">{walletData.accountNumber}</p>
-                          <button onClick={() => copyAccountNumber(walletData.accountNumber)} className="text-emerald-500 hover:text-emerald-400"><Copy size={16} /></button>
+                          <button onClick={() => copyAccountNumber(walletData.accountNumber)} className="text-emerald-500 hover:text-emerald-400">
+                            <Copy size={16} />
+                          </button>
                       </div>
                   </div>
-                  <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Account Designee</p><p className="text-white font-bold">{walletData.accountName}</p></div>
+                  <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
+                    <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Account Designee</p>
+                    <p className="text-white font-bold">{walletData.accountName}</p>
+                  </div>
               </div>
             </div>
 
@@ -269,9 +330,15 @@ export default function GlobalWallet() {
 
                 <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
                     {isLoadingHistory ? (
-                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20"><Loader2 className="animate-spin" /><p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p></div>
+                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20">
+                         <Loader2 className="animate-spin" />
+                         <p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p>
+                       </div>
                     ) : transactions.length === 0 ? (
-                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/10 text-center"><Clock size={40} className="mx-auto mb-2 opacity-20" /><p className="text-sm font-medium">No transactions found yet.</p></div>
+                       <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/10 text-center">
+                         <Clock size={40} className="mx-auto mb-2 opacity-20" />
+                         <p className="text-sm font-medium">No transactions found yet.</p>
+                       </div>
                     ) : (
                        <div className="divide-y divide-white/5">
                           {transactions.map((tx, idx) => {
@@ -287,7 +354,6 @@ export default function GlobalWallet() {
                               
                               const sourceName = tx.source || tx.description || tx.fundingMethod || tx.funding_method || 'Wallet Transaction';
 
-                              // STATUS OVERRIDE LOGIC
                               const rawStatus = (tx.status || 'COMPLETED').toUpperCase();
                               let status = rawStatus === 'FAILED' ? 'REJECTED' : rawStatus;
                               
@@ -370,21 +436,6 @@ export default function GlobalWallet() {
                 </div>
             </div>
           </>
-        ) : (
-          /* SETUP WALLET GATE */
-          <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
-             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
-             <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
-             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Setup Your Settlement Account</h2>
-             <p className="text-white/50 text-center mb-10 max-w-md text-sm leading-relaxed relative z-10">
-               Before you can track your earnings, make deposits, or withdraw funds, you need to configure your banking profile and create your secure wallet.
-             </p>
-             <Link href="/student/profile?tab=security" className="relative z-10">
-              <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
-                CONFIGURE WALLET
-              </Button>
-             </Link>
-          </div>
         )}
       </main>
 
@@ -406,7 +457,7 @@ export default function GlobalWallet() {
               </DialogHeader>
 
               <div className="space-y-6 pt-4">
-                {/* 🔥 FRONTEND POLISH: Strikethrough math and Refund badge applied dynamically */}
+                {/* 🔥 STRIKETHROUGH MATH AND REFUND BADGE */}
                 <div className="text-center bg-black/30 p-6 rounded-2xl border border-white/5 relative overflow-hidden">
                   {isSelectedTxRejected && <div className="absolute inset-0 bg-red-500/5 pointer-events-none" />}
                   
@@ -431,7 +482,6 @@ export default function GlobalWallet() {
                 {/* METADATA GRID */}
                 <div className="space-y-3 bg-white/5 p-5 rounded-2xl border border-white/5 text-sm">
                   
-                  {/* Status */}
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-white/40 text-xs">Status</span>
                     <span className={`font-bold text-xs px-2.5 py-1 rounded-md uppercase tracking-wider ${
@@ -443,7 +493,6 @@ export default function GlobalWallet() {
                     </span>
                   </div>
 
-                  {/* Date & Time */}
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-white/40 text-xs">Date & Timestamp</span>
                     <span className="font-medium text-xs text-white">
@@ -451,7 +500,6 @@ export default function GlobalWallet() {
                     </span>
                   </div>
 
-                  {/* Funding Method / Source */}
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-white/40 text-xs">Channel / Method</span>
                     <span className="font-medium text-xs text-white">
@@ -459,7 +507,6 @@ export default function GlobalWallet() {
                     </span>
                   </div>
 
-                  {/* 🔥 FRONTEND POLISH: Dim and strike through the old confusing balance impact */}
                   {(selectedTx.balance_before !== undefined || selectedTx.balance_after !== undefined) && (
                     <div className="flex justify-between items-center pb-2 border-b border-white/5">
                       <span className="text-white/40 text-xs">Wallet Balance Impact</span>
@@ -474,11 +521,9 @@ export default function GlobalWallet() {
                           ₦{Number(selectedTx.balance_before || 0).toLocaleString()} → <strong className={isSelectedTxRejected ? 'text-white/30' : 'text-emerald-400'}>₦{Number(selectedTx.balance_after || 0).toLocaleString()}</strong>
                         </span>
                       </div>
-
                     </div>
                   )}
 
-                  {/* Provider Reference */}
                   {selectedTx.provider_tx_id && (
                     <div className="flex justify-between items-center pb-2 border-b border-white/5">
                       <span className="text-white/40 text-xs">Provider Ref</span>
@@ -488,7 +533,6 @@ export default function GlobalWallet() {
                     </div>
                   )}
 
-                  {/* Rejection Reason (If Failed) */}
                   {selectedTx.rejection_reason && (
                     <div className="pt-2 text-left">
                       <span className="text-red-400 text-xs font-bold block mb-1">Rejection Reason</span>
@@ -499,7 +543,6 @@ export default function GlobalWallet() {
                   )}
                 </div>
 
-                {/* DESTINATION / BENEFICIARY BANK DETAILS */}
                 {selectedTx.receiver_info && (
                   <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-2">
                     <p className="text-[10px] text-white/30 uppercase font-black tracking-widest">Bank Details</p>
@@ -510,7 +553,6 @@ export default function GlobalWallet() {
                   </div>
                 )}
 
-                {/* Narration / Description */}
                 {selectedTx.description && (
                   <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
                     <p className="text-[10px] text-white/30 uppercase font-black tracking-widest mb-1">Narration</p>
@@ -531,7 +573,6 @@ export default function GlobalWallet() {
         </DialogContent>
       </Dialog>
 
-      {/* FUNDING MODAL */}
       <Dialog open={activeModal === "fund"} onOpenChange={(v) => !v && setActiveModal("none")}>
         <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
           <DialogHeader>
