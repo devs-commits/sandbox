@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase"; // Ensure this matches your setup
+// 🔥 Import the new modal we just built! Adjust path if necessary based on your folder structure
+import { SubscribeModal } from "@/app/components/students/SubscribeModal"; 
 
 export function SubscriptionLineCounter({ user }: { user: any }) {
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [percentageSpent, setPercentageSpent] = useState(0);
+  
+  // 🔥 State to control our new subscription modal
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     const fetchSubscriptionData = async () => {
@@ -18,7 +22,7 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
           .from('users')
           .select('subscription_status, start_date, subscription_expires_at')
           .eq('auth_id', user.id)
-          .maybeSingle()
+          .maybeSingle();
 
         if (error) throw error;
 
@@ -80,31 +84,41 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
   // GREEN: 8-15 Days (Fallback from our default theme object)
 
   return (
-    <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground mb-6 bg-card border border-border/40 px-4 py-2.5 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
-      <div className={`flex items-center gap-1.5 whitespace-nowrap ${theme.text}`}>
-        <Clock className={`w-3.5 h-3.5 ${theme.iconAnim}`} />
-        <span className="font-bold">
-          Subscription: {daysLeft} Days Left
-        </span>
-      </div>
-      
-      {/* The Line Counter */}
-      <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-1000 ease-out ${theme.bg}`}
-          style={{ width: `${percentageSpent}%` }}
-        />
+    <>
+      <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground mb-6 bg-card border border-border/40 px-4 py-2.5 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
+        <div className={`flex items-center gap-1.5 whitespace-nowrap ${theme.text}`}>
+          <Clock className={`w-3.5 h-3.5 ${theme.iconAnim}`} />
+          <span className="font-bold">
+            Subscription: {daysLeft} Days Left
+          </span>
+        </div>
+        
+        {/* The Line Counter */}
+        <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ease-out ${theme.bg}`}
+            style={{ width: `${percentageSpent}%` }}
+          />
+        </div>
+
+        {/* 🔥 NEW Subtle CTA that triggers the Modal */}
+        {theme.showLink && (
+          <button 
+            onClick={() => setShowModal(true)}
+            className={`${theme.text} hover:underline font-bold whitespace-nowrap flex items-center gap-1 bg-transparent border-none cursor-pointer`}
+          >
+            Add Card to Renew
+          </button>
+        )}
       </div>
 
-      {/* Subtle CTA */}
-      {theme.showLink && (
-        <Link 
-          href="/student/wallet" 
-          className={`${theme.text} hover:underline font-bold whitespace-nowrap flex items-center gap-1`}
-        >
-          Fund Wallet to Renew
-        </Link>
-      )}
-    </div>
+      {/* 🔥 Render the Subscription Modal */}
+      <SubscribeModal 
+        open={showModal} 
+        onClose={() => setShowModal(false)} 
+        userId={user?.id || ""} 
+        userEmail={user?.email || ""} 
+      />
+    </>
   );
 }

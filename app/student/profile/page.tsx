@@ -79,7 +79,6 @@ function ProfileSetupContent() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // KYC & Security State
-  const [nin, setNin] = useState(""); 
   const [bvn, setBvn] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -188,12 +187,15 @@ function ProfileSetupContent() {
       setActiveTab("profile");
       return toast.error("Please complete your General Profile (Name, Phone, DOB) first.");
     }
-    // 🔥 BOTH NIN AND BVN ARE NOW STRICTLY REQUIRED
-    if (!nin || nin.length !== 11) return toast.error("NIN must be exactly 11 digits.");
+    
+    // 🔥 ONLY BVN IS REQUIRED NOW
     if (!bvn || bvn.length !== 11) return toast.error("BVN must be exactly 11 digits.");
     
-    if (!pin || pin.length !== 4) return toast.error("Please set a 4-digit PIN.");
-    if (pin !== confirmPin) return toast.error("PINs do not match.");
+    // 🔥 ONLY REQUIRE PIN IF THEY DON'T ALREADY HAVE ONE
+    if (!hasPin) {
+      if (!pin || pin.length !== 4) return toast.error("Please set a 4-digit PIN.");
+      if (pin !== confirmPin) return toast.error("PINs do not match.");
+    }
 
     setIsGeneratingWallet(true);
 
@@ -211,8 +213,7 @@ function ProfileSetupContent() {
           phone: phone,
           firstName: firstName,
           lastName: lastName,
-          nin: nin,
-          bvn: bvn
+          bvn: bvn // NIN completely removed
         }),
       });
 
@@ -221,23 +222,26 @@ function ProfileSetupContent() {
         throw new Error(data.error || "Failed to initiate identity verification.");
       }
 
-      const pinRes = await fetch("/api/wallet/update-pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, pin: pin }),
-      });
-
-      if (!pinRes.ok) {
-        toast.warning("Validation started, but PIN setup failed. You can set it later in settings.");
-      } else {
-        toast.success("Validation started! Your virtual account will be assigned shortly.", {
-          icon: <ShieldCheck className="text-emerald-500" />,
+      // 🔥 ONLY PUSH PIN TO BACKEND IF THEY ARE CREATING A NEW ONE
+      if (!hasPin && pin) {
+        const pinRes = await fetch("/api/wallet/update-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user?.id, pin: pin }),
         });
-        setHasPin(true);
+
+        if (!pinRes.ok) {
+          toast.warning("Validation started, but PIN setup failed. You can set it later in settings.");
+        } else {
+          setHasPin(true);
+        }
       }
       
+      toast.success("Validation started! Your virtual account will be assigned shortly.", {
+        icon: <ShieldCheck className="text-emerald-500" />,
+      });
+      
       setBvn("");
-      setNin("");
       
       router.push("/student/wallet");
     } catch (error: any) {
@@ -383,7 +387,7 @@ function ProfileSetupContent() {
                     Full Legal Name {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}
                   </label>
                   <Input type="text" placeholder="e.g. Ademola John Alabi" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={hasWallet} className="bg-white/5 border-white/10 h-14 rounded-xl font-medium text-white px-4 disabled:opacity-50 disabled:cursor-not-allowed" />
-                  {!hasWallet && <p className="text-[10px] text-emerald-400/70 mt-2">Must exactly match your BVN/NIN records.</p>}
+                  {!hasWallet && <p className="text-[10px] text-emerald-400/70 mt-2">Must exactly match your BVN records.</p>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -457,15 +461,9 @@ function ProfileSetupContent() {
                       <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2"><Fingerprint size={16} /> Government ID</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">NIN (Required)</label>
-                        <Input type="text" maxLength={11} placeholder="11 Digits" value={nin} onChange={(e) => setNin(e.target.value.replace(/\D/g, ""))} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">BVN (Required)</label>
-                        <Input type="text" maxLength={11} placeholder="11 Digits" value={bvn} onChange={(e) => setBvn(e.target.value.replace(/\D/g, ""))} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4" />
-                      </div>
+                    <div className="w-full">
+                      <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">BVN (Required for Account Generation)</label>
+                      <Input type="text" maxLength={11} placeholder="Enter your 11-digit BVN" value={bvn} onChange={(e) => setBvn(e.target.value.replace(/\D/g, ""))} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4" />
                     </div>
                   </div>
                   <div className="h-px w-full bg-white/5"></div>
@@ -489,24 +487,33 @@ function ProfileSetupContent() {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <div className="flex justify-between items-end mb-2">
-                          <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Set 4-Digit PIN</label>
-                          {pin.length > 0 && pin.length < 4 && <span className="text-[9px] font-bold text-amber-400">Needs 4 digits</span>}
-                          {pin.length === 4 && <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Valid</span>}
+                    {/* 🔥 HIDE THE PIN BOXES IF THEY ALREADY HAVE ONE IN THE DATABASE */}
+                    {!hasPin ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <div className="flex justify-between items-end mb-2">
+                            <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Set 4-Digit PIN</label>
+                            {pin.length > 0 && pin.length < 4 && <span className="text-[9px] font-bold text-amber-400">Needs 4 digits</span>}
+                            {pin.length === 4 && <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Valid</span>}
+                          </div>
+                          <Input type="password" maxLength={4} placeholder="••••" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300 ${pin.length === 4 ? "bg-emerald-500/5 border-emerald-500/50" : "bg-white/5 border-white/10 focus:border-emerald-500/50"}`} />
                         </div>
-                        <Input type="password" maxLength={4} placeholder="••••" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300 ${pin.length === 4 ? "bg-emerald-500/5 border-emerald-500/50" : "bg-white/5 border-white/10 focus:border-emerald-500/50"}`} />
-                      </div>
-                      <div>
-                        <div className="flex justify-between items-end mb-2">
-                          <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Confirm PIN</label>
-                          {confirmPin.length > 0 && pin !== confirmPin && <span className="text-[9px] font-bold text-red-400 flex items-center gap-1"><XCircle size={10} /> Mismatch</span>}
-                          {confirmPin.length > 0 && pin === confirmPin && pin.length === 4 && <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Matches</span>}
+                        <div>
+                          <div className="flex justify-between items-end mb-2">
+                            <label className="text-[10px] text-white/40 uppercase font-black tracking-widest">Confirm PIN</label>
+                            {confirmPin.length > 0 && pin !== confirmPin && <span className="text-[9px] font-bold text-red-400 flex items-center gap-1"><XCircle size={10} /> Mismatch</span>}
+                            {confirmPin.length > 0 && pin === confirmPin && pin.length === 4 && <span className="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Matches</span>}
+                          </div>
+                          <Input type="password" maxLength={4} placeholder="••••" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))} className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300 ${confirmPin.length > 0 && pin !== confirmPin ? "bg-red-500/5 border-red-500/50 focus:border-red-500" : ""} ${confirmPin.length > 0 && pin === confirmPin && pin.length === 4 ? "bg-emerald-500/5 border-emerald-500/50 focus:border-emerald-500" : ""} ${confirmPin.length === 0 || (pin === confirmPin && pin.length < 4) ? "bg-white/5 border-white/10 focus:border-emerald-500/50" : ""}`} />
                         </div>
-                        <Input type="password" maxLength={4} placeholder="••••" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))} className={`h-14 rounded-xl font-mono text-2xl tracking-[0.5em] text-white px-4 text-center transition-all duration-300 ${confirmPin.length > 0 && pin !== confirmPin ? "bg-red-500/5 border-red-500/50 focus:border-red-500" : ""} ${confirmPin.length > 0 && pin === confirmPin && pin.length === 4 ? "bg-emerald-500/5 border-emerald-500/50 focus:border-emerald-500" : ""} ${confirmPin.length === 0 || (pin === confirmPin && pin.length < 4) ? "bg-white/5 border-white/10 focus:border-emerald-500/50" : ""}`} />
                       </div>
-                    </div>
+                    ) : (
+                      <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                        <p className="text-xs text-emerald-400 flex items-center gap-2">
+                          <CheckCircle2 size={16} /> Your 4-digit transaction PIN is already securely stored.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="pt-6">
                       <Button onClick={handleProvisionWallet} disabled={isGeneratingWallet} className="w-full md:w-auto h-12 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-widest uppercase rounded-xl shadow-xl transition-all">
@@ -554,5 +561,5 @@ export default function ProfileSetup() {
     }>
       <ProfileSetupContent />
     </Suspense>
-  );
+  ); 
 }

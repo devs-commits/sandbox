@@ -30,27 +30,46 @@ export async function POST(req: NextRequest) {
 
     const selectedPlan = PLAN_CODES[plan];
 
-    // Initialize transaction with Paystack passing the exact PLAN code
+    // 1. Fetch the user's current subscription expiry date from the database
+    const { data: currentUser } = await supabaseAdmin
+      .from('users')
+      .select('subscription_expires_at')
+      .eq('auth_id', userId)
+      .maybeSingle();
+
+    // 2. Build the Paystack initialization payload
+    const payload: any = {
+      email,
+      amount: selectedPlan.amountInKobo,
+      plan: selectedPlan.code, // 🔥 Paystack attaches this card to the subscription plan
+      callback_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://labs.wdc.ng"}/student/dashboard?payment=success`,
+      metadata: {
+        user_id: userId,
+        subscription_plan: plan,
+        custom_fields: [
+          { display_name: "User ID", variable_name: "user_id", value: userId },
+          { display_name: "Plan", variable_name: "subscription_plan", value: plan }
+        ]
+      },
+    };
+
+    // 3. 🔥 THE MAGIC SYNC: If they have future days left, tell Paystack to defer billing!
+    if (currentUser?.subscription_expires_at) {
+       const expiryDate = new Date(currentUser.subscription_expires_at);
+       if (expiryDate > new Date()) {
+           // Pass Paystack the exact future date to start the billing cycle
+           payload.start_date = expiryDate.toISOString(); 
+       }
+    }
+
+    // 4. Initialize transaction with Paystack
     const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${PAYSTACK_SECRET}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        email,
-        amount: selectedPlan.amountInKobo,
-        plan: selectedPlan.code, // 🔥 Paystack automatically attaches this card to the subscription plan!
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://labs.wdc.ng"}/student/dashboard?payment=success`,
-        metadata: {
-          user_id: userId,
-          subscription_plan: plan,
-          custom_fields: [
-            { display_name: "User ID", variable_name: "user_id", value: userId },
-            { display_name: "Plan", variable_name: "subscription_plan", value: plan }
-          ]
-        },
-      }),
+      body: JSON.stringify(payload),
     });
 
     const paystackData = await paystackRes.json();
