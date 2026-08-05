@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
         count = refetched.count || 1;
     }
 
-    const totalItems = count || transactions.length;
+    // 🔥 THE FIX: Added optional chaining (?.) and fallback to prevent TS build error
+    const totalItems = count || transactions?.length || 0;
     const totalPages = Math.ceil(totalItems / limit);
     const hasNext = page < totalPages;
 

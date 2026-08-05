@@ -63,8 +63,8 @@ const SignUpContent = () => {
 
   // 🔥 NEW: Your Paystack Plan Codes
   const PAYSTACK_PLAN_CODES = {
-    monthly: "PLN_0a0fy91qz8jff3g",
-    quarterly: "PLN_f2c6kpj0yr50ww9"
+    monthly: "PLN_46z8gz0p4foduy8",
+    quarterly: "PLN_ddzhasixy441mju"
   };
 
   const [role, setRole] = useState<"student" | "recruiter">("student");
