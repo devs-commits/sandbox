@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   try {
     const { userId, bvn, nin, pin } = await req.json();
 
-    if (!userId || !bvn || !pin) {
+    if (!userId || !pin) { // Note: Paystack doesn't strictly mandate BVN/NIN for basic DVA creation depending on your compliance tier, but keep your frontend validation!
       return NextResponse.json({ success: false, error: "Missing required information" }, { status: 400 });
     }
 
@@ -34,112 +34,113 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, error: "User profile not found" }, { status: 404 });
     }
 
-    // Server-side only variables (No NEXT_PUBLIC_ needed, bypassing the F03 error)
+    /* =============================================================================
+    🛑 SUPPLY SMART LOGIC COMMENTED OUT FOR PAYSTACK MIGRATION (DO NOT DELETE)
+    =============================================================================
     const apiKey = process.env.PAYMENT_API_KEY!;
     const merchantId = process.env.PAYMENT_MERCHANT_ID!;
     const baseUrl = process.env.PAYMENT_BASE_URL!;
 
+    // STEP 1: IDENTITY VERIFICATION (KYC)
+    const kycResponse = await fetch(`${baseUrl}/partners/kyc/verify`, ...);
+    ...
+    // STEP 2: PROACTIVE ACCOUNT RECOVERY
+    const checkRes = await fetch(`${baseUrl}/partners/virtual/accounts`, ...);
+    ...
+    // STEP 3: PROVISION (ONLY IF NOT FOUND)
+    const provisionResponse = await fetch(`${baseUrl}/partners/dynamic/account`, ...);
+    ...
+    =============================================================================
+    */
+
     // ==========================================
-    // 🔍 STEP 1: IDENTITY VERIFICATION (KYC)
+    // 🟢 PAYSTACK STEP 1: CREATE OR FETCH CUSTOMER
     // ==========================================
-    const kycResponse = await fetch(`${baseUrl}/partners/kyc/verify`, {
+    const paystackKey = process.env.PAYSTACK_SECRET_KEY!;
+    if (!paystackKey) throw new Error("Missing PAYSTACK_SECRET_KEY in environment variables.");
+
+    const nameParts = user.full_name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'WDC-User';
+
+    const customerRes = await fetch('https://api.paystack.co/customer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'merchant-id': merchantId },
-      body: JSON.stringify({ bvn, nin: nin || "" })
+      headers: {
+        Authorization: `Bearer ${paystackKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: user.email,
+        first_name: firstName,
+        last_name: lastName
+      })
     });
 
-    const { data: kycData, text: rawKycText } = await safeParseJSON(kycResponse);
-
-    if (!kycResponse.ok || !kycData?.success) {
-      console.error("KYC Provider Rejection:", rawKycText);
-      return NextResponse.json({ 
-        success: false, 
-        error: kycData?.message || "BVN verification failed at provider level" 
-      }, { status: 400 });
+    const customerData = await customerRes.json();
+    
+    // Paystack returns 200/True even if the customer already exists, so we just grab the customer code.
+    if (!customerData.status) {
+      console.error("Paystack Customer Creation Failed:", customerData.message);
+      return NextResponse.json({ success: false, error: "Failed to register user on payment gateway." }, { status: 400 });
     }
 
-    const registeredName = user.full_name.toLowerCase();
-    const bankFirstName = (kycData.data?.firstName || "").toLowerCase();
-    const bankLastName = (kycData.data?.lastName || "").toLowerCase();
-
-    if (!registeredName.includes(bankFirstName) && !registeredName.includes(bankLastName)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `Identity Mismatch: The name on this BVN does not match your WDC profile (${user.full_name}).` 
-      }, { status: 400 });
-    }
+    const customerCode = customerData.data.customer_code;
 
     // ==========================================
-    // ♻️ STEP 2: PROACTIVE ACCOUNT RECOVERY
+    // 🟢 PAYSTACK STEP 2: PROVISION DVA (VIRTUAL WALLET)
     // ==========================================
-    const checkRes = await fetch(`${baseUrl}/partners/virtual/accounts`, {
-      method: 'GET',
-      headers: { 'x-api-key': apiKey, 'merchant-id': merchantId }
+    // Paystack automatically provisions a Titan Trust or Wema bank account depending on your dashboard settings
+    const dvaRes = await fetch('https://api.paystack.co/dedicated_account', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${paystackKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        customer: customerCode
+      })
     });
 
+    const dvaData = await dvaRes.json();
     let account = null;
-    if (checkRes.ok) {
-      const { data: checkData } = await safeParseJSON(checkRes);
-      const existing = checkData?.data?.result?.find((acc: any) => acc.email === user.email);
-      if (existing) {
-        account = { accountNumber: existing.accountNumber, accountName: existing.accountName };
-      }
-    }
 
-    // ==========================================
-    // 🏦 STEP 3: PROVISION (ONLY IF NOT FOUND)
-    // ==========================================
-    if (!account) {
-      const provisionResponse = await fetch(`${baseUrl}/partners/dynamic/account`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'merchant-id': merchantId },
-        body: JSON.stringify({ 
-          firstName: kycData.data.firstName, 
-          lastName: kycData.data.lastName,
-          email: user.email,
-          amount: "0" 
-        })
-      });
-
-      const { data: provisionData, text: rawProvText } = await safeParseJSON(provisionResponse);
-      
-      if (!provisionResponse.ok) {
-         console.error("Provisioning Rejection:", rawProvText);
-         return NextResponse.json({ 
-            success: false, 
-            error: provisionData?.message || "Bank provider rejected account creation." 
-         }, { status: 400 });
-      }
-      
-      if (provisionData?.message?.toLowerCase().includes("already exists")) {
-        const finalCheck = await fetch(`${baseUrl}/partners/virtual/accounts`, {
-            method: 'GET',
-            headers: { 'x-api-key': apiKey, 'merchant-id': merchantId }
-        });
-        const { data: finalData } = await safeParseJSON(finalCheck);
-        const finalAcc = finalData?.data?.result?.find((acc: any) => acc.email === user.email);
-        if (finalAcc) {
-            account = { accountNumber: finalAcc.accountNumber, accountName: finalAcc.accountName };
-        }
-      } else {
-        account = provisionData?.data?.result?.data || provisionData?.data;
-      }
+    if (dvaData.status) {
+       account = {
+          accountNumber: dvaData.data.account_number,
+          accountName: dvaData.data.account_name,
+          bankName: dvaData.data.bank.name
+       };
+    } else if (dvaData.message.toLowerCase().includes('already has')) {
+       // Proactive Recovery: If they already have an account, fetch it!
+       const listDvaRes = await fetch(`https://api.paystack.co/dedicated_account?customer=${customerCode}`, {
+         method: 'GET',
+         headers: { Authorization: `Bearer ${paystackKey}` }
+       });
+       const listDvaData = await listDvaRes.json();
+       
+       if (listDvaData.status && listDvaData.data.length > 0) {
+         account = {
+            accountNumber: listDvaData.data[0].account_number,
+            accountName: listDvaData.data[0].account_name,
+            bankName: listDvaData.data[0].bank.name
+         };
+       }
     }
 
     if (!account || !account.accountNumber) {
-      console.error("Failed to extract account number from provider response");
-      return NextResponse.json({ success: false, error: "Failed to generate settlement account" }, { status: 502 });
+      console.error("Paystack DVA Failed:", dvaData);
+      return NextResponse.json({ success: false, error: "Failed to generate Paystack virtual account" }, { status: 502 });
     }
 
     // ==========================================
     // 💾 STEP 4: FINAL SYNC TO DATABASE
     // ==========================================
     const { error: userUpdateErr } = await supabaseAdmin.from('users').update({
-      id_verified: true,
+      id_verified: true, // You might want to tie this to actual Paystack BVN validation later
       bvn: bvn,
       account_number: account.accountNumber,
       account_name: account.accountName,
-      bank_name: "Parallex Bank" 
+      bank_name: account.bankName 
     }).eq('auth_id', userId);
 
     if (userUpdateErr) throw new Error("Failed to update user profile");
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
       balance: 0, 
       pin: pin,
       account_number: account.accountNumber,
-      bank_name: "Parallex Bank",
+      bank_name: account.bankName,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
 

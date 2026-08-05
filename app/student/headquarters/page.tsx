@@ -15,9 +15,7 @@ import {
   GraduationCap, 
   AlertCircle,
   CreditCard,
-  Briefcase,
-  Shield, // Added Shield icon for the banner
-  XCircle
+  Briefcase
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContexts";
 import { supabase } from "../../../lib/supabase";
@@ -64,7 +62,7 @@ const getSyllabus = (track: string) => {
   if (t.includes("data") || t.includes("analytics")) return TRACK_SYLLABUS["data-analytics"];
   if (t.includes("market") || t.includes("digital")) return TRACK_SYLLABUS["digital-marketing"];
   if (t.includes("cyber") || t.includes("security")) return TRACK_SYLLABUS["cyber-security"];
-  return TRACK_SYLLABUS["data-analytics"]; 
+  return TRACK_SYLLABUS["data-analytics"]; // Fallback
 };
 
 const buildCandidateId = (fullName: string) => {
@@ -77,14 +75,12 @@ function HeadquartersContent() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   
+  // Data States
   const [tasksCompleted, setTasksCompleted] = useState(0);
   const [userTrack, setUserTrack] = useState("");
   const [subStatus, setSubStatus] = useState("inactive");
 
-  // 🔥 NEW: Pending Invites State
-  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
-  const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
-
+  // Letter States
   const [downloadingWork, setDownloadingWork] = useState(false);
   const [downloadingVisa, setDownloadingVisa] = useState(false);
   const [letterData, setLetterData] = useState<LetterData | null>(null);
@@ -103,7 +99,10 @@ function HeadquartersContent() {
         .eq("auth_id", user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching user data:", error);
+        return;
+      }
 
       if (userData) {
         setTasksCompleted(userData.tasks_completed || 0);
@@ -117,55 +116,7 @@ function HeadquartersContent() {
     }
   };
 
-  // 🔥 NEW: Fetch unexpired invites
-  const fetchPendingInvites = async () => {
-    if (!user) return;
-    try {
-      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-      const { data } = await supabase
-        .from('notifications')
-        .select('*, squads(name)')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-        .gte('created_at', threeHoursAgo);
-        
-      if (data) setPendingInvites(data);
-    } catch (error) {
-      console.error("Failed to load invites");
-    }
-  };
-
-  useEffect(() => {
-    fetchUserData();
-    fetchPendingInvites();
-  }, [user]);
-
-  // 🔥 NEW: Handle Accept/Decline directly from the dashboard
-  const handleInviteResponse = async (notificationId: string, squadId: string, action: 'accepted' | 'declined') => {
-    setProcessingInviteId(notificationId);
-    try {
-      const res = await fetch("/api/squad/invite", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notificationId, action, squadId, userId: user?.id })
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success(`Invite ${action}!`);
-        setPendingInvites(prev => prev.filter(n => n.id !== notificationId));
-        if (action === 'accepted') router.push('/student/squad'); 
-      } else {
-        toast.error(data.error || "Failed to process invite.");
-        setPendingInvites(prev => prev.filter(n => n.id !== notificationId));
-      }
-    } catch (err) {
-      toast.error("Network error.");
-    } finally {
-      setProcessingInviteId(null);
-    }
-  };
-
+  // Handle letter download side-effect
   useEffect(() => {
     if (!downloadRequest || !letterData) return;
     let cancelled = false;
@@ -178,6 +129,7 @@ function HeadquartersContent() {
         await downloadLetterFromElement(letterRef.current, downloadRequest.fileName);
         toast.success("Letter downloaded successfully!");
       } catch (error) {
+        console.error("Error downloading letter:", error);
         toast.error("Failed to generate letter");
       } finally {
         if (!cancelled) {
@@ -190,6 +142,10 @@ function HeadquartersContent() {
     performDownload();
     return () => { cancelled = true; };
   }, [downloadRequest, letterData]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [user]);
 
   const handleDownloadLetter = async (type: "work" | "visa") => {
     const letterType: LetterType = type === "work" ? "12week" : "24week";
@@ -218,6 +174,7 @@ function HeadquartersContent() {
       setLetterData(newLetterData);
       setDownloadRequest({ fileName });
     } catch (error) {
+      console.error("Error generating letter:", error);
       toast.error("Failed to generate letter");
       setDownloadingWork(false);
       setDownloadingVisa(false);
@@ -228,7 +185,11 @@ function HeadquartersContent() {
   const currentWeek = tasksCompleted + 1;
 
   if (isLoading) {
-    return <div className="flex-1 flex flex-col items-center justify-center h-screen bg-background"><Loader2 className="w-10 h-10 animate-spin text-primary mb-4" /></div>;
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center h-screen bg-background">
+        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+      </div>
+    );
   }
 
   return (
@@ -238,44 +199,9 @@ function HeadquartersContent() {
       <div className="p-4 lg:p-6 space-y-8">
         <SubscriptionLineCounter user={user} />
 
-        {/* 🔥 NEW: Pending Invites Banner */}
-        {pendingInvites.length > 0 && (
-          <div className="space-y-4">
-            {pendingInvites.map(invite => (
-              <div key={invite.id} className="bg-gradient-to-r from-primary/20 via-primary/5 to-transparent border border-primary/30 rounded-2xl p-5 lg:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-[0_0_20px_rgba(var(--primary),0.1)] animate-in slide-in-from-top-4">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
-                      <Shield size={24} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg text-foreground">You have a Squad Invite!</h3>
-                      <p className="text-muted-foreground text-sm">You've been invited to join <strong className="text-foreground">{invite.squads?.name}</strong>. Don't learn alone!</p>
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <Button 
-                      onClick={() => handleInviteResponse(invite.id, invite.squad_id, 'declined')} 
-                      disabled={processingInviteId === invite.id} 
-                      variant="outline" 
-                      className="flex-1 md:flex-none border-destructive/30 text-destructive hover:bg-destructive/10"
-                    >
-                      <XCircle size={16} className="mr-2"/> Decline
-                    </Button>
-                    <Button 
-                      onClick={() => handleInviteResponse(invite.id, invite.squad_id, 'accepted')} 
-                      disabled={processingInviteId === invite.id} 
-                      className="flex-1 md:flex-none bg-primary text-white hover:opacity-90 shadow-lg hover:scale-[1.02] transition-transform"
-                    >
-                      {processingInviteId === invite.id ? <Loader2 size={16} className="animate-spin mr-2"/> : <CheckCircle size={16} className="mr-2"/>}
-                      Accept & Join
-                    </Button>
-                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* BANNER: UNPAID OR NOT STARTED */}
+        {/* ========================================== */}
+        {/* BANNER: UNPAID OR NOT STARTED              */}
+        {/* ========================================== */}
         {subStatus !== "active" && tasksCompleted === 0 && (
           <div className="bg-gradient-to-r from-red-500/10 via-orange-500/10 to-transparent border border-red-500/20 rounded-2xl p-6 lg:p-8 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
@@ -338,7 +264,9 @@ function HeadquartersContent() {
           </div>
         </div>
 
-        {/* COURSE SYLLABUS / ROADMAP */}
+        {/* ========================================== */}
+        {/* COURSE SYLLABUS / ROADMAP                  */}
+        {/* ========================================== */}
         <div className="bg-card border border-border rounded-xl p-5 lg:p-8">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -401,7 +329,9 @@ function HeadquartersContent() {
           </div>
         </div>
 
-        {/* REFERENCE LETTERS */}
+        {/* ========================================== */}
+        {/* REFERENCE LETTERS                          */}
+        {/* ========================================== */}
         <div className="bg-card border border-border rounded-xl p-5 lg:p-8" data-tour="hq-letters">
           <div className="flex flex-col lg:flex-row lg:justify-between gap-4 mb-4">
             <div className="flex items-start gap-3">
@@ -416,6 +346,8 @@ function HeadquartersContent() {
           <div className="mb-6">
             <div className="relative w-full bg-muted rounded-full h-3 overflow-hidden border border-border">
               <div className="bg-purple-600 h-full rounded-full transition-all duration-700 relative" style={{ width: `${Math.min((tasksCompleted / 24) * 100, 100)}%` }} />
+              
+              {/* 12 Week Marker */}
               <div className={`absolute top-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 ${
                 tasksCompleted >= 12 ? "bg-emerald-500 border-white shadow-lg" : "bg-muted-foreground border-border"
               }`} style={{ left: "50%", transform: "translate(-50%, -50%)" }} />
@@ -428,6 +360,7 @@ function HeadquartersContent() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
+            {/* WORK LETTER CARD */}
             <div className="bg-muted/30 border border-border rounded-xl p-5 flex justify-between items-center">
               <div className="flex gap-3 items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tasksCompleted >= 12 ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
@@ -446,6 +379,7 @@ function HeadquartersContent() {
               </Button>
             </div>
 
+            {/* VISA LETTER CARD */}
             <div className="bg-muted/30 border border-border rounded-xl p-5 flex justify-between items-center">
               <div className="flex gap-3 items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tasksCompleted >= 24 ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>

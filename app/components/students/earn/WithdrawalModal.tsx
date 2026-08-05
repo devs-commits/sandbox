@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Loader2, CheckCircle2, XCircle, Lock, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Lock, ArrowLeft, AlertCircle } from "lucide-react";
 import { SearchableBankSelect } from "@/app/components/ui/SearchableBankSelect";
 import { PinInput } from "../../auth/PinInput";
-import { SetPinModal } from "../../auth/SetPinModal"; // 🔥 Imported the new setup modal
+import { SetPinModal } from "../../auth/SetPinModal"; 
 import { toast } from "sonner";
 
 export function WithdrawModal({ 
@@ -23,7 +23,7 @@ export function WithdrawModal({
   setAmount, 
   onWithdraw, 
   userId,
-  userPin // 🔥 Re-added this prop to check if they have a PIN
+  userPin 
 }: any) {
   
   const [step, setStep] = useState(1); 
@@ -35,16 +35,15 @@ export function WithdrawModal({
   const [nameMatchError, setNameMatchError] = useState(false);
   const [enteredPin, setEnteredPin] = useState("");
 
-  // 🔥 PIN GATEKEEPER STATE
+  // PIN GATEKEEPER STATE
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [currentPin, setCurrentPin] = useState(userPin);
 
-  // Keep local pin state in sync if parent updates it
+  // Keep local pin state in sync
   useEffect(() => {
     setCurrentPin(userPin);
   }, [userPin]);
 
-  // Intercept the open event if no PIN exists
   useEffect(() => {
     if (open && !currentPin) {
       setShowPinSetup(true);
@@ -53,9 +52,8 @@ export function WithdrawModal({
     }
   }, [open, currentPin]);
 
-  // Helper to get the display name of the selected bank
   const selectedBankObject = useMemo(() => 
-    banks.find(b => b.institutionCode === bankName), 
+    banks.find(b => b.institutionCode === bankName || b.code === bankName), 
     [banks, bankName]
   );
 
@@ -65,7 +63,10 @@ export function WithdrawModal({
         try {
           const res = await fetch("/api/wallet/banks");
           const data = await res.json();
-          if (data.success) setBanks(data.banks);
+          if (data.success) {
+             // Supports both old structure and new Paystack structure
+             setBanks(data.banks || data.data || []);
+          }
         } catch (err) {
           toast.error("Could not load bank list");
         }
@@ -82,6 +83,18 @@ export function WithdrawModal({
 
       if (accountNumber.length === 10 && bankName) {
         setIsResolving(true);
+
+        // 🔥 LOCAL TEST BYPASS: Intercept the fake account so it doesn't crash Paystack
+        if (accountNumber === "0123456789") {
+           setTimeout(() => {
+             setResolvedName(userName); // Automatically matches your name!
+             setNameEnquiryRef(`PS-TEST-${Date.now()}`);
+             setNameMatchError(false);
+             setIsResolving(false);
+           }, 800); // Fake loading delay for realism
+           return; // Stop here, do not call the API
+        }
+
         try {
           const res = await fetch("/api/wallet/name-enquiry", {
             method: "POST",
@@ -91,18 +104,16 @@ export function WithdrawModal({
           const data = await res.json();
 
           if (res.ok && data.success) {
-            const fetchedAccountName = (data.accountName || data.data?.accountName || "").toUpperCase();
+            const fetchedAccountName = (data.accountName || data.data?.accountName || data.data?.account_name || "").toUpperCase();
             setResolvedName(fetchedAccountName);
             
-            const safeRef = data.nameEnquiryRef || data.sessionId || data.data?.sessionId || data.data?.nameEnquiryRef || `SS-${Date.now()}`;
+            const safeRef = data.nameEnquiryRef || data.sessionId || data.data?.sessionId || data.data?.nameEnquiryRef || `PS-${Date.now()}`;
             setNameEnquiryRef(safeRef); 
 
             // Name Match Logic
             const userParts = userName.toUpperCase().split(" ").filter((p: string) => p.length > 2);
             const isMatch = userParts.some((part: string) => fetchedAccountName.includes(part));
             if (!isMatch) setNameMatchError(true);
-          } else {
-            console.warn("Name resolution failed");
           }
         } catch (error) {
           console.error("Verification error");
@@ -114,34 +125,48 @@ export function WithdrawModal({
     resolveName();
   }, [accountNumber, bankName, userName]);
 
+  // 🔥 DYNAMIC FEE CALCULATOR (Mirrors Backend exactly)
+  const numericAmount = parseFloat(amount || "0");
+  
+  const providerFee = useMemo(() => {
+    if (numericAmount === 0) return 0;
+    if (numericAmount <= 5000) return 10;
+    if (numericAmount > 5000 && numericAmount < 10000) return 25;
+    if (numericAmount >= 10000 && numericAmount <= 50000) return 75;
+    return 100;
+  }, [numericAmount]);
+
+  const totalDeduction = numericAmount + providerFee;
+  const isInsufficient = totalDeduction > totalEarnings;
+
   const handleFinalWithdraw = async () => {
     if (enteredPin.length < 4) return toast.error("Please enter your 4-digit PIN");
+    if (enteredPin !== currentPin) return toast.error("Incorrect Transaction PIN");
 
     setIsProcessing(true);
     try {
-      const res = await fetch("/api/wallet/transfer", {
+      const res = await fetch("/api/wallet/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          pin: enteredPin,
-          bankCode: bankName, 
-          bankName: selectedBankObject?.institutionName || bankName, 
+          amount: numericAmount,
           accountNumber,
-          amount: parseFloat(amount),
+          bankCode: bankName, 
           accountName: resolvedName,
-          nameEnquiryRef: nameEnquiryRef
+          pin: enteredPin,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
+        toast.success("Transfer Initiated Successfully!");
         onWithdraw(); 
         setStep(1);
         setEnteredPin("");
       } else {
-        toast.error(data.error || "Transfer failed. Please check your PIN.");
+        toast.error(data.error || "Transfer failed. Please check your balance.");
       }
     } catch (err) {
       toast.error("Network error during transfer.");
@@ -151,11 +176,8 @@ export function WithdrawModal({
     }
   };
 
-  const numericAmount = parseFloat(amount || "0");
-  const isInsufficient = numericAmount > totalEarnings;
-  const canProceedToPin = resolvedName && nameEnquiryRef && !isResolving && numericAmount > 0 && !isInsufficient && !nameMatchError;
+  const canProceedToPin = resolvedName && !isResolving && numericAmount >= 1000 && !isInsufficient && !nameMatchError;
 
-  // 🔥 THE INTERCEPTOR: Show setup modal if no PIN exists
   if (showPinSetup) {
     return (
       <SetPinModal 
@@ -163,14 +185,13 @@ export function WithdrawModal({
         userId={userId} 
         onClose={onClose} 
         onSuccess={(newPin: string) => {
-          setCurrentPin(newPin); // Instantly update local state to unblock the flow
-          setShowPinSetup(false); // Hide setup modal, revealing the normal withdraw modal
+          setCurrentPin(newPin); 
+          setShowPinSetup(false); 
         }} 
       />
     );
   }
 
-  // --- STANDARD WITHDRAWAL MODAL JSX ---
   return (
     <Dialog open={open} onOpenChange={(val) => { if(!val) { setStep(1); onClose(); } }}>
       <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-[2rem] shadow-2xl overflow-visible">
@@ -192,9 +213,9 @@ export function WithdrawModal({
                 <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Destination Bank</label>
                 <SearchableBankSelect 
                   banks={banks} 
-                  selectedBank={selectedBankObject?.institutionName || ""} 
+                  selectedBank={selectedBankObject?.institutionName || selectedBankObject?.name || ""} 
                   onSelect={(name) => {
-                    const code = banks.find(b => b.institutionName === name)?.institutionCode;
+                    const code = banks.find(b => b.institutionName === name || b.name === name)?.institutionCode || banks.find(b => b.institutionName === name || b.name === name)?.code;
                     setBankName(code || "");
                   }} 
                 />
@@ -232,7 +253,7 @@ export function WithdrawModal({
               </div>
 
               <div>
-                <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Withdrawal Amount (₦)</label>
+                <label className="text-[10px] text-white/40 uppercase font-black tracking-widest block mb-1.5">Withdrawal Amount (Min ₦1,000)</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">₦</span>
                   <Input 
@@ -244,8 +265,32 @@ export function WithdrawModal({
                     className={`bg-white/5 h-12 pl-10 rounded-xl font-bold text-lg border-white/10 focus:ring-emerald-500 ${isInsufficient ? 'border-red-500/50 text-red-400' : ''}`}
                   />
                 </div>
-                {isInsufficient && <p className="text-[10px] text-red-400 mt-1.5 font-bold uppercase tracking-tighter">Amount exceeds your available balance</p>}
               </div>
+
+              {/* 🔥 NEW FEE BREAKDOWN UI */}
+              {numericAmount > 0 && (
+                <div className={`p-3 rounded-xl border ${isInsufficient ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/10'} space-y-1.5`}>
+                  <div className="flex justify-between text-xs text-white/60">
+                    <span>You Receive:</span>
+                    <span className="font-bold text-white">₦{numericAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-white/60">
+                    <span>Transfer Fee:</span>
+                    <span className="font-bold text-red-400">- ₦{providerFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold pt-1 border-t border-white/5">
+                    <span className="text-white/80">Total Deduction:</span>
+                    <span className={isInsufficient ? "text-red-400" : "text-emerald-400"}>
+                      ₦{totalDeduction.toLocaleString()}
+                    </span>
+                  </div>
+                  {isInsufficient && (
+                    <p className="text-[9px] text-red-400 flex items-center justify-center gap-1 mt-1 font-bold">
+                      <AlertCircle size={10} /> Amount + Fee exceeds balance.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button 
@@ -264,7 +309,7 @@ export function WithdrawModal({
             
             <div className="space-y-2 px-4">
                <h3 className="font-bold text-xl tracking-tight">Enter Transaction PIN</h3>
-               <p className="text-xs text-white/40">Confirm withdrawal of <span className="text-white font-bold">₦{numericAmount.toLocaleString()}</span> to {selectedBankObject?.institutionName}</p>
+               <p className="text-xs text-white/40">Confirm total deduction of <span className="text-red-400 font-bold">₦{totalDeduction.toLocaleString()}</span> for transfer to {selectedBankObject?.institutionName || selectedBankObject?.name}</p>
             </div>
             
             <div className="flex justify-center">

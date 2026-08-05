@@ -61,9 +61,17 @@ const SignUpContent = () => {
   const { signup } = useAuth();
   const searchParams = useSearchParams();
 
+  // 🔥 NEW: Your Paystack Plan Codes
+  const PAYSTACK_PLAN_CODES = {
+    monthly: "PLN_0a0fy91qz8jff3g",
+    quarterly: "PLN_f2c6kpj0yr50ww9"
+  };
+
   const [role, setRole] = useState<"student" | "recruiter">("student");
   const [subscriptionPlan, setSubscriptionPlan] = useState<"monthly" | "quarterly">("monthly");
-  const [paymentMethod, setPaymentMethod] = useState<"transfer" | "paystack">("transfer");
+  
+  // 🔥 UPDATED: Set default directly to Paystack to bypass Supply Smart entirely
+  const [paymentMethod, setPaymentMethod] = useState<"paystack">("paystack");
   
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -79,7 +87,7 @@ const SignUpContent = () => {
   const [squadSlug, setSquadSlug] = useState("");
   const [hasValidReferral, setHasValidReferral] = useState(false);
   
-  // 🔥 NEW: Referral Verification States
+  // Referral Verification States
   const [isVerifyingReferral, setIsVerifyingReferral] = useState(false);
   const [referralError, setReferralError] = useState("");
   const [verifiedReferralName, setVerifiedReferralName] = useState("");
@@ -257,7 +265,6 @@ const SignUpContent = () => {
     }
   };
 
-  // 🔥 NEW: Function to verify the referral code with your backend
   const handleVerifyReferral = async () => {
     if (!referralLink.trim()) {
       setReferralError("Please enter a referral code.");
@@ -268,7 +275,6 @@ const SignUpContent = () => {
     setReferralError("");
 
     try {
-      // Connect this to your actual backend endpoint to check the code
       const res = await fetch(`/api/auth/verify-referral?code=${referralLink}`);
       const data = await res.json();
 
@@ -281,8 +287,6 @@ const SignUpContent = () => {
         setReferralError(data.error || "Invalid referral code. Please check and try again.");
       }
     } catch (err) {
-      // If endpoint doesn't exist yet, we can fallback to accepting it optimistically,
-      // or strictly show an error. Here we show an error.
       setReferralError("Failed to verify code. Please try again later.");
     } finally {
       setIsVerifyingReferral(false);
@@ -317,6 +321,7 @@ const SignUpContent = () => {
     }
   };
 
+  // Kept intact but unused now that Supply Smart is bypassed
   const createPaymentAccount = async () => {
     if (!validateForm()) return;
     setCreatingAccount(true);
@@ -346,6 +351,7 @@ const SignUpContent = () => {
     }
   };
 
+  // Kept intact but unused
   const verifyPayment = async () => {
     if (!paymentDetails?.transactionId) return;
     setCheckingPayment(true);
@@ -370,6 +376,7 @@ const SignUpContent = () => {
     }
   };
 
+  // Kept intact but unused
   const handleSubmit = async () => {
     if (!paymentDetails?.transactionId) return;
     setCreatingAccount(true);
@@ -400,6 +407,7 @@ const SignUpContent = () => {
     }
   };
 
+  // 🔥 UPDATED: Paystack Engine integration
   const handlePaystackCheckout = async () => {
     if (!validateForm()) return;
     setInitializingPaystack(true);
@@ -420,12 +428,20 @@ const SignUpContent = () => {
       const data = await res.json();
 
       if (data?.data?.reference) {
+        
+        // Grab the right plan based on selection
+        const planCode = subscriptionPlan === "quarterly" 
+          ? PAYSTACK_PLAN_CODES.quarterly 
+          : PAYSTACK_PLAN_CODES.monthly;
+
         const paystack = new PaystackPop();
         paystack.newTransaction({
           key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
           email: email,
           amount: numericAmount * 100,
           reference: data.data.reference,
+          plan: planCode,       // Connects the payment to your recurring plan
+          channels: ['card'],   // Forces strictly card for subscriptions
           onSuccess: async (transaction: any) => {
             toast.success("Payment received. Setting up your profile...");
             const reg = await handleRegistration();
@@ -441,7 +457,6 @@ const SignUpContent = () => {
             });
 
             clearReferralCookies();
-
             router.push("/auth/verify-email");
           },
           onCancel: () => {
@@ -477,7 +492,7 @@ const SignUpContent = () => {
   return (
     <div className="min-h-screen flex bg-background w-full">
       
-      {/* 🔥 1/3 LEFT PANEL */}
+      {/* 1/3 LEFT PANEL */}
       <div className="hidden lg:flex flex-col w-1/3 bg-primary/5 border-r border-border p-12 justify-between relative overflow-hidden h-screen sticky top-0">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20 pointer-events-none">
            <div className="absolute -top-[20%] -left-[20%] w-[70%] h-[50%] rounded-full bg-primary/20 blur-3xl"></div>
@@ -511,7 +526,7 @@ const SignUpContent = () => {
         </div>
       </div>
 
-      {/* 🔥 2/3 RIGHT PANEL */}
+      {/* 2/3 RIGHT PANEL */}
       <div className="w-full lg:w-2/3 flex flex-col items-center justify-center p-4 md:p-8 lg:p-12 relative min-h-screen">
         
         <button onClick={() => router.back()} className="absolute top-6 right-6 p-2 bg-secondary text-muted-foreground rounded-full hover:bg-secondary/80 hover:text-foreground transition-colors z-20">
@@ -561,7 +576,6 @@ const SignUpContent = () => {
               )}
             </div>
 
-            {/* 🔥 UPDATED: Referrals & Squads Section */}
             {role === "student" && (
               <div className="space-y-3">
                 {!hasValidReferral ? (
@@ -615,7 +629,6 @@ const SignUpContent = () => {
               </div>
             )}
 
-            {/* Coupon Section */}
             {!squadSlug && (
               <div className="space-y-2 pt-6 border-t border-border/40">
                 {!isCouponApplied ? (
@@ -646,7 +659,6 @@ const SignUpContent = () => {
               </div>
             )}
 
-            {/* Checkout Blocks */}
             {!isCouponApplied && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-3 pt-4">
@@ -685,6 +697,8 @@ const SignUpContent = () => {
                   )}
                 </div>
 
+                {/* 🔥 SUPPLY SMART COMMENTED OUT BELOW 🔥 */}
+                {/* 
                 <div className="space-y-3 pt-6">
                   <label className="text-sm font-semibold text-muted-foreground">Payment Method</label>
                   <div className="grid grid-cols-2 gap-4">
@@ -726,6 +740,8 @@ const SignUpContent = () => {
                     {timerExpired && <div className="flex items-center justify-center gap-2 text-destructive text-xs font-bold animate-pulse uppercase mt-3"><AlertCircle size={16} /> Account Expired</div>}
                   </div>
                 )}
+                */}
+                {/* 🔥 END SUPPLY SMART COMMENT OUT 🔥 */}
               </div>
             )}
 
@@ -746,13 +762,10 @@ const SignUpContent = () => {
               <Button 
                 type="button" 
                 className="w-full h-14 text-base font-bold transition-all shadow-lg mt-4" 
-                disabled={creatingAccount || initializingPaystack || (paymentMethod === "transfer" && paymentDetails !== null && !paymentConfirmed && timerExpired)} 
+                disabled={initializingPaystack} 
                 onClick={handleMainAction}
               >
-                {creatingAccount || initializingPaystack ? <Loader2 className="w-6 h-6 animate-spin" /> : 
-                paymentMethod === "paystack" ? "Proceed to Checkout" : 
-                paymentDetails === null || timerExpired ? "Generate Payment Details" : 
-                paymentConfirmed ? "Complete Registration" : "Awaiting Payment..."}
+                {initializingPaystack ? <Loader2 className="w-6 h-6 animate-spin" /> : "Proceed to Checkout"}
               </Button>
             )}
 

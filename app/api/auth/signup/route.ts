@@ -4,7 +4,16 @@ import { supabase } from '@/lib/supabase';
 import { supabaseAdmin as importedAdmin } from '@/lib/supabase-admin';
 
 // ADD SIGNUP USER TO MAILERLITE (Non-blocking)
-const addToMailerLite = async (email: string, fullName: string, role: string, country: string | undefined, track: string | undefined, experienceLevel: string | undefined, subscriptionPlan: string) => {
+const addToMailerLite = async (
+  email: string, 
+  fullName: string, 
+  phone: string | undefined, 
+  role: string, 
+  country: string | undefined, 
+  track: string | undefined, 
+  experienceLevel: string | undefined, 
+  subscriptionPlan: string
+) => {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY;
@@ -22,6 +31,7 @@ const addToMailerLite = async (email: string, fullName: string, role: string, co
       body: JSON.stringify({
         email,
         fullName,
+        phone,
         role,
         country,
         track,
@@ -53,8 +63,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
-      email, password, fullName, role, country, 
-      experienceLevel, track, referralLink, squadSlug, // 🔥 ADDED: squadSlug
+      email, password, fullName, phone, role, country, // 🔥 ADDED: phone
+      experienceLevel, track, referralLink, squadSlug,
       subscriptionPlan 
     } = body;
 
@@ -72,6 +82,8 @@ export async function POST(request: Request) {
 
     if (subscriptionPlan === 'trial') {
       expiryDate.setDate(startDate.getDate() + 14); // 14 Days
+    } else if (subscriptionPlan === 'trial_7') {
+      expiryDate.setDate(startDate.getDate() + 7);  // 7 Days
     } else if (subscriptionPlan === 'quarterly') {
       expiryDate.setMonth(startDate.getMonth() + 3); // 3 Months
     } else {
@@ -81,10 +93,9 @@ export async function POST(request: Request) {
     // ==========================================
     // SQUAD & REFERRAL HELPER FUNCTION
     // ==========================================
-    // This executes the logic ensuring only paid users get squad/referral benefits
     const processSquadAndReferral = async (userId: string) => {
       // STRICT RULE: Trial accounts cannot trigger referrals or join squads
-      if (subscriptionPlan === 'trial') return;
+      if (subscriptionPlan?.startsWith('trial')) return;
 
       // 1. Handle Squad Assignment
       if (squadSlug) {
@@ -95,8 +106,6 @@ export async function POST(request: Request) {
           .single();
 
         if (squad) {
-          // Attempt to add to squad_members. 
-          // Our UNIQUE DB constraint ensures they aren't added twice.
           await dbClient.from('squad_members').insert([{
             squad_id: squad.id,
             user_id: userId,
@@ -113,10 +122,7 @@ export async function POST(request: Request) {
           .eq('referral_code', referralLink.trim())
           .single();
 
-        // Prevent self-referral and ensure referrer exists
         if (referrer && referrer.id !== userId) {
-          // Insert the referral record. The UNIQUE constraint on referee_id 
-          // guarantees this will fail if the user was already referred.
           const { error: refError } = await dbClient.from('referrals').insert([{ 
             referrer_id: referrer.id, 
             referee_id: userId, 
@@ -124,7 +130,6 @@ export async function POST(request: Request) {
             reward_amount: 2000 
           }]);
 
-          // Only credit the wallet if the referral insertion succeeded
           if (!refError) {
             await dbClient.from('users')
               .update({ wallet_balance: (referrer.wallet_balance || 0) + 2000 })
@@ -149,22 +154,21 @@ export async function POST(request: Request) {
           return NextResponse.json({ success: false, error: "Account active. Please login." }, { status: 409 });
         } else {
           await dbClient.from('users').update({
-            full_name: fullName,               
+            full_name: fullName,
+            phone: phone,                      // 🔥 ADDED: Save phone number for returning lead
             country: country,
             track: track,
             experience_level: experienceLevel, 
             subscription_plan: subscriptionPlan || 'monthly',
-            subscription_status: 'active', // Forced to active as requested
+            subscription_status: 'active',
             start_date: startDate.toISOString(),
             subscription_expires_at: expiryDate.toISOString(),
             nudge_sent: false                  
           }).eq('auth_id', existingLead.auth_id);
 
-          // 🔥 Process Squads/Referrals for returning users who just paid
           await processSquadAndReferral(existingLead.auth_id);
 
-          // Sync to MailerLite (fire and forget)
-          addToMailerLite(email, fullName, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
+          addToMailerLite(email, fullName, phone, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
 
           return NextResponse.json({ 
             success: true, 
@@ -181,13 +185,12 @@ export async function POST(request: Request) {
       email,
       password,
       options: {
-        data: { fullName, role, country },
+        data: { fullName, phone, role, country }, // 🔥 ADDED: Save phone in auth metadata
       },
     });
 
     if (authError) return NextResponse.json({ success: false, error: authError.message }, { status: 400 });
 
-    // --- CAPTURE THE ID DEFENSIVELY ---
     const newAuthId = authData?.user?.id;
 
     if (!newAuthId) {
@@ -204,7 +207,8 @@ export async function POST(request: Request) {
         .insert([{
           auth_id: newAuthId, 
           email: email,
-          full_name: fullName,               
+          full_name: fullName, 
+          phone: phone,                       // 🔥 ADDED: Save phone in database
           role: role,
           country: country,
           experience_level: experienceLevel, 
@@ -213,7 +217,7 @@ export async function POST(request: Request) {
           referral_code: referralCode,       
           has_completed_onboarding: false,    
           has_completed_headquarters_tour: false,
-          subscription_status: 'active', // Forced to active as requested
+          subscription_status: 'active',
           start_date: startDate.toISOString(),
           subscription_expires_at: expiryDate.toISOString(),    
           nudge_sent: false,                 
@@ -224,7 +228,6 @@ export async function POST(request: Request) {
 
       if (dbError) {
         console.error("DB Profile Error:", dbError.message);
-        // Clean up the auth user if the profile creation fails
         await dbClient.auth.admin.deleteUser(newAuthId);
         
         if (dbError.message.includes("foreign key constraint")) {
@@ -237,12 +240,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: "Profile creation failed" }, { status: 500 });
       }
 
-      // 🔥 Process Squads/Referrals for brand new users
       await processSquadAndReferral(newAuthId);
     }
 
-    // Sync to MailerLite (fire and forget)
-    addToMailerLite(email, fullName, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
+    addToMailerLite(email, fullName, phone, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
 
     return NextResponse.json({ success: true, user: authData.user, session: authData.session });
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Cropper from "react-easy-crop";
 import { StudentHeader } from "@/app/components/students/StudentHeader";
@@ -9,7 +9,8 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
   ShieldCheck, Landmark, Lock, Loader2, CheckCircle2, Fingerprint,
-  Calendar, Phone, MapPin, Briefcase, XCircle, FileText, Sparkles, UserCircle, Camera,
+  Calendar, Phone, MapPin, Briefcase, XCircle, UserCircle, Camera,
+  CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -17,7 +18,7 @@ import { useAuth } from "@/app/contexts/AuthContexts";
 
 // Absolute imports
 import { SetPinModal } from "@/app/components/auth/SetPinModal";
-import { CVUploadUI } from "@/app/components/students/office/CVUploadUI";
+import { SubscriptionCard } from "@/app/components/students/earn/profile/SubscriptionCard"; 
 
 // ==========================================
 // HELPER: CREATE CROPPED IMAGE BLOB
@@ -53,12 +54,13 @@ const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<Blob> =>
   });
 };
 
-export default function ProfileSetup() {
+function ProfileSetupContent() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams(); 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<"profile" | "career" | "security">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -67,8 +69,6 @@ export default function ProfileSetup() {
 
   const [hasWallet, setHasWallet] = useState(false);
   const [hasPin, setHasPin] = useState(false);
-  const [hasCv, setHasCv] = useState(false);
-  const [isEditingCv, setIsEditingCv] = useState(false);
 
   // Profile State
   const [fullName, setFullName] = useState("");
@@ -79,8 +79,8 @@ export default function ProfileSetup() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // KYC & Security State
+  const [nin, setNin] = useState(""); 
   const [bvn, setBvn] = useState("");
-  const [nin, setNin] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
 
@@ -91,6 +91,13 @@ export default function ProfileSetup() {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "security" || tabParam === "profile") {
+      setActiveTab(tabParam as "profile" | "security");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -115,8 +122,6 @@ export default function ProfileSetup() {
 
         if (userData) {
           setFullName(userData.full_name || (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name || "");
-          if (userData.bvn) setBvn(userData.bvn);
-          if (userData.nin) setNin(userData.nin);
           if (userData.phone) setPhone(userData.phone);
           if (userData.address) setAddress(userData.address);
           if (userData.occupation) setOccupation(userData.occupation);
@@ -125,7 +130,6 @@ export default function ProfileSetup() {
           if (userData.date_of_birth) {
             setDob(userData.date_of_birth.split("T")[0]);
           }
-          if (userData.cv_url || userData.bio) setHasCv(true);
 
           if (userData.is_complete || (walletData?.account_number && walletData.account_number !== "****")) {
             setHasWallet(true);
@@ -142,7 +146,7 @@ export default function ProfileSetup() {
   }, [user]);
 
   // ==========================================
-  // ACTION: SAVE GENERAL PROFILE (FIXED SYNC BUG)
+  // ACTION: SAVE GENERAL PROFILE
   // ==========================================
   const handleSaveProfile = async () => {
     if (!fullName) return toast.error("Full Name is required.");
@@ -151,14 +155,13 @@ export default function ProfileSetup() {
 
     setIsSavingProfile(true);
     try {
-      // 🔥 FIX: Added track from user metadata (with a fallback) to satisfy the DB constraint
       const { error } = await supabase
         .from("users")
         .upsert({
           auth_id: user?.id,
           email: user?.email, 
           role: "student", 
-          track: (user as any)?.user_metadata?.track || "general", // <--- ADD THIS LINE HERE
+          track: (user as any)?.user_metadata?.track || "general", 
           full_name: fullName,
           phone: phone || null,
           date_of_birth: dob || null,
@@ -177,34 +180,46 @@ export default function ProfileSetup() {
     }
   };
 
+  // ==========================================
+  // ACTION: GENERATE PAYSTACK WALLET (DVA)
+  // ==========================================
   const handleProvisionWallet = async () => {
     if (!fullName || !phone || !dob) {
       setActiveTab("profile");
       return toast.error("Please complete your General Profile (Name, Phone, DOB) first.");
     }
-    if (!bvn || bvn.length !== 11) return toast.error("BVN must be exactly 11 digits.");
+    // 🔥 BOTH NIN AND BVN ARE NOW STRICTLY REQUIRED
     if (!nin || nin.length !== 11) return toast.error("NIN must be exactly 11 digits.");
+    if (!bvn || bvn.length !== 11) return toast.error("BVN must be exactly 11 digits.");
+    
     if (!pin || pin.length !== 4) return toast.error("Please set a 4-digit PIN.");
     if (pin !== confirmPin) return toast.error("PINs do not match.");
 
     setIsGeneratingWallet(true);
 
     try {
-      const { error: userError } = await supabase
-        .from("users")
-        .update({ bvn: bvn, nin: nin })
-        .eq("auth_id", user?.id);
-      if (userError) throw new Error("Database Error: " + userError.message);
+      const names = fullName.split(" ");
+      const firstName = names[0];
+      const lastName = names.slice(1).join(" ") || firstName;
 
-      const res = await fetch("/api/wallet/provision", {
+      const res = await fetch("/api/wallet/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, bvn, nin, pin }),
+        body: JSON.stringify({ 
+          userId: user?.id, 
+          email: user?.email,
+          phone: phone,
+          firstName: firstName,
+          lastName: lastName,
+          nin: nin,
+          bvn: bvn
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success)
-        throw new Error(data.error || "Payment Provider Issue. Resource not found or unavailable.");
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to initiate identity verification.");
+      }
 
       const pinRes = await fetch("/api/wallet/update-pin", {
         method: "POST",
@@ -213,15 +228,18 @@ export default function ProfileSetup() {
       });
 
       if (!pinRes.ok) {
-        toast.warning("Wallet created, but PIN setup failed. You can set it later in settings.");
+        toast.warning("Validation started, but PIN setup failed. You can set it later in settings.");
       } else {
-        toast.success("Virtual Account Generated Successfully!", {
+        toast.success("Validation started! Your virtual account will be assigned shortly.", {
           icon: <ShieldCheck className="text-emerald-500" />,
         });
-        setHasWallet(true);
         setHasPin(true);
       }
-      router.push("/student/earn");
+      
+      setBvn("");
+      setNin("");
+      
+      router.push("/student/wallet");
     } catch (error: any) {
       console.error("Wallet Provisioning Error:", error);
       toast.error(error.message || "An error occurred while generating your wallet.");
@@ -292,34 +310,32 @@ export default function ProfileSetup() {
 
   return (
     <div className="min-h-screen bg-[#020817] flex flex-col">
-      <StudentHeader title="Settings" subtitle="Manage your profile, CV, and financial security" />
+      <StudentHeader title="Settings" subtitle="Manage your profile and financial security" />
 
-      <main className="flex-1 p-4 lg:p-8 max-w-6xl mx-auto w-full flex flex-col lg:flex-row gap-8">
-        {/* SIDEBAR TABS */}
-        <div className="w-full lg:w-64 shrink-0 space-y-2">
+      <main className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto w-full flex flex-col gap-6">
+        
+        {/* HORIZONTAL TOP TABS */}
+        <div className="flex overflow-x-auto no-scrollbar gap-3 pb-2 border-b border-white/10">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
-              activeTab === "profile" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "text-white/50 hover:bg-white/5 hover:text-white"
+            className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold transition-all whitespace-nowrap ${
+              activeTab === "profile" 
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-500/5" 
+                : "text-white/50 hover:bg-white/5 hover:text-white border border-transparent"
             }`}
           >
-            <UserCircle size={20} /> General Profile
+            <UserCircle size={18} /> General Profile
           </button>
-          <button
-            onClick={() => setActiveTab("career")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
-              activeTab === "career" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "text-white/50 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <Briefcase size={20} /> Career & CV
-          </button>
+          
           <button
             onClick={() => setActiveTab("security")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
-              activeTab === "security" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "text-white/50 hover:bg-white/5 hover:text-white"
+            className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold transition-all whitespace-nowrap ${
+              activeTab === "security" 
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-500/5" 
+                : "text-white/50 hover:bg-white/5 hover:text-white border border-transparent"
             }`}
           >
-            <Landmark size={20} /> KYC & Security
+            <ShieldCheck size={18} /> Security & Billing
           </button>
         </div>
 
@@ -327,9 +343,11 @@ export default function ProfileSetup() {
         <div className="flex-1 bg-[#0f172a] border border-white/10 rounded-[2rem] p-6 lg:p-10 shadow-2xl relative overflow-hidden">
           <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
 
-          {/* GENERAL PROFILE */}
+          {/* ========================================== */}
+          {/* TAB 1: GENERAL PROFILE */}
+          {/* ========================================== */}
           {activeTab === "profile" && (
-            <div className="space-y-8 relative z-10 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div>
                 <h2 className="text-2xl font-black text-white tracking-tight">General Profile</h2>
                 <p className="text-white/40 text-sm mt-1">This information will be used on your portfolio and recommendation letters.</p>
@@ -405,7 +423,7 @@ export default function ProfileSetup() {
                 </div>
               </div>
 
-              <div className="pt-6">
+              <div className="pt-6 border-t border-white/10">
                 <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full md:w-auto h-12 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-widest uppercase rounded-xl shadow-xl transition-all">
                   {isSavingProfile ? <Loader2 className="w-5 h-5 animate-spin" /> : "Save Profile Details"}
                 </Button>
@@ -413,96 +431,61 @@ export default function ProfileSetup() {
             </div>
           )}
 
-          {/* CAREER & CV */}
-          {activeTab === "career" && (
-            <div className="space-y-8 relative z-10 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Career & CV</h2>
-                <p className="text-white/40 text-sm mt-1">Help the AI engine personalise your tasks and portfolio generation.</p>
-              </div>
-
-              {hasCv && !isEditingCv ? (
-                <div className="group relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-emerald-500/[0.08] via-white/[0.035] to-cyan-500/[0.05] p-6">
-                  <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
-                        <FileText className="h-6 w-6 text-emerald-400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">Career profile active</h4>
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                        </div>
-                        <p className="mt-1.5 max-w-md text-xs leading-relaxed text-white/45">Your uploaded CV or professional summary is actively personalising your career recommendations.</p>
-                      </div>
-                    </div>
-                    <Button onClick={() => setIsEditingCv(true)} variant="outline" className="bg-transparent border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">Update Profile</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative overflow-hidden rounded-3xl border border-emerald-400/15 bg-gradient-to-br from-[#111b2f] via-[#0d1729] to-[#0a1425] shadow-2xl">
-                  <div className="relative border-b border-white/[0.07] p-5 sm:p-7 flex justify-between items-start">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10"><Sparkles className="h-5 w-5 text-emerald-400" /></div>
-                      <div>
-                        <h4 className="text-base font-bold text-white">{hasCv ? "Update your career profile" : "Complete your career profile"}</h4>
-                        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/45">Upload a new CV or rewrite your professional summary.</p>
-                      </div>
-                    </div>
-                    {hasCv && isEditingCv && <button onClick={() => setIsEditingCv(false)} className="p-2 text-white/40 hover:text-white transition-colors"><XCircle size={20} /></button>}
-                  </div>
-                  <div className="relative p-4 sm:p-6 [&_textarea]:bg-[#0a1324] [&_textarea]:text-white [&_textarea]:focus:border-emerald-400/40">
-                    <CVUploadUI userId={user?.id || ""} onSuccess={() => { setHasCv(true); setIsEditingCv(false); }} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* KYC & WALLET SECURITY */}
+          {/* ========================================== */}
+          {/* TAB 2: KYC & WALLET SECURITY */}
+          {/* ========================================== */}
           {activeTab === "security" && (
-            <div className="space-y-8 relative z-10 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">KYC & Financial Security</h2>
-                <p className="text-white/40 text-sm mt-1">Securely provision your wallet to withdraw referral earnings.</p>
-              </div>
-
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2"><Fingerprint size={16} /> Government ID</h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">BVN {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}</label>
-                    <Input type="text" maxLength={11} placeholder="11 Digits" value={bvn} onChange={(e) => setBvn(e.target.value.replace(/\D/g, ""))} disabled={hasWallet} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4 disabled:opacity-50 disabled:cursor-not-allowed" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">NIN {hasWallet && <Lock size={12} className="text-red-400/80 ml-2" />}</label>
-                    <Input type="text" maxLength={11} placeholder="11 Digits" value={nin} onChange={(e) => setNin(e.target.value.replace(/\D/g, ""))} disabled={hasWallet} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4 disabled:opacity-50 disabled:cursor-not-allowed" />
-                  </div>
-                </div>
-
-                {hasWallet && (
-                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex gap-3 items-start">
-                    <ShieldCheck className="text-emerald-400 mt-0.5 shrink-0" size={18} />
-                    <p className="text-xs text-emerald-100/60 leading-relaxed">Your identity is verified and your settlement wallet is active. To protect your account from fraud, KYC details are locked. <a href="mailto:hello@wdc.ng" className="text-emerald-400 font-bold hover:underline">Contact Support</a> for corrections.</p>
-                  </div>
-                )}
+            <div className="space-y-10 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              
+              {/* BILLING WIDGET */}
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                       <CreditCard size={16} /> Billing Status
+                    </h3>
+                 </div>
+                 <SubscriptionCard />
               </div>
 
               <div className="h-px w-full bg-white/5"></div>
 
+              {/* 🔥 CONDITIONAL RENDERING FOR KYC SECTION */}
+              {!hasWallet && (
+                <>
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2"><Fingerprint size={16} /> Government ID</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">NIN (Required)</label>
+                        <Input type="text" maxLength={11} placeholder="11 Digits" value={nin} onChange={(e) => setNin(e.target.value.replace(/\D/g, ""))} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-white/40 uppercase font-black tracking-widest flex items-center mb-2">BVN (Required)</label>
+                        <Input type="text" maxLength={11} placeholder="11 Digits" value={bvn} onChange={(e) => setBvn(e.target.value.replace(/\D/g, ""))} className="bg-white/5 border-white/10 h-14 rounded-xl font-mono text-white px-4" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-px w-full bg-white/5"></div>
+                </>
+              )}
+
+              {/* SECURITY / PIN SETUP */}
               <div className="space-y-6">
                 <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2"><Lock size={16} /> Withdrawal Security</h3>
 
                 {hasWallet ? (
-                  <div className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl">
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 bg-white/5 border border-white/10 rounded-2xl">
                     <div>
-                      <h4 className="text-sm font-bold text-white">Transaction PIN</h4>
-                      <p className="text-xs text-white/40 mt-1">Secure your withdrawals and transfers.</p>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-white">Wallet & KYC Verified</h4>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <p className="text-xs text-white/40 mt-1 max-w-sm">Your identity is secured. Transaction PIN is active for withdrawals.</p>
                     </div>
-                    <Button onClick={() => setIsPinModalOpen(true)} variant="outline" className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300">{hasPin ? "Change PIN" : "Setup PIN"}</Button>
+                    <Button onClick={() => setIsPinModalOpen(true)} variant="outline" className="w-full md:w-auto bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300">Change PIN</Button>
                   </div>
                 ) : (
                   <>
@@ -526,7 +509,7 @@ export default function ProfileSetup() {
                     </div>
 
                     <div className="pt-6">
-                      <Button onClick={handleProvisionWallet} disabled={isGeneratingWallet} className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-widest uppercase rounded-xl shadow-xl transition-all">
+                      <Button onClick={handleProvisionWallet} disabled={isGeneratingWallet} className="w-full md:w-auto h-12 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-widest uppercase rounded-xl shadow-xl transition-all">
                         {isGeneratingWallet ? <Loader2 className="w-5 h-5 animate-spin" /> : "PROVISION SETTLEMENT WALLET"}
                       </Button>
                     </div>
@@ -558,5 +541,18 @@ export default function ProfileSetup() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ProfileSetup() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#020817] flex flex-col items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
+        <p className="text-xs font-black tracking-widest text-white/40 uppercase">Loading Environment...</p>
+      </div>
+    }>
+      <ProfileSetupContent />
+    </Suspense>
   );
 }

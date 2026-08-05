@@ -1,37 +1,42 @@
-import { CheckCircle } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/app/components/ui/dialog";
+import { Button } from "@/app/components/ui/button";
+import { Clock } from "lucide-react"; // 🔥 Changed to Clock to show pending status
 
 interface WithdrawSuccessModalProps {
   open: boolean;
   onClose: () => void;
-  amount: string;
+  amount: string | number;
 }
 
 export function WithdrawSuccessModal({ open, onClose, amount }: WithdrawSuccessModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border max-w-sm">
-        <DialogHeader>
-          <div className="flex items-center justify-center">
-            <DialogTitle className="flex items-center gap-2">
-              Withdrawal
-            </DialogTitle>
-          </div>
-        </DialogHeader>
-        <div className="flex flex-col items-center py-6">
-          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
-            <CheckCircle className="w-10 h-10 text-green-500" />
-          </div>
-          <h3 className="text-xl font-semibold text-foreground mb-2">Withdrawal Successful</h3>
-          <p className="text-muted-foreground text-center text-sm">
-            Your withdrawal of ₦{parseInt(amount || "0").toLocaleString()} has been processed.
-          </p>
+      <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8 text-center">
+        
+        <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center border-4 border-amber-500/20">
+          <Clock className="w-10 h-10 text-amber-500" />
         </div>
+        
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black text-center text-white tracking-tight mb-2">
+            Request Submitted
+          </DialogTitle>
+          <DialogDescription className="text-center text-white/50 text-base leading-relaxed">
+            Your withdrawal request for <strong className="text-white">₦{Number(amount).toLocaleString()}</strong> has been successfully sent to the finance team for review.
+            <br /><br />
+            You will receive an email notification once the funds have been approved and transferred to your bank account.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="mt-8">
+          <Button 
+            onClick={onClose} 
+            className="w-full h-14 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
+          >
+            Return to Ledger
+          </Button>
+        </div>
+
       </DialogContent>
     </Dialog>
   );

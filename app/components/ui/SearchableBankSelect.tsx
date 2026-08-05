@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Search, ChevronDown, Check } from "lucide-react";
 
 interface SearchableBankSelectProps {
-  banks: { institutionCode: string; institutionName: string }[];
+  banks: any[]; // Changed to any[] to support both Paystack and Squad data structures
   selectedBank: string;
   onSelect: (bankName: string) => void;
 }
@@ -24,9 +24,10 @@ export function SearchableBankSelect({ banks, selectedBank, onSelect }: Searchab
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredBanks = banks.filter((bank) =>
-    bank.institutionName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBanks = banks.filter((bank) => {
+    const bankName = bank.name || bank.institutionName || "";
+    return bankName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
@@ -63,23 +64,33 @@ export function SearchableBankSelect({ banks, selectedBank, onSelect }: Searchab
             {filteredBanks.length === 0 ? (
               <div className="p-4 text-center text-sm text-white/40">No banks found.</div>
             ) : (
-              filteredBanks.map((bank) => (
-                <button
-                  key={bank.institutionCode}
-                  type="button"
-                  onClick={() => {
-                    onSelect(bank.institutionName);
-                    setIsOpen(false);
-                    setSearchTerm("");
-                  }}
-                  className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center justify-between hover:bg-white/5 ${
-                    selectedBank === bank.institutionName ? "bg-emerald-500/10 text-emerald-400" : "text-white/80"
-                  }`}
-                >
-                  {bank.institutionName}
-                  {selectedBank === bank.institutionName && <Check size={16} />}
-                </button>
-              ))
+              // 🔥 REMOVED THE EXTRA CURLY BRACES HERE
+              filteredBanks.map((bank, index) => {
+                // Support both Paystack (.name/.code) and the old structure
+                const bankName = bank.name || bank.institutionName;
+                const bankCode = bank.code || bank.institutionCode;
+                const uniqueKey = `${bankCode}-${bank.id || index}`;
+
+                return (
+                  <button
+                    key={uniqueKey}
+                    type="button"
+                    onClick={() => {
+                      onSelect(bankName);
+                      setIsOpen(false);
+                      setSearchTerm(""); // 🔥 FIXED: Changed from setSearch to setSearchTerm
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-center justify-between group border-b border-white/5 last:border-0"
+                  >
+                    <span className="font-medium text-white/80 group-hover:text-white">
+                      {bankName}
+                    </span>
+                    <span className="text-xs text-white/30 font-mono">
+                      {bankCode}
+                    </span>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

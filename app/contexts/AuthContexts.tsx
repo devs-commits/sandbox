@@ -36,7 +36,7 @@ interface SignupData {
   track?: string;
   experienceLevel?: string;
   referralLink?: string;
-  squadSlug?: string; // 🔥 ADDED: Included for the squad auto-join engine
+  squadSlug?: string; 
   subscriptionPlan?: string; 
 }
 
@@ -214,10 +214,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // ==========================================
+  // 🔥 UPDATED LOGOUT FUNCTION
+  // ==========================================
   const logout = async () => {
+    // 1. Wipe the browser's session memory so the CV prompt resets for the next login
+    if (typeof window !== "undefined") {
+      sessionStorage.clear();
+      localStorage.removeItem("supabase.auth.token"); // Failsafe
+    }
+
+    // 2. Hit the new logout route to clear server cookies
     await fetch('/api/auth/logout', { method: 'POST' });
+    
+    // 3. Clear Supabase local state
     await supabase.auth.signOut();
     setUser(null);
+
+    // 4. Force a hard redirect to login so the app state mounts fresh next time
+    if (typeof window !== "undefined") {
+      window.location.href = '/login';
+    }
   };
 
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {

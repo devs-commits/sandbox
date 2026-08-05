@@ -1,13 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link"; 
 import { StudentHeader } from "../../components/students/StudentHeader";
 import { Button } from "../../components/ui/button";
 import { 
   Eye, EyeOff, ArrowDownLeft, ArrowUpRight, 
-  Loader2, Copy, RotateCw, ExternalLink,
-  ArrowUpCircle, ArrowDownCircle, Clock, Landmark 
+  Loader2, Copy, RotateCw, CheckCircle2,
+  ArrowUpCircle, ArrowDownCircle, Clock, Landmark, ShieldCheck, XCircle, FileText, Info,
+  Heart
 } from "lucide-react";
 import { toast } from "sonner"; 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../components/ui/dialog";
@@ -16,6 +16,7 @@ import { useAuth } from "@/app/contexts/AuthContexts";
 
 import { WithdrawModal } from "../../components/students/earn/WithdrawalModal";
 import { WithdrawSuccessModal } from "../../components/students/earn/WithdrawSuccessModal";
+import { ShareWalletModal } from "@/app/components/students/wallet/ShareWalletModal";
 
 const getBankName = (codeOrName: string) => {
   const bankMap: Record<string, string> = {
@@ -32,10 +33,11 @@ export default function GlobalWallet() {
   
   const [isLoadingWallet, setIsLoadingWallet] = useState(true); 
   const [walletData, setWalletData] = useState({
-    bankName: "Parallex Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
+    bankName: "Wema Bank", accountNumber: "****", accountName: "User", walletReady: false, userPin: ""
   });
   
   const [liveBalance, setLiveBalance] = useState<number>(0);
+  const [userTrack, setUserTrack] = useState<string>("Tech"); 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showSensitive, setShowSensitive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -46,10 +48,35 @@ export default function GlobalWallet() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  const [activeModal, setActiveModal] = useState<"none" | "withdraw" | "success" | "fund">("none");
+  // Modals & Selected Transaction
+  const [activeModal, setActiveModal] = useState<"none" | "withdraw" | "success" | "fund" | "detail" | "share">("none");
+  const [selectedTx, setSelectedTx] = useState<any | null>(null);
+
   const [wBank, setWBank] = useState("");
   const [wAcc, setWAcc] = useState("");
   const [wAmt, setWAmt] = useState("");
+
+  useEffect(() => {
+    async function getTrack() {
+      if (!user?.id) return;
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('track')
+          .eq('auth_id', user.id)
+          .single();
+          
+        if (data?.track) {
+          setUserTrack(data.track);
+        } else if (user?.track) {
+          setUserTrack(user.track);
+        }
+      } catch (err) {
+        console.error("Error fetching track:", err);
+      }
+    }
+    getTrack();
+  }, [user?.id, user?.track]);
 
   const fetchTransactionHistory = useCallback(async (pageToLoad = 1) => {
     if (!currentUserId) return;
@@ -58,19 +85,18 @@ export default function GlobalWallet() {
     else setIsLoadingMore(true);
 
     try {
-      // 🔥 Fetch ledger directly linked to the user
       const res = await fetch("/api/wallet/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: currentUserId, page: pageToLoad, limit: 15 }) 
       });
       const data = await res.json();
-      
+
       if (data.success) {
         if (pageToLoad === 1) {
-            setTransactions(data.transactions || []);
+          setTransactions(data.transactions || []);
         } else {
-            setTransactions(prev => [...prev, ...(data.transactions || [])]);
+          setTransactions(prev => [...prev, ...(data.transactions || [])]);
         }
         setHasMore(data.pagination?.hasNext || false);
         setCurrentPage(pageToLoad);
@@ -86,45 +112,36 @@ export default function GlobalWallet() {
   const fetchWalletData = useCallback(async () => {
     if (!currentUserId) return null;
     
-    // 1. Fetch PIN and Details from wallets table first to get the Account Number
-    const { data: wallet } = await supabase.from('wallets').select("*").eq('user_id', currentUserId).maybeSingle();
-    
-    if (wallet && wallet.account_number && wallet.account_number !== "****") {
-      
-      // 2. 🔥 FETCH LIVE BALANCE FROM PROVIDER
-      try {
-        const res = await fetch(`/api/wallet/balance?accountNumber=${wallet.account_number}`);
-        const balData = await res.json();
-        
-        if (balData.success) {
-          setLiveBalance(balData.balance); // This sets the live balance!
-        } else {
-          throw new Error("Live fetch returned false");
-        }
-      } catch (err) {
-        console.error("Live balance fetch error, falling back to local DB:", err);
-        // Fallback to local DB if the live provider is temporarily down
-        const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).single();
+    try {
+      const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).maybeSingle();
+
+      const res = await fetch("/api/wallet/details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUserId })
+      });
+      const data = await res.json();
+
+      if (data.success && data.walletReady) {
+        const wallet = data.walletData;
+        setLiveBalance(wallet.balance || 0);
+        setWalletData({
+          bankName: getBankName(wallet.bank_name || "Wema Bank"),
+          accountNumber: wallet.account_number,
+          accountName: wallet.account_name || user?.fullName || "User",
+          walletReady: true,
+          userPin: wallet.transaction_pin || ""
+        });
+      } else {
+        setWalletData(prev => ({ ...prev, walletReady: false }));
         if (userData) setLiveBalance(userData.wallet_balance || 0);
       }
-
-      setWalletData({
-        bankName: getBankName(wallet.bank_name || "Parallex Bank"),
-        accountNumber: wallet.account_number,
-        accountName: wallet.account_name || user?.fullName || "User",
-        walletReady: true,
-        userPin: wallet.transaction_pin || ""
-      });
-    } else {
-      // Wallet not ready/provisioned yet
+    } catch (error) {
+      console.error("Failed to fetch wallet details:", error);
       setWalletData(prev => ({ ...prev, walletReady: false }));
-      
-      // Also fallback to DB balance just in case they have earnings but haven't provisioned
-      const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).maybeSingle();
-      if (userData) setLiveBalance(userData.wallet_balance || 0);
+    } finally {
+      setIsLoadingWallet(false);
     }
-    
-    setIsLoadingWallet(false);
   }, [currentUserId, user?.fullName]);
 
   useEffect(() => {
@@ -161,10 +178,18 @@ export default function GlobalWallet() {
     setActiveModal("success");
   };
 
-  const copyAccountNumber = () => {
-    navigator.clipboard.writeText(walletData.accountNumber);
+  const copyAccountNumber = (num: string) => {
+    navigator.clipboard.writeText(num);
     toast.success("Copied to clipboard", { icon: <Copy size={14} className="text-emerald-500"/> });
   };
+
+  const openTxDetail = (tx: any) => {
+    setSelectedTx(tx);
+    setActiveModal("detail");
+  };
+
+  // 🔥 HELPER: To quickly determine if the selected transaction in the modal was rejected
+  const isSelectedTxRejected = selectedTx?.status === 'FAILED' || selectedTx?.status === 'REJECTED';
 
   return (
     <>
@@ -200,25 +225,35 @@ export default function GlobalWallet() {
                           </div>
                       </div>
                       
-                      <div className="flex gap-4 mb-2">
-                          <Button variant="outline" className="h-14 px-8 bg-white/5 border-white/10 text-white font-bold rounded-2xl hover:bg-white/10" onClick={() => setActiveModal("withdraw")}>
-                              <ArrowDownLeft size={20} className="mr-2 text-red-400" /> Withdraw
-                          </Button>
-                          <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl" onClick={() => setActiveModal("fund")}>
-                              Fund Account <ArrowUpRight size={20} className="ml-2" />
-                          </Button>
+                      <div className="flex flex-col gap-3 w-full lg:w-auto">
+                          <div className="flex gap-4">
+                              <Button variant="outline" className="h-14 px-8 bg-white/5 border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 flex-1" onClick={() => setActiveModal("withdraw")}>
+                                  <ArrowDownLeft size={20} className="mr-2 text-red-400" /> Withdraw
+                              </Button>
+                              <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl flex-1" onClick={() => setActiveModal("fund")}>
+                                  Fund Account <ArrowUpRight size={20} className="ml-2" />
+                              </Button>
+                          </div>
+                          
+                          {/* SHARE WALLET BUTTON */}
+                          <button 
+                            onClick={() => setActiveModal("share")}
+                            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 text-emerald-400 h-12 rounded-xl font-bold hover:bg-emerald-500/20 transition-all text-sm shadow-lg shadow-emerald-500/5"
+                          >
+                            <Heart size={16} fill="currentColor" className="text-emerald-500" /> Get Funded by Family & Friends
+                          </button>
                       </div>
                   </div>
               </div>
 
-              {/* RESTORED BANK DETAILS BLOCK */}
+              {/* BANK DETAILS BLOCK */}
               <div className="px-8 lg:px-12 py-10 bg-black/20 border-y border-white/5 grid grid-cols-1 md:grid-cols-3 gap-10">
                   <div className="space-y-2"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Receiving Institution</p><p className="text-white font-bold tracking-tight">{walletData.bankName}</p></div>
                   <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10">
                       <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Settlement Account</p>
                       <div className="flex items-center gap-3">
                           <p className="text-white font-mono text-xl font-bold tracking-widest">{walletData.accountNumber}</p>
-                          <button onClick={copyAccountNumber} className="text-emerald-500 hover:text-emerald-400"><Copy size={16} /></button>
+                          <button onClick={() => copyAccountNumber(walletData.accountNumber)} className="text-emerald-500 hover:text-emerald-400"><Copy size={16} /></button>
                       </div>
                   </div>
                   <div className="space-y-2 border-l border-white/5 pl-0 md:pl-10"><p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Account Designee</p><p className="text-white font-bold">{walletData.accountName}</p></div>
@@ -227,7 +262,11 @@ export default function GlobalWallet() {
 
             {/* TRANSACTION HISTORY */}
             <section className="space-y-6">
-                <h3 className="text-xl font-bold text-white tracking-tight">Ledger History</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-white tracking-tight">Ledger History</h3>
+                  <span className="text-xs text-white/30">Click any transaction for full receipt</span>
+                </div>
+
                 <div className="bg-[#0f172a] rounded-3xl border border-white/5 overflow-hidden">
                     {isLoadingHistory ? (
                        <div className="p-20 flex flex-col items-center justify-center gap-4 text-white/20"><Loader2 className="animate-spin" /><p className="text-xs font-bold uppercase tracking-widest">Syncing Ledger...</p></div>
@@ -239,38 +278,63 @@ export default function GlobalWallet() {
                               const isLocalInflow = tx.transactionType ? tx.transactionType.toLowerCase() === 'credit' : tx.transaction_type === 'INFLOW';
                               const amount = Number(tx.amount || 0);
                               const fee = Number(tx.fee || 0);
-                              const totalAmount = Number(tx.totalAmount || tx.amount || 0);
+                              const totalAmount = Number(tx.total_amount || tx.totalAmount || tx.amount || 0);
                               
                               const rawDate = tx.createdAt || tx.created_at;
                               const date = rawDate ? new Date(rawDate).toLocaleDateString() : 'Pending';
                               
                               const ref = tx.referenceTransactionId || tx.transactionId || tx.reference || 'N/A';
-                              const status = (tx.status || 'COMPLETED').toUpperCase();
-                              const sourceName = tx.description || tx.fundingMethod || tx.source || 'Squad Referral Bonus';
+                              
+                              const sourceName = tx.source || tx.description || tx.fundingMethod || tx.funding_method || 'Wallet Transaction';
+
+                              // STATUS OVERRIDE LOGIC
+                              const rawStatus = (tx.status || 'COMPLETED').toUpperCase();
+                              let status = rawStatus === 'FAILED' ? 'REJECTED' : rawStatus;
+                              
+                              const isRefund = sourceName === 'Withdrawal Refund' || 
+                                               tx.funding_method === 'SYSTEM_REFUND' || 
+                                               tx.receiver_info?.account_name === 'Withdrawal Refund';
+
+                              let displayTitle = sourceName;
+                              
+                              if (isRefund) {
+                                  status = 'REFUNDED';
+                                  displayTitle = 'Withdrawal Refund';
+                              }
 
                               return (
-                                  <div key={tx._id || tx.id || idx} className="p-5 flex items-start justify-between hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-colors">
+                                  <div 
+                                    key={tx._id || tx.id || idx} 
+                                    onClick={() => openTxDetail(tx)}
+                                    className="p-5 flex items-start justify-between hover:bg-white/[0.04] border-b border-white/5 last:border-0 transition-all cursor-pointer group"
+                                  >
                                       <div className="flex items-start gap-4">
-                                          <div className={`mt-1 w-10 h-10 rounded-full flex shrink-0 items-center justify-center ${
-                                            status === 'FAILED' ? 'bg-zinc-500/10 text-zinc-500' :
+                                          <div className={`mt-1 w-10 h-10 rounded-full flex shrink-0 items-center justify-center transition-transform group-hover:scale-110 ${
+                                            status === 'REJECTED' ? 'bg-zinc-500/10 text-zinc-500' :
+                                            status === 'REFUNDED' ? 'bg-blue-500/10 text-blue-400' : 
                                             isLocalInflow ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-400'
                                           }`}>
                                               {isLocalInflow ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                                           </div>
                                           <div>
-                                              <p className={`text-sm font-bold ${status === 'FAILED' ? 'text-white/40 line-through' : 'text-white'}`}>
-                                                  {sourceName}
+                                              <p className={`text-sm font-bold group-hover:text-emerald-400 transition-colors ${status === 'REJECTED' ? 'text-white/40 line-through' : 'text-white'}`}>
+                                                  {displayTitle}
                                               </p>
                                               <p className="text-[10px] text-white/40 font-medium uppercase mt-1">
-                                                {date} • <span className={status === 'FAILED' ? 'text-red-400' : status === 'PENDING' ? 'text-amber-400' : 'text-emerald-400'}>{status}</span>
+                                                {date} • <span className={
+                                                    status === 'REJECTED' ? 'text-red-400' : 
+                                                    status === 'PENDING' ? 'text-amber-400' : 
+                                                    status === 'REFUNDED' ? 'text-blue-400' : 
+                                                    'text-emerald-400'
+                                                }>{status}</span>
                                               </p>
                                           </div>
                                       </div>
                                       <div className="text-right">
-                                          <p className={`text-lg font-bold ${status === 'FAILED' ? 'text-white/20' : isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
+                                          <p className={`text-lg font-bold ${status === 'REJECTED' ? 'text-white/20' : status === 'REFUNDED' ? 'text-blue-400' : isLocalInflow ? 'text-emerald-400' : 'text-white'}`}>
                                               {isLocalInflow ? '+' : '-'} ₦{amount.toLocaleString()}
                                           </p>
-                                          {!isLocalInflow && fee > 0 && status !== 'FAILED' && (
+                                          {!isLocalInflow && fee > 0 && status !== 'REJECTED' && (
                                              <p className="text-[10px] text-white/40 font-medium mt-1">
                                                 Fee: ₦{fee} <span className="mx-1">•</span> Total: ₦{totalAmount.toLocaleString()}
                                              </p>
@@ -301,13 +365,13 @@ export default function GlobalWallet() {
             </section>
 
             <div className="flex justify-center pt-10 pb-20">
-                <a href="https://www.supplysmart.co/" target="_blank" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-emerald-500 transition-all">
-                    Wallet system powered by <span className="text-white/60">Supply Smart</span> <ExternalLink size={10} />
-                </a>
+                <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/[0.02] border border-white/5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
+                    Wallet infrastructure secured by <span className="text-white/60">Paystack</span> <ShieldCheck size={12} className="text-emerald-500/70" />
+                </div>
             </div>
           </>
         ) : (
-          /* RESTORED SETUP WALLET GATE */
+          /* SETUP WALLET GATE */
           <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
              <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
@@ -315,16 +379,159 @@ export default function GlobalWallet() {
              <p className="text-white/50 text-center mb-10 max-w-md text-sm leading-relaxed relative z-10">
                Before you can track your earnings, make deposits, or withdraw funds, you need to configure your banking profile and create your secure wallet.
              </p>
-             <Link href="/student/profile" className="relative z-10">
-               <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
-                 CONFIGURE WALLET
-               </Button>
+             <Link href="/student/profile?tab=security" className="relative z-10">
+              <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
+                CONFIGURE WALLET
+              </Button>
              </Link>
           </div>
         )}
       </main>
 
-      {/* RESTORED FUNDING MODAL */}
+      {/* DETAILED RECEIPT MODAL */}
+      <Dialog open={activeModal === "detail"} onOpenChange={(v) => !v && setActiveModal("none")}>
+        <DialogContent className="sm:max-w-lg bg-[#0f172a] border-white/10 text-white rounded-3xl p-8 max-h-[90vh] overflow-y-auto">
+          <DialogTitle className="sr-only">Transaction Details</DialogTitle>
+          <DialogDescription className="sr-only">Detailed view of your transaction receipt</DialogDescription>
+          {selectedTx && (
+            <>
+              <DialogHeader className="text-center pb-4 border-b border-white/10">
+                <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                  <FileText className="text-emerald-500" size={24} />
+                </div>
+                <DialogTitle className="text-xl font-bold text-center">Transaction Receipt</DialogTitle>
+                <DialogDescription className="text-xs text-white/40 text-center font-mono">
+                  Ref: {selectedTx.reference || selectedTx.referenceTransactionId || 'N/A'}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 pt-4">
+                {/* 🔥 FRONTEND POLISH: Strikethrough math and Refund badge applied dynamically */}
+                <div className="text-center bg-black/30 p-6 rounded-2xl border border-white/5 relative overflow-hidden">
+                  {isSelectedTxRejected && <div className="absolute inset-0 bg-red-500/5 pointer-events-none" />}
+                  
+                  <p className="text-xs text-white/40 uppercase font-black tracking-widest mb-1">
+                    {selectedTx.transaction_type === 'INFLOW' || selectedTx.transactionType?.toLowerCase() === 'credit' ? 'Amount Received' : 'Amount Transferred'}
+                  </p>
+                  
+                  <div className="flex items-center justify-center gap-3">
+                    <p className={`text-4xl font-bold tracking-tight ${isSelectedTxRejected ? 'text-white/30 line-through' : 'text-white'}`}>
+                      ₦{Number(selectedTx.amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+
+                  {Number(selectedTx.fee || 0) > 0 && (
+                     <div className="mt-3 pt-3 border-t border-white/5 flex justify-between text-xs text-white/40">
+                       <span className={isSelectedTxRejected ? 'line-through opacity-50' : ''}>Platform Fee: ₦{Number(selectedTx.fee).toLocaleString()}</span>
+                       <span className={`font-bold ${isSelectedTxRejected ? 'text-white/30 line-through' : 'text-white/80'}`}>Total Charged: ₦{Number(selectedTx.total_amount || selectedTx.totalAmount || selectedTx.amount).toLocaleString()}</span>
+                     </div>
+                  )}
+                </div>
+
+                {/* METADATA GRID */}
+                <div className="space-y-3 bg-white/5 p-5 rounded-2xl border border-white/5 text-sm">
+                  
+                  {/* Status */}
+                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                    <span className="text-white/40 text-xs">Status</span>
+                    <span className={`font-bold text-xs px-2.5 py-1 rounded-md uppercase tracking-wider ${
+                      isSelectedTxRejected ? 'bg-red-500/10 text-red-400' :
+                      selectedTx.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-emerald-500/10 text-emerald-400'
+                    }`}>
+                      {isSelectedTxRejected ? 'REJECTED' : selectedTx.status || 'SUCCESS'}
+                    </span>
+                  </div>
+
+                  {/* Date & Time */}
+                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                    <span className="text-white/40 text-xs">Date & Timestamp</span>
+                    <span className="font-medium text-xs text-white">
+                      {new Date(selectedTx.created_at || selectedTx.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Funding Method / Source */}
+                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                    <span className="text-white/40 text-xs">Channel / Method</span>
+                    <span className="font-medium text-xs text-white">
+                      {selectedTx.funding_method || selectedTx.fundingMethod || 'Bank Transfer'}
+                    </span>
+                  </div>
+
+                  {/* 🔥 FRONTEND POLISH: Dim and strike through the old confusing balance impact */}
+                  {(selectedTx.balance_before !== undefined || selectedTx.balance_after !== undefined) && (
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <span className="text-white/40 text-xs">Wallet Balance Impact</span>
+                      
+                      <div className="flex items-center gap-2">
+                        {isSelectedTxRejected && (
+                          <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            REFUNDED
+                          </span>
+                        )}
+                        <span className={`font-mono text-xs ${isSelectedTxRejected ? 'text-white/30 line-through' : 'text-white/70'}`}>
+                          ₦{Number(selectedTx.balance_before || 0).toLocaleString()} → <strong className={isSelectedTxRejected ? 'text-white/30' : 'text-emerald-400'}>₦{Number(selectedTx.balance_after || 0).toLocaleString()}</strong>
+                        </span>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* Provider Reference */}
+                  {selectedTx.provider_tx_id && (
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <span className="text-white/40 text-xs">Provider Ref</span>
+                      <span className="font-mono text-xs text-emerald-400">
+                        {selectedTx.provider_tx_id}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Rejection Reason (If Failed) */}
+                  {selectedTx.rejection_reason && (
+                    <div className="pt-2 text-left">
+                      <span className="text-red-400 text-xs font-bold block mb-1">Rejection Reason</span>
+                      <p className="text-xs text-white/70 bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                        {selectedTx.rejection_reason}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* DESTINATION / BENEFICIARY BANK DETAILS */}
+                {selectedTx.receiver_info && (
+                  <div className="p-4 bg-black/40 rounded-2xl border border-white/5 space-y-2">
+                    <p className="text-[10px] text-white/30 uppercase font-black tracking-widest">Bank Details</p>
+                    <p className="text-sm font-bold text-white">{selectedTx.receiver_info.account_name || 'N/A'}</p>
+                    <p className="text-xs text-white/60 font-mono">
+                      {selectedTx.receiver_info.bank_name || 'Bank'} • <span className="text-emerald-400">{selectedTx.receiver_info.account_number}</span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Narration / Description */}
+                {selectedTx.description && (
+                  <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
+                    <p className="text-[10px] text-white/30 uppercase font-black tracking-widest mb-1">Narration</p>
+                    <p className="text-xs text-white/80">{selectedTx.description}</p>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={() => copyAccountNumber(selectedTx.reference || selectedTx.id)} 
+                  variant="outline"
+                  className="w-full h-12 border-white/10 text-white/70 hover:bg-white/5 rounded-xl font-bold text-xs"
+                >
+                  <Copy size={14} className="mr-2" /> Copy Reference Code
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* FUNDING MODAL */}
       <Dialog open={activeModal === "fund"} onOpenChange={(v) => !v && setActiveModal("none")}>
         <DialogContent className="sm:max-w-md bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
           <DialogHeader>
@@ -343,7 +550,7 @@ export default function GlobalWallet() {
                   <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-1">Account Number</p>
                   <div className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/5">
                     <p className="text-2xl font-mono text-emerald-400 tracking-widest">{walletData.accountNumber}</p>
-                    <button onClick={copyAccountNumber} className="text-white/40 hover:text-white bg-white/5 p-2 rounded-md transition-colors">
+                    <button onClick={() => copyAccountNumber(walletData.accountNumber)} className="text-white/40 hover:text-white bg-white/5 p-2 rounded-md transition-colors">
                       <Copy size={20} />
                     </button>
                   </div>
@@ -364,9 +571,17 @@ export default function GlobalWallet() {
         </DialogContent>
       </Dialog>
 
-      {/* WITHDRAWAL MODALS */}
       <WithdrawModal open={activeModal === "withdraw"} onClose={() => setActiveModal("none")} totalEarnings={liveBalance} userName={walletData.accountName} userPin={walletData.userPin} userId={currentUserId} bankName={wBank} setBankName={setWBank} accountNumber={wAcc} setAccountNumber={setWAcc} amount={wAmt} setAmount={setWAmt} onWithdraw={onWithdrawSuccess} />
       <WithdrawSuccessModal open={activeModal === "success"} onClose={() => setActiveModal("none")} amount={wAmt} />
+      
+      <ShareWalletModal 
+        open={activeModal === "share"} 
+        onClose={() => setActiveModal("none")}
+        accountName={walletData.accountName}
+        accountNumber={walletData.accountNumber}
+        bankName={walletData.bankName}
+        track={userTrack}
+      />
     </>
   );
 }

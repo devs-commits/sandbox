@@ -92,8 +92,6 @@ export async function sendDepositEmail(email: string, name: string, amount: numb
 // 🔴 OUTFLOW (Withdrawal Alert)
 export async function sendWithdrawalEmail(email: string, name: string, amount: number, newBalance: number, bankName: string, accountName: string, accountNo: string, txId: string) {
   const subject = `Transfer Successful 💸 ₦${amount.toLocaleString()}`;
-  const dateStr = new Date().toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
-  const maskedAccount = "******" + accountNo.slice(-4);
   const htmlBody = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
       <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;"><img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" /></div>
@@ -471,4 +469,96 @@ export async function sendReferralSuccessEmail(email: string, name: string, refe
     </div>
   `;
   await sendZeptoMail(email, name, subject, htmlBody);
+}
+
+// ============================================================================
+// 🏦 WITHDRAWAL APPROVAL ENGINE (ADMIN & USER ALERTS)
+// ============================================================================
+
+// 🟢 USER ALERT: WITHDRAWAL APPROVED
+export async function sendWithdrawalApprovedEmail(email: string, name: string, amount: number) {
+  const subject = `Withdrawal Approved! 💸 ₦${amount.toLocaleString()}`;
+  const firstName = name.split(' ')[0];
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #10b981; font-size: 20px; margin-top: 0;">Withdrawal Approved</h2>
+        <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
+        <p style="font-size: 15px; color: #475569;">Your withdrawal request for <strong>₦${amount.toLocaleString()}</strong> has been approved by the finance team. The funds are currently being routed to your destination bank account.</p>
+        
+        <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 15px 20px; margin: 25px 0;">
+          <p style="margin: 0; font-size: 14px; color: #475569;">Depending on your bank, it may take a few minutes for the funds to reflect in your account.</p>
+        </div>
+
+        <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">View Ledger History</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">© ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(email, name, subject, htmlBody);
+}
+
+// 🔴 USER ALERT: WITHDRAWAL REJECTED
+export async function sendWithdrawalRejectedEmail(email: string, name: string, amount: number, reason: string) {
+  const subject = `Withdrawal Update: Request Rejected 🛑`;
+  const firstName = name.split(' ')[0];
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #ef4444; font-size: 20px; margin-top: 0;">Withdrawal Rejected</h2>
+        <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
+        <p style="font-size: 15px; color: #475569;">Your withdrawal request for <strong>₦${amount.toLocaleString()}</strong> could not be processed.</p>
+        
+        <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px 20px; margin: 25px 0;">
+          <p style="margin: 0 0 5px 0; font-weight: 600; color: #7f1d1d; font-size: 14px;">Reason for rejection:</p>
+          <p style="margin: 0; font-size: 14px; color: #991b1b;">${reason}</p>
+        </div>
+
+        <p style="font-size: 15px; color: #475569;">Don't worry! Your funds have been completely restored to your WDC Wallet. Please review the reason above and initiate a new request when you are ready.</p>
+
+        <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Review Wallet</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">© ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(email, name, subject, htmlBody);
+}
+
+// 🛡️ ADMIN ALERT: VAULT AUDIT LOG
+export async function sendAdminWithdrawalAlert(adminEmail: string, studentName: string, amount: number, status: 'APPROVED' | 'REJECTED') {
+  const subject = `Vault Audit: ₦${amount.toLocaleString()} Withdrawal ${status}`;
+  const statusColor = status === 'APPROVED' ? '#10b981' : '#ef4444';
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Vault Audit Log</h2>
+        <p style="font-size: 15px; color: #475569;">A withdrawal action was just recorded in the system.</p>
+        
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0;">
+           <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 8px 0; color: #64748b;">Student:</td><td style="padding: 8px 0; font-weight: 600; text-align: right;">${studentName}</td></tr>
+            <tr><td style="padding: 8px 0; color: #64748b;">Amount:</td><td style="padding: 8px 0; font-weight: 600; text-align: right;">₦${amount.toLocaleString()}</td></tr>
+            <tr><td style="padding: 8px 0; color: #64748b;">Status:</td><td style="padding: 8px 0; font-weight: 900; text-align: right; color: ${statusColor};">${status}</td></tr>
+          </table>
+        </div>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">Automated Admin Alert • © ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+  await sendZeptoMail(adminEmail, "WDC Admin", subject, htmlBody);
 }
