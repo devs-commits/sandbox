@@ -12,9 +12,12 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { userId, nin, firstName, lastName, phone, email } = body;
+    
+    // 🔥 FIX 1: Extracted bvn instead of nin, and ensured phone and email are grabbed
+    const { userId, bvn, firstName, lastName, phone, email } = body;
 
-    if (!userId || !nin || !firstName || !lastName) {
+    // 🔥 FIX 2: Strict check for bvn (nin is completely gone)
+    if (!userId || !bvn || !firstName || !lastName || !phone || !email) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -52,7 +55,7 @@ export async function POST(req: Request) {
     if (!customerCode) throw new Error("Could not retrieve customer code from Paystack");
 
     // ====================================================================
-    // STEP 2: Initiate Identity Validation (Sandbox Bypass)
+    // STEP 2: Initiate Identity Validation (LIVE READY)
     // ====================================================================
     const validationRes = await fetch(`https://api.paystack.co/customer/${customerCode}/identification`, {
       method: "POST",
@@ -62,10 +65,8 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         country: "NG",
-        type: "bank_account", 
-        account_number: "0123456789", 
-        bvn: "20012345677",           
-        bank_code: "058",             
+        type: "bvn",    // 🔥 FIX 3: Changed from 'bank_account' to 'bvn'
+        value: bvn,     // 🔥 FIX 4: Dynamically pass the user's actual BVN instead of hardcoded sandbox numbers
         first_name: firstName,
         last_name: lastName,
       }),
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
           },
           body: JSON.stringify({
             customer: customerCode,
-            preferred_bank: "test-bank"
+            // 🔥 Removed preferred_bank: "test-bank" to allow Paystack to assign a Live Wema/Titan account
           }),
         });
 
@@ -121,7 +122,6 @@ export async function POST(req: Request) {
       .eq('user_id', userId)
       .maybeSingle();
 
-    // 🔥 Removed kyc_status and paystack_customer_code to perfectly match your schema
     const walletPayload = {
       account_number: virtualAccount.account_number,
       account_name: virtualAccount.account_name,
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
     console.error("Wallet Generation Error:", error.message);
     return NextResponse.json(
       { success: false, error: error.message || "Internal Server Error" },
-      { status: 500 }
+      { status: 400 } 
     );
   }
 }
