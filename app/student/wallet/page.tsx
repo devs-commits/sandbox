@@ -94,9 +94,9 @@ export default function GlobalWallet() {
 
       if (data.success) {
         if (pageToLoad === 1) {
-          setTransactions(data.transactions || []);
+          setTransactions(data.transactions || data.data || []);
         } else {
-          setTransactions(prev => [...prev, ...(data.transactions || [])]);
+          setTransactions(prev => [...prev, ...(data.transactions || data.data || [])]);
         }
         setHasMore(data.pagination?.hasNext || false);
         setCurrentPage(pageToLoad);
@@ -113,8 +113,6 @@ export default function GlobalWallet() {
     if (!currentUserId) return null;
     
     try {
-      // 🔥 FIX: Changed to .select("*") so Supabase doesn't throw a 400 error 
-      // if legacy columns like is_complete don't actually exist in the DB!
       const { data: userData, error: userErr } = await supabase
         .from('users')
         .select("*")
@@ -186,7 +184,6 @@ export default function GlobalWallet() {
     }
   };
 
-  // 🔥 THE NEW AUTO-HEAL SYNC FUNCTION
   const handleDatabaseSync = async () => {
     if (!user?.email || !currentUserId) return;
     setIsSyncing(true);
@@ -197,14 +194,14 @@ export default function GlobalWallet() {
         body: JSON.stringify({ 
           userId: currentUserId, 
           email: user?.email, 
-          isRefresh: true // This securely tells the backend to fetch the account from Paystack and force-save it!
+          isRefresh: true 
         }),
       });
       const data = await res.json();
       
       if (data.status === "verified" || data.success) {
         toast.success("Database synchronized securely!");
-        await fetchWalletData(); // Refresh UI instantly
+        await fetchWalletData();
       } else {
         toast.error(data.error || "Could not retrieve account from Paystack.");
       }
@@ -238,9 +235,11 @@ export default function GlobalWallet() {
 
   const isSelectedTxRejected = selectedTx?.status === 'FAILED' || selectedTx?.status === 'REJECTED';
 
-  const isPendingVerification = kycStatus === 'pending';
-  const isNewUser = kycStatus !== 'verified' && kycStatus !== 'pending';
-  const isMigratedUserMissingAccount = kycStatus === 'verified' && (!walletData.walletReady || !walletData.accountNumber);
+  // 🔥 AIRTIGHT UI STATE DETERMINATION
+  const hasActiveWallet = walletData.walletReady && Boolean(walletData.accountNumber);
+  const isPendingVerification = !hasActiveWallet && kycStatus === 'pending';
+  const isMigratedUserMissingAccount = !hasActiveWallet && kycStatus === 'verified';
+  const isNewUser = !hasActiveWallet && !isPendingVerification && !isMigratedUserMissingAccount;
 
   return (
     <>
@@ -294,7 +293,6 @@ export default function GlobalWallet() {
 
         ) : isMigratedUserMissingAccount ? (
           
-          /* 🔥 THE AUTO-HEAL SCREEN: Breaking the Deadlock */
           <div className="flex flex-col items-center justify-center py-20 px-4 border border-emerald-500/30 rounded-[2rem] bg-emerald-950/20 shadow-2xl relative overflow-hidden text-center">
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
              
@@ -322,7 +320,7 @@ export default function GlobalWallet() {
 
         ) : (
           
-          /* MAIN WALLET CARD */
+          /* MAIN WALLET CARD (ALWAYS SHOWS IF WALLET HAS AN ACCOUNT NUMBER) */
           <>
             <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
               <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
