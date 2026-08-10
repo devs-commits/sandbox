@@ -82,8 +82,8 @@ export async function POST(req: Request) {
           await supabaseAdmin.from('users').update({ 
               has_completed_onboarding: true, 
               subscription_status: 'active', 
-              subscription_plan: metaPlan, // 🔥 Save their chosen plan
-              paystack_customer_code: customerCode, // 🔥 Attach their card for future renewals
+              subscription_plan: metaPlan, 
+              paystack_customer_code: customerCode, 
               subscription_expires_at: expiryDate.toISOString(),
               last_payment_date: new Date().toISOString(), 
               renewal_status: 'pending'
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
             if (txError) console.error("🚨 Card Ledger Insert Error:", txError.message);
           } 
           else {
-            // Initial Subscription Activation (Original Onboarding)
+            // Initial Subscription Activation
             let daysToAdd = 30; 
             const trackString = String(updatedPayment.track || "").toLowerCase();
             let assignedPlan = 'MONTHLY';
@@ -193,22 +193,40 @@ export async function POST(req: Request) {
         else if (event.data.channel === 'dedicated_nuban' || event.data.authorization?.receiver_bank_account) {
           const accountNumber = event.data.authorization?.receiver_bank_account?.account_number;
           
-          if (accountNumber) {
-            const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('account_number', accountNumber).single();
+          // 🔥 ROBUST FALLBACK: Find user by Account Number OR Customer Code
+          let targetUserId = null;
+          let walletData = null;
 
+          if (accountNumber) {
+            const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('account_number', accountNumber).maybeSingle();
             if (wallet) {
-              const balanceBefore = wallet.balance || 0;
+               targetUserId = wallet.user_id;
+               walletData = wallet;
+            }
+          }
+
+          if (!targetUserId && customerCode) {
+            const { data: user } = await supabaseAdmin.from('users').select('auth_id').eq('paystack_customer_code', customerCode).maybeSingle();
+            if (user) {
+               targetUserId = user.auth_id;
+               const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('user_id', targetUserId).maybeSingle();
+               walletData = wallet;
+            }
+          }
+
+          if (targetUserId && walletData) {
+              const balanceBefore = walletData.balance || 0;
               const fundingAmount = amountPaid;
               const balanceAfter = balanceBefore + fundingAmount;
 
               const narration = event.data.authorization?.narration || 'Wallet Funding via Bank Transfer';
-              const senderName = event.data.authorization?.sender_name || '';
+              const senderName = event.data.authorization?.sender_name || event.data.authorization?.sender_bank_account?.account_name || '';
               const cleanSource = senderName ? `Bank Transfer from ${senderName}` : 'Bank Transfer Deposit';
 
-              await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('id', wallet.id);
+              await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('id', walletData.id);
 
               const { error: txError } = await supabaseAdmin.from('wallet_transactions').insert([{
-                 user_id: wallet.user_id,
+                 user_id: targetUserId,
                  reference: ref,
                  transaction_type: 'INFLOW',
                  funding_method: 'BANK_TRANSFER',
@@ -221,19 +239,18 @@ export async function POST(req: Request) {
                  source: cleanSource, 
                  description: narration, 
                  created_at: event.data.paid_at || new Date().toISOString(),
-                 receiver_info: { account_name: 'WDC Student Wallet', account_number: accountNumber }
+                 receiver_info: { account_name: walletData.account_name, account_number: walletData.account_number }
               }]);
 
               if (txError) console.error("🚨 DVA Ledger Insert Error:", txError.message);
 
-              const { data: userRecord } = await supabaseAdmin.from('users').select('wallet_balance').eq('auth_id', wallet.user_id).single();
+              const { data: userRecord } = await supabaseAdmin.from('users').select('wallet_balance').eq('auth_id', targetUserId).single();
               if (userRecord) {
-                 await supabaseAdmin.from('users').update({ wallet_balance: (userRecord.wallet_balance || 0) + fundingAmount }).eq('auth_id', wallet.user_id);
+                 await supabaseAdmin.from('users').update({ wallet_balance: (userRecord.wallet_balance || 0) + fundingAmount }).eq('auth_id', targetUserId);
               }
-              console.log(`✅ DVA Funded: ₦${fundingAmount} to ${wallet.account_name}`);
-            } else {
-              console.error(`🔴 Deposit failed: No wallet found with account number ${accountNumber}`);
-            }
+              console.log(`✅ DVA Funded: ₦${fundingAmount} to ${walletData.account_name}`);
+          } else {
+              console.error(`🔴 Deposit failed: No wallet found for transfer reference ${ref}`);
           }
         }
         break;
@@ -244,28 +261,45 @@ export async function POST(req: Request) {
       // ====================================================
       case 'customeridentification.success': {
         const customerCode = event.data.customer_code;
+        // 🔥 FIX: Test Mode dynamically handled so it doesn't crash on 'test-bank'
+        const isTestMode = process.env.PAYSTACK_SECRET_KEY?.startsWith('sk_test');
+        const reqBody: any = { customer: customerCode };
+        if (!isTestMode) reqBody.preferred_bank = "titan-paystack";
+
         const dvaRes = await fetch("https://api.paystack.co/dedicated_account", {
           method: "POST",
           headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ customer: customerCode, preferred_bank: "test-bank" }),
+          body: JSON.stringify(reqBody),
         });
         if (!dvaRes.ok) console.error('🚨 DVA Creation Failed:', await dvaRes.json());
         break;
       }
 
       case 'customeridentification.failed': {
-        await supabaseAdmin.from('wallets').update({ status: 'failed_verification', error_message: event.data.reason }).eq('paystack_customer_code', event.data.customer_code);
+        // 🔥 FIX: We must update the 'users' table, not 'wallets'
+        await supabaseAdmin.from('users').update({ 
+           kyc_status: 'failed', 
+        }).eq('paystack_customer_code', event.data.customer_code);
         break;
       }
 
       case 'dedicatedaccount.assign.success': {
-        await supabaseAdmin.from('wallets').update({
-            bank_name: event.data.dedicated_account.bank.name,
-            account_number: event.data.dedicated_account.account_number,
-            account_name: event.data.dedicated_account.account_name,
-            status: 'active',
-            updated_at: new Date().toISOString()
-          }).eq('paystack_customer_code', event.data.customer.customer_code);
+        // 🔥 FIX: Safely retrieve the user_id from the users table first!
+        const custCode = event.data.customer.customer_code;
+        const { data: user } = await supabaseAdmin.from('users').select('auth_id').eq('paystack_customer_code', custCode).maybeSingle();
+        
+        if (user) {
+           await supabaseAdmin.from('wallets').upsert({
+              user_id: user.auth_id,
+              bank_name: event.data.dedicated_account.bank.name,
+              account_number: event.data.dedicated_account.account_number,
+              account_name: event.data.dedicated_account.account_name,
+              updated_at: new Date().toISOString()
+           }, { onConflict: 'user_id' });
+           
+           await supabaseAdmin.from('users').update({ kyc_status: 'verified' }).eq('auth_id', user.auth_id);
+           console.log(`✅ Webhook: DVA Assigned successfully for ${user.auth_id}`);
+        }
         break;
       }
 

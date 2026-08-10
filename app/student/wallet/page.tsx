@@ -42,13 +42,13 @@ export default function GlobalWallet() {
   const [showSensitive, setShowSensitive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Pagination States
+  const [kycStatus, setKycStatus] = useState<string | null>(null);
+  
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  // Modals & Selected Transaction
   const [activeModal, setActiveModal] = useState<"none" | "withdraw" | "success" | "fund" | "detail" | "share">("none");
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
 
@@ -58,12 +58,12 @@ export default function GlobalWallet() {
 
   useEffect(() => {
     async function getTrack() {
-      if (!user?.id) return;
+      if (!currentUserId) return;
       try {
         const { data } = await supabase
           .from('users')
           .select('track')
-          .eq('auth_id', user.id)
+          .eq('auth_id', currentUserId)
           .single();
           
         if (data?.track) {
@@ -76,7 +76,7 @@ export default function GlobalWallet() {
       }
     }
     getTrack();
-  }, [user?.id, user?.track]);
+  }, [currentUserId, user?.track]);
 
   const fetchTransactionHistory = useCallback(async (pageToLoad = 1) => {
     if (!currentUserId) return;
@@ -113,7 +113,25 @@ export default function GlobalWallet() {
     if (!currentUserId) return null;
     
     try {
-      const { data: userData } = await supabase.from('users').select("wallet_balance").eq('auth_id', currentUserId).maybeSingle();
+      // 🔥 FIX: Changed to .select("*") so Supabase doesn't throw a 400 error 
+      // if legacy columns like is_complete don't actually exist in the DB!
+      const { data: userData, error: userErr } = await supabase
+        .from('users')
+        .select("*")
+        .eq('auth_id', currentUserId)
+        .maybeSingle();
+
+      if (userErr) {
+          console.error("Supabase user fetch error:", userErr.message);
+      }
+
+      if (userData) {
+          if (userData.is_complete && !userData.kyc_status) {
+             setKycStatus('verified'); 
+          } else {
+             setKycStatus(userData.kyc_status);
+          }
+      }
 
       const res = await fetch("/api/wallet/details", {
         method: "POST",
@@ -124,10 +142,9 @@ export default function GlobalWallet() {
 
       if (data.success && data.walletReady) {
         const wallet = data.walletData;
-        setLiveBalance(wallet.balance || 0);
+        setLiveBalance(wallet.balance || userData?.wallet_balance || 0);
         setWalletData({
           bankName: getBankName(wallet.bank_name || "Wema Bank"),
-          // 🔥 Ensure wiped account numbers are processed as empty strings
           accountNumber: wallet.account_number || "", 
           accountName: wallet.account_name || user?.fullName || "User",
           walletReady: true,
@@ -169,6 +186,35 @@ export default function GlobalWallet() {
     }
   };
 
+  // 🔥 THE NEW AUTO-HEAL SYNC FUNCTION
+  const handleDatabaseSync = async () => {
+    if (!user?.email || !currentUserId) return;
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/wallet/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          userId: currentUserId, 
+          email: user?.email, 
+          isRefresh: true // This securely tells the backend to fetch the account from Paystack and force-save it!
+        }),
+      });
+      const data = await res.json();
+      
+      if (data.status === "verified" || data.success) {
+        toast.success("Database synchronized securely!");
+        await fetchWalletData(); // Refresh UI instantly
+      } else {
+        toast.error(data.error || "Could not retrieve account from Paystack.");
+      }
+    } catch (error) {
+      toast.error("Connection error during sync.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleLoadMore = () => {
       if (hasMore && !isLoadingMore) fetchTransactionHistory(currentPage + 1);
   };
@@ -192,10 +238,9 @@ export default function GlobalWallet() {
 
   const isSelectedTxRejected = selectedTx?.status === 'FAILED' || selectedTx?.status === 'REJECTED';
 
-  // 🔥 CORE LOGIC FOR UI STATE
-  const isNewUser = !walletData.walletReady;
-  const isMigratedUserMissingAccount = walletData.walletReady && !walletData.accountNumber;
-  const isFullyReady = walletData.walletReady && !!walletData.accountNumber;
+  const isPendingVerification = kycStatus === 'pending';
+  const isNewUser = kycStatus !== 'verified' && kycStatus !== 'pending';
+  const isMigratedUserMissingAccount = kycStatus === 'verified' && (!walletData.walletReady || !walletData.accountNumber);
 
   return (
     <>
@@ -208,34 +253,31 @@ export default function GlobalWallet() {
              <Loader2 className="w-10 h-10 animate-spin text-emerald-500/50 mb-4" />
              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Loading Secure Environment...</p>
           </div>
-        ) : isMigratedUserMissingAccount ? (
+        ) : isPendingVerification ? (
           
-          /* 🔥 MIGRATION SCREEN FOR EXISTING USERS */
-          <div className="flex flex-col items-center justify-center py-20 px-4 border border-emerald-500/30 rounded-[2rem] bg-emerald-950/20 shadow-2xl relative overflow-hidden text-center">
-             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+          <div className="flex flex-col items-center justify-center py-20 px-4 border border-amber-500/30 rounded-[2rem] bg-amber-950/20 shadow-2xl relative overflow-hidden text-center">
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/10 blur-[100px] pointer-events-none rounded-full"></div>
              
-             <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 flex items-center justify-center rounded-full mb-6 relative z-10 border border-emerald-500/20">
-               <AlertTriangle size={32} />
+             <div className="w-16 h-16 bg-amber-500/10 text-amber-400 flex items-center justify-center rounded-full mb-6 relative z-10 border border-amber-500/20">
+               <Loader2 size={32} className="animate-spin" />
              </div>
              
-             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">System Infrastructure Upgrade</h2>
+             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Verification in Progress</h2>
              <p className="text-white/60 mb-2 text-sm relative z-10 max-w-lg">
-               We have upgraded our payment provider to <strong>Paystack</strong> to ensure faster and more secure payouts. 
+               Paystack is currently validating your identity and bank account details to ensure maximum security.
              </p>
-             <p className="text-emerald-400 mb-10 text-sm relative z-10 font-medium">
-               Your previous balance and transaction history are completely safe. You just need to generate your new Paystack virtual account number to continue.
+             <p className="text-amber-400 mb-10 text-sm relative z-10 font-medium">
+               Your virtual wallet will be generated automatically as soon as this is complete.
              </p>
              
-             <Link href="/student/profile?tab=security" className="relative z-10">
-              <Button className="h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
-                GENERATE NEW ACCOUNT NUMBER
-              </Button>
-             </Link>
+             <Button onClick={handleDatabaseSync} disabled={isSyncing} className="relative z-10 h-14 px-8 bg-amber-600 hover:bg-amber-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105">
+                {isSyncing ? <Loader2 className="animate-spin mr-2 w-5 h-5" /> : null}
+                REFRESH STATUS
+             </Button>
           </div>
 
         ) : isNewUser ? (
           
-          /* SETUP WALLET GATE FOR BRAND NEW USERS */
           <div className="flex flex-col items-center justify-center py-20 px-4 border border-white/10 rounded-[2rem] bg-[#1e293b]/20 shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
              <Landmark className="w-20 h-20 text-emerald-500/80 mb-6 relative z-10" />
@@ -250,9 +292,37 @@ export default function GlobalWallet() {
              </Link>
           </div>
 
+        ) : isMigratedUserMissingAccount ? (
+          
+          /* 🔥 THE AUTO-HEAL SCREEN: Breaking the Deadlock */
+          <div className="flex flex-col items-center justify-center py-20 px-4 border border-emerald-500/30 rounded-[2rem] bg-emerald-950/20 shadow-2xl relative overflow-hidden text-center">
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 blur-[100px] pointer-events-none rounded-full"></div>
+             
+             <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 flex items-center justify-center rounded-full mb-6 relative z-10 border border-emerald-500/20">
+               <AlertTriangle size={32} />
+             </div>
+             
+             <h2 className="text-3xl font-black text-white mb-3 relative z-10 tracking-tight">Account Sync Required</h2>
+             <p className="text-white/60 mb-2 text-sm relative z-10 max-w-lg">
+               Your identity is verified, but your local database needs to be synchronized with Paystack.
+             </p>
+             <p className="text-emerald-400 mb-10 text-sm relative z-10 font-medium">
+               Click the button below to securely pull your account details and unlock your ledger.
+             </p>
+             
+             <Button 
+                onClick={handleDatabaseSync} 
+                disabled={isSyncing} 
+                className="relative z-10 h-14 px-8 bg-emerald-600 hover:bg-emerald-500 text-white font-black tracking-wide rounded-2xl shadow-xl transition-transform hover:scale-105"
+             >
+                {isSyncing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+                SYNC WALLET WITH PAYSTACK
+             </Button>
+          </div>
+
         ) : (
           
-          /* MAIN WALLET CARD (ONLY SHOWS IF FULLY READY) */
+          /* MAIN WALLET CARD */
           <>
             <div className="bg-[#0f172a] rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
               <div className="p-8 lg:p-12 bg-gradient-to-br from-[#1e293b]/50 to-transparent relative">
@@ -457,7 +527,6 @@ export default function GlobalWallet() {
               </DialogHeader>
 
               <div className="space-y-6 pt-4">
-                {/* 🔥 STRIKETHROUGH MATH AND REFUND BADGE */}
                 <div className="text-center bg-black/30 p-6 rounded-2xl border border-white/5 relative overflow-hidden">
                   {isSelectedTxRejected && <div className="absolute inset-0 bg-red-500/5 pointer-events-none" />}
                   
@@ -479,7 +548,6 @@ export default function GlobalWallet() {
                   )}
                 </div>
 
-                {/* METADATA GRID */}
                 <div className="space-y-3 bg-white/5 p-5 rounded-2xl border border-white/5 text-sm">
                   
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
