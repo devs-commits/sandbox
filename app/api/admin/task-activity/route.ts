@@ -15,15 +15,14 @@ function getDateRange(range: DateRange) {
   const part = (type: string) => parts.find((value) => value.type === type)?.value || '';
   const today = new Date(`${part('year')}-${part('month')}-${part('day')}T00:00:00+01:00`);
   const end = new Date(today);
-  if (range === 'today') end.setDate(end.getDate() + 1);
-  const start = new Date(end);
-  if (range === 'today') start.setDate(start.getDate() - 1);
+  end.setDate(end.getDate() + 1); // Exclusive start of tomorrow: includes all of today.
+  const start = new Date(today);
   if (range === 'yesterday') {
     end.setDate(end.getDate() - 1);
-    start.setDate(start.getDate() - 2);
+    start.setDate(start.getDate() - 1);
   }
-  if (range === '7d') start.setDate(start.getDate() - 7);
-  if (range === '30d') start.setDate(start.getDate() - 30);
+  if (range === '7d') start.setDate(start.getDate() - 6);
+  if (range === '30d') start.setDate(start.getDate() - 29);
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
