@@ -263,7 +263,7 @@ export function TaskDashboard() {
     return (
       <div className={`h-full flex flex-col bg-[#0A0D14] overflow-y-auto ${openSans.className} p-4 sm:p-6 relative`}>
         <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
-           <Button variant="outline" size="sm" onClick={generateTask} disabled={isGeneratingTask}
+           <Button variant="outline" size="sm" onClick={() => generateTask()} disabled={isGeneratingTask}
               className="bg-[#0F172A] border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs shadow-lg">
               <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin' : ''}`} />
               {isGeneratingTask ? (generationStatusText || 'Fetching...') : 'Force Sync Next Task'}
@@ -299,7 +299,7 @@ export function TaskDashboard() {
       <div className="p-6 pb-0 flex flex-col gap-4">
         <div className="flex justify-between items-center">
              <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
-             <Button variant="outline" size="sm" onClick={generateTask} disabled={isGeneratingTask}
+             <Button variant="outline" size="sm" onClick={() => generateTask()} disabled={isGeneratingTask}
                 className="bg-card border-border text-muted-foreground hover:text-foreground text-xs shadow-sm transition-all">
                 <RefreshCw size={14} className={`mr-2 ${isGeneratingTask ? 'animate-spin text-primary' : ''}`} />
                 {isGeneratingTask ? (generationStatusText || 'Preparing Task...') : 'Fetch Missing Task'}

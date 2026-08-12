@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { logTaskActivityForAuthUser } from '@/lib/task-activity';
 
 export async function POST(request: Request) {
+  let activeUserId: string | null = null;
+  let activeTaskId: string | number | null = null;
+  let submissionAttemptNumber: number | null = null;
+  let submissionStarted = false;
+
   try {
     const body = await request.json();
     
@@ -28,8 +34,8 @@ export async function POST(request: Request) {
         chatHistory
     } = body;
 
-    const activeUserId = user_id || userId;
-    const activeTaskId = task_id || taskId;
+    activeUserId = user_id || userId;
+    activeTaskId = task_id || taskId;
 // THE FIX: Fallback to null instead of "" for strict Python validation
     const finalFileUrl = file_url || fileUrl || null;
     const finalFileContent = file_content || taskContent || "";
@@ -66,6 +72,7 @@ export async function POST(request: Request) {
     }
 
     const nextAttempt = currentAttempts + 1;
+    submissionAttemptNumber = nextAttempt;
 
     await supabaseAdmin
       .from('task_attempts')
@@ -75,6 +82,10 @@ export async function POST(request: Request) {
         attempt_date: today,
         attempt_count: nextAttempt
       }, { onConflict: 'user_id, task_id, attempt_date' });
+
+    // From here, an error is a technical submission failure rather than a
+    // validation response or an invalid assignment.
+    submissionStarted = true;
 
     // ==========================================
     // 2. Call Python Backend for Analysis
@@ -108,7 +119,7 @@ export async function POST(request: Request) {
     
     const aiResponse = data.feedback || "Review completed."; 
     const isPassed = data.passed || false;
-    const technicalAccuracy = data.score || 50;
+    const technicalAccuracy = data.score ?? 50;
 
     // Save Sola's feedback to chat history
     await supabase.from('chat_history').insert({
@@ -195,6 +206,24 @@ export async function POST(request: Request) {
         // 🚨 AUTO-GENERATE TASK FETCH REMOVED HERE TO PREVENT WEEK 2 LEAKING!
     }
 
+    // A failing grade still means the backend successfully received and
+    // evaluated this submission, so it receives both success audit events.
+    await logTaskActivityForAuthUser({
+      authUserId: activeUserId,
+      taskId: activeTaskId,
+      eventType: 'task_submitted',
+      attemptNumber: nextAttempt,
+      status: 'success',
+    });
+    await logTaskActivityForAuthUser({
+      authUserId: activeUserId,
+      taskId: activeTaskId,
+      eventType: 'task_graded',
+      attemptNumber: nextAttempt,
+      status: 'success',
+      score: technicalAccuracy,
+    });
+
     return NextResponse.json({ 
       success: true, 
       message: aiResponse,
@@ -206,6 +235,17 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("Submission API Error:", error);
+
+    if (submissionStarted && activeUserId && activeTaskId) {
+      await logTaskActivityForAuthUser({
+        authUserId: activeUserId,
+        taskId: activeTaskId,
+        eventType: 'task_submission_failed',
+        attemptNumber: submissionAttemptNumber,
+        status: 'failed',
+      });
+    }
+
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
