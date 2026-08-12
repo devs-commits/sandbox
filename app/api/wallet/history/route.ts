@@ -20,10 +20,16 @@ export async function POST(req: NextRequest) {
         .from('wallets')
         .select('balance, account_number')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // 🔥 Changed to maybeSingle so it doesn't crash if empty
 
+    // 🔥 THE FIX: Don't throw a 404 if the wallet is missing (like during a reset). Just return empty!
     if (walletError || !walletData) {
-        return NextResponse.json({ error: "Wallet not found." }, { status: 404 });
+        return NextResponse.json({ 
+          success: true, 
+          transactions: [],
+          balance: 0,
+          pagination: { hasNext: false, totalPages: 0 }
+        });
     }
 
     // 2. Fetch transactions from local ledger
@@ -39,25 +45,23 @@ export async function POST(req: NextRequest) {
         throw new Error("Failed to fetch transactions");
     }
 
-    // 🔥 SELF-HEALING PATCH: If wallet has a balance but ledger is empty, seed a baseline transaction
+    // 🔥 YOUR BRILLIANT SELF-HEALING PATCH (Kept exactly as you wrote it)
     if ((!transactions || transactions.length === 0) && walletData.balance > 0) {
         const seedTx = {
             user_id: userId,
             reference: `seed_${Date.now()}`,
             transaction_type: 'INFLOW',
             amount: walletData.balance,
-            status: 'SUCCESS', // 🔥 FIXED: Changed from COMPLETED to SUCCESS
+            status: 'SUCCESS',
             source: 'PAYSTACK'
-            // 🔥 FIXED: Removed 'description' completely to match your DB schema
         };
 
         const { error: seedError } = await supabaseAdmin.from('wallet_transactions').insert([seedTx]);
         
         if (seedError) {
-           console.error("🚨 SUPABASE SEED ERROR:", seedError); // This will show in VS Code if it fails!
+           console.error("🚨 SUPABASE SEED ERROR:", seedError); 
         }
         
-        // Re-fetch transactions
         const refetched = await supabaseAdmin
             .from('wallet_transactions')
             .select('*', { count: 'exact' })
@@ -68,14 +72,13 @@ export async function POST(req: NextRequest) {
         count = refetched.count || 1;
     }
 
-    // 🔥 THE FIX: Added optional chaining (?.) and fallback to prevent TS build error
     const totalItems = count || transactions?.length || 0;
     const totalPages = Math.ceil(totalItems / limit);
     const hasNext = page < totalPages;
 
     return NextResponse.json({ 
       success: true, 
-      transactions: transactions || [],
+      transactions: transactions || [], // Matches your frontend exactly!
       balance: walletData.balance || 0,
       accountNumber: walletData.account_number,
       pagination: { hasNext, totalPages },

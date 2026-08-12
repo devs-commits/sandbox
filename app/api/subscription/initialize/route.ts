@@ -8,6 +8,19 @@ const supabaseAdmin = createClient(
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
 
+
+// Text Plan Codes (Make sure these match your Paystack Live Dashboard)
+// const PLAN_CODES: Record<string, { code: string; amountInKobo: number }> = {
+//   MONTHLY: {
+//     code: process.env.PAYSTACK_PLAN_MONTHLY || "PLN_0a0fy91qz8jff3g",
+//     amountInKobo: 1500000, // ₦15,000
+//   },
+//   QUARTERLY: {
+//     code: process.env.PAYSTACK_PLAN_QUARTERLY || "PLN_f2c6kpj0yr50ww9",
+//     amountInKobo: 4050000, // ₦40,500
+//   },
+// };
+
 // Live Plan Codes (Make sure these match your Paystack Live Dashboard)
 const PLAN_CODES: Record<string, { code: string; amountInKobo: number }> = {
   MONTHLY: {

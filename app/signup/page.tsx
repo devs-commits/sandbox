@@ -61,11 +61,17 @@ const SignUpContent = () => {
   const { signup } = useAuth();
   const searchParams = useSearchParams();
 
-  // 🔥 NEW: Your Paystack Plan Codes
+  // 🔥 NEW: Your Paystack Plan Codes - Live Plan Codes
   const PAYSTACK_PLAN_CODES = {
     monthly: "PLN_46z8gz0p4foduy8",
     quarterly: "PLN_ddzhasixy441mju"
   };
+
+    // 🔥 NEW: Your Paystack Plan Codes - Test Plan Codes
+  // const PAYSTACK_PLAN_CODES = {
+  //   monthly: "PLN_0a0fy91qz8jff3g",
+  //   quarterly: "PLN_f2c6kpj0yr50ww9"
+  // };
 
   const [role, setRole] = useState<"student" | "recruiter">("student");
   const [subscriptionPlan, setSubscriptionPlan] = useState<"monthly" | "quarterly">("monthly");
