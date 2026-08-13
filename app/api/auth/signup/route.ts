@@ -39,8 +39,9 @@ const addToMailerLite = async (
         subscriptionPlan,
       }),
     });
-    const data = await response.json();
-    console.log('MailerLite sync response:', { status: response.status, data });
+    if (!response.ok) {
+      console.error('MailerLite sync failed:', response.status);
+    }
   } catch (error) {
     // Silently log - don't break signup if MailerLite fails
     console.error('MailerLite sync error:', error);
@@ -168,7 +169,7 @@ export async function POST(request: Request) {
 
           await processSquadAndReferral(existingLead.auth_id);
 
-          addToMailerLite(email, fullName, phone, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
+          void addToMailerLite(email, fullName, phone, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
 
           return NextResponse.json({ 
             success: true, 
@@ -243,7 +244,7 @@ export async function POST(request: Request) {
       await processSquadAndReferral(newAuthId);
     }
 
-    addToMailerLite(email, fullName, phone, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
+    void addToMailerLite(email, fullName, phone, role, country, track, experienceLevel, subscriptionPlan || 'monthly');
 
     return NextResponse.json({ success: true, user: authData.user, session: authData.session });
 

@@ -9,6 +9,7 @@ const corsHeaders = {
 interface SignupData {
   email: string;
   fullName: string;
+  phone?: string;
   role: "student" | "recruiter";
   country?: string;
   track?: string;
@@ -35,13 +36,12 @@ serve(async (req: Request) => {
     }
 
     const mlApiKey = Deno.env.get("MAILERLITE_API_KEY");
-    const mlGroupId = Deno.env.get("MAILERLITE_SIGNUP_GROUP_ID");
+    // Existing signup group remains the free-trial destination.
+    const freeTrialGroupId = Deno.env.get("MAILERLITE_SIGNUP_GROUP_ID");
+    const paidGroupId = Deno.env.get("MAILERLITE_PAID_GROUP_ID");
 
-    if (!mlApiKey || !mlGroupId) {
-      console.error(
-        "Missing MailerLite config:",
-        !mlApiKey ? "API_KEY" : "GROUP_ID"
-      );
+    if (!mlApiKey || !freeTrialGroupId) {
+      console.error("MailerLite configuration missing");
       return new Response(
         JSON.stringify({ error: "MailerLite configuration missing" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -54,8 +54,16 @@ serve(async (req: Request) => {
       .toLowerCase()
       .replace(/\s+/g, "");
 
-    const isFreeTrial = ["trial", "freetrial", "free-trial", "free_trial"].includes(normalizedPlan);
-    const signupSegment = isFreeTrial ? "free_trial" : "paid";
+    const isFreeTrial = normalizedPlan.startsWith("trial") || ["freetrial", "free-trial", "free_trial"].includes(normalizedPlan);
+    const groupId = isFreeTrial ? freeTrialGroupId : paidGroupId;
+
+    if (!groupId) {
+      console.error("MailerLite paid group configuration missing");
+      return new Response(JSON.stringify({ error: "MailerLite configuration missing" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Add to MailerLite
     const mlResponse = await fetch(
@@ -70,30 +78,26 @@ serve(async (req: Request) => {
           email: data.email,
           fields: {
             name: data.fullName,
+            phone: data.phone || "",
             role: data.role,
             country: data.country || "",
             track: data.track || "",
             experience_level: data.experienceLevel || "",
             subscription_plan: normalizedPlan,
-            signup_segment: signupSegment,
-            // is_paid: isFreeTrial ? "false" : "true",
           },
-          groups: [mlGroupId],
+          groups: [groupId],
           status: "active",
         }),
       }
     );
 
-    const mlResponseData = await mlResponse.json();
-
     if (!mlResponse.ok) {
-      console.error("MailerLite error:", mlResponseData);
+      console.error("MailerLite subscriber sync failed:", mlResponse.status);
       // Don't fail signup if MailerLite fails - log and continue
       return new Response(
         JSON.stringify({
           success: false,
           warning: "Failed to add to MailerLite",
-          details: mlResponseData,
         }),
         {
           status: 200,
@@ -103,7 +107,7 @@ serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, data: mlResponseData }),
+      JSON.stringify({ success: true }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
