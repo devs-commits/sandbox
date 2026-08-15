@@ -25,7 +25,7 @@ interface OfficeContextType extends OfficeState {
   completeOnboarding: () => void;
   completeTour: () => void;
   addPortfolioItem: (item: UserPortfolio) => void;
-  generateTask: () => Promise<void>;
+  generateTask: (source?: 'automatic' | 'manual') => Promise<void>;
   isGeneratingTask: boolean;
   generationStatusText: string; 
   isLoadingTasks: boolean;
@@ -96,6 +96,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
   const [subscription, setSubscription] = useState<{ daysLeft: number; status: string; expiresAt: string | null } | null>(null);
   const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
+  const pendingTaskGenerationSourceRef = useRef<'automatic' | 'manual' | null>(null);
 
   const userName = user?.fullName || 'New Intern';
   const userId = user?.id || null;
@@ -345,6 +346,17 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }
   }, [userId, trackName, mapResources]);
 
+  const logGeneratedTask = useCallback((taskId: string, source: 'automatic' | 'manual') => {
+    if (!userId) return;
+
+    // Tracking is deliberately best effort: a logging outage cannot affect task delivery.
+    void fetch('/api/tasks/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, task_id: taskId, generation_type: source }),
+    }).catch((error) => console.error('Unable to record generated task activity:', error));
+  }, [userId]);
+
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -387,6 +399,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
             });
             setCurrentTask(newTask);
 
+            logGeneratedTask(
+              newTask.id,
+              pendingTaskGenerationSourceRef.current || 'automatic'
+            );
+            pendingTaskGenerationSourceRef.current = null;
+
             setIsGeneratingTask(false);
             setGenerationStatusText("Fetch Missing Task");
 
@@ -417,7 +435,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     return () => {
       supabase.removeChannel(taskSubscription);
     };
-  }, [userId, mapResources, trackName, addChatMessage]);
+  }, [userId, mapResources, trackName, addChatMessage, logGeneratedTask]);
 
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
@@ -783,7 +801,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   // ==========================================
   // GENERATE TASK (RELIABLE QUEUE HANDOFF)
   // ==========================================
-  const generateTask = useCallback(async () => {
+  const generateTask = useCallback(async (source: 'automatic' | 'manual' = 'manual') => {
     // 1. Check if they already have an active task
     const hasActiveTask = tasks.some(t => 
       t.difficulty !== 'Bounty' && 
@@ -799,6 +817,9 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       });
       return; 
     }
+
+    const initialTaskIds = new Set(tasks.map(task => task.id));
+    pendingTaskGenerationSourceRef.current = source;
 
     setIsGeneratingTask(true);
     setMessageCount(0); 
@@ -874,20 +895,34 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      // 🔥 FIX 2: Removed the while() polling loop!
-      // The Python backend is processing asynchronously. Your Supabase Realtime Listener 
-      // (already active in useEffect) will catch the INSERT and update the UI perfectly.
-      
-      // Fallback Timeout just in case the Realtime socket drops
-      setTimeout(() => {
-         clearInterval(loadingInterval);
-         setIsGeneratingTask(false);
-         setGenerationStatusText("Fetch Missing Task");
-         fetchTasks(); // Silent manual check
-      }, 45000);
+      let attempts = 0;
+      let taskFound = false;
+
+      while (attempts < 18 && !taskFound) { 
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const { data } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('user', userId);
+
+        const generatedTask = data?.find(task => !initialTaskIds.has(task.id.toString()));
+        if (generatedTask) {
+          taskFound = true;
+          logGeneratedTask(generatedTask.id.toString(), source);
+          pendingTaskGenerationSourceRef.current = null;
+          await fetchTasks(); 
+        }
+        attempts++;
+      }
+
+      clearInterval(loadingInterval);
+      setIsGeneratingTask(false);
+      setGenerationStatusText("Fetch Missing Task");
 
     } catch (error) {
       console.error('Task queue failed:', error);
+      pendingTaskGenerationSourceRef.current = null;
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
@@ -904,12 +939,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk]);
+  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
       setShouldTriggerTeamIntro(false);
-      generateTask();
+      generateTask('automatic');
     }
   }, [shouldTriggerTeamIntro, phase, isGeneratingTask, tasks.length, generateTask]);
 

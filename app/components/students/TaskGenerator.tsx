@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContexts";
+import { supabase } from "@/lib/supabase";
 
 interface TaskGeneratorProps {
   onTasksGenerated: () => void;
@@ -43,11 +44,34 @@ export const TaskGenerator = ({ onTasksGenerated }: TaskGeneratorProps) => {
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const recordManualTaskActivity = async (existingTaskIds: Set<string>) => {
+    if (!user?.id) return;
+
+    // Task generation is queued by the AI backend, so wait for its real DB row
+    // before recording the activity. This runs independently of the UI flow.
+    for (let attempt = 0; attempt < 18; attempt += 1) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      const { data } = await supabase.from('tasks').select('id').eq('user', user.id);
+      const generatedTask = data?.find(task => !existingTaskIds.has(task.id.toString()));
+      if (!generatedTask) continue;
+
+      void fetch('/api/tasks/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, task_id: generatedTask.id, generation_type: 'manual' }),
+      }).catch(error => console.error('Unable to record generated task activity:', error));
+      return;
+    }
+  };
+
   const handleGenerateTasks = async () => {
     if (!user) return;
 
     setIsGenerating(true);
     try {
+      const { data: existingTasks } = await supabase.from('tasks').select('id').eq('user', user.id);
+      const existingTaskIds = new Set((existingTasks || []).map(task => task.id.toString()));
+
       const response = await fetch("/api/tasks/generate", {
         method: "POST",
         headers: {
@@ -72,6 +96,7 @@ export const TaskGenerator = ({ onTasksGenerated }: TaskGeneratorProps) => {
       const data = await response.json();
 
       if (data.success) {
+        void recordManualTaskActivity(existingTaskIds);
         toast.success("Tasks generated successfully!");
         onTasksGenerated();
       } else {
