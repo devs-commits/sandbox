@@ -368,12 +368,21 @@ export function TaskDashboard() {
                                 <ChevronDown size={14} className="group-open:rotate-180 transition-transform text-muted-foreground" />
                               </summary>
                               <div className="p-3 border-t border-border/50 space-y-2 bg-card/40">
-                                {task.resources.map((res) => (
-                                  <a key={res.id} href={res.url} target="_blank" rel="noopener noreferrer" className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all">
+                               {task.resources.map((res) => {
+                                // 🔥 FIX 3: Route PDFs through Google Docs Viewer for strict browser safety
+                                // Added optional chaining (?.) and fallback (|| '') for strict TypeScript compliance
+                                const isPdf = res.type === 'pdf' || res.url?.toLowerCase().endsWith('.pdf');
+                                const safeUrl = isPdf 
+                                  ? `https://docs.google.com/viewer?url=${encodeURIComponent(res.url || '')}&embedded=true` 
+                                  : res.url;
+
+                                return (
+                                  <a key={res.id} href={safeUrl || '#'} target="_blank" rel="noopener noreferrer" className="block p-2 text-xs hover:bg-muted/50 rounded-lg border border-transparent hover:border-border transition-all">
                                     <span className="font-semibold text-primary block truncate">{res.title}</span>
                                     {res.description && <p className="text-muted-foreground mt-0.5 truncate">{res.description}</p>}
                                   </a>
-                                ))}
+                                );
+                              })}
                               </div>
                             </details>
                           </div>

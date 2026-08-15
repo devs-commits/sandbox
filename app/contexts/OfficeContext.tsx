@@ -781,9 +781,10 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   }, [trackName, addChatMessage, userId, persistState]);
 
   // ==========================================
-  // GENERATE TASK (ASYNC QUEUE POLLING SYSTEM)
+  // GENERATE TASK (RELIABLE QUEUE HANDOFF)
   // ==========================================
   const generateTask = useCallback(async () => {
+    // 1. Check if they already have an active task
     const hasActiveTask = tasks.some(t => 
       t.difficulty !== 'Bounty' && 
       !['approved', 'passed'].includes(t.status as string)
@@ -799,30 +800,19 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       return; 
     }
 
-    const initialTaskCount = tasks.length;
-
     setIsGeneratingTask(true);
     setMessageCount(0); 
 
-    const isMobileTeamIntroduction = isFirstTask
-      && typeof window !== 'undefined'
-      && window.innerWidth < 1024;
-    const isDesktopTeamIntroduction = isFirstTask
-      && typeof window !== 'undefined'
-      && window.innerWidth >= 1024;
+    const isMobileTeamIntroduction = isFirstTask && typeof window !== 'undefined' && window.innerWidth < 1024;
+    const isDesktopTeamIntroduction = isFirstTask && typeof window !== 'undefined' && window.innerWidth >= 1024;
 
-    if (isMobileTeamIntroduction) {
-      setActiveView('meeting');
-    }
-
-    if (isDesktopTeamIntroduction) {
-      setIsExpanded(true);
-    }
+    if (isMobileTeamIntroduction) setActiveView('meeting');
+    if (isDesktopTeamIntroduction) setIsExpanded(true);
 
     if (isFirstTask) {
       await new Promise(r => setTimeout(r, 1000));
 
-      const introductionMessages: { agent: AgentName; message: string; delay: number }[] = [
+      const introductionMessages = [
         { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 24000 },
         { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 24000 },
         { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 36000 },
@@ -834,42 +824,22 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       for (const msg of introductionMessages) {
         const typingId = `typing-${Date.now()}`;
         addChatMessage({
-          id: typingId,
-          agentName: msg.agent,
-          message: '',
-          timestamp: new Date(),
-          isTyping: true,
+          id: typingId, agentName: msg.agent as AgentName, message: '', timestamp: new Date(), isTyping: true,
         });
-
         await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
-
         setChatMessages(prev => prev.filter(m => m.id !== typingId));
         addChatMessage({
-          id: `${Date.now()}-${msg.agent}`,
-          agentName: msg.agent,
-          message: msg.message,
-          timestamp: new Date(),
+          id: `${Date.now()}-${msg.agent}`, agentName: msg.agent as AgentName, message: msg.message, timestamp: new Date(),
         });
-
         await new Promise(r => setTimeout(r, 400));
       }
 
-      // Keep the final introduction visible briefly, then return mobile users
-      // to their desk before the first task arrives.
-      if (isMobileTeamIntroduction) {
-        queueReturnToDesk(1000);
-      }
+      if (isMobileTeamIntroduction) queueReturnToDesk(1000);
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    addChatMessage({
-      id: Date.now().toString(),
-      agentName: 'Emem',
-      message: isFirstTask
-        ? "Your first task is on the way. Read the brief carefully. Deadline is non‑negotiable."
-        : "New task assigned. Check your desk.",
-      timestamp: new Date(),  
-    });
+    // 🔥 FIX 1: Removed the premature "New task assigned" message here!
+    // We only announce it when the task actually arrives via the Realtime Listener.
 
     setGenerationStatusText("Pinging Emem...");
     const statusCycle = [
@@ -888,6 +858,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }, 2500);
 
     try {
+      // Trigger the backend queue
       const response = await fetch('/api/tasks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -903,27 +874,17 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
       if (!response.ok) throw new Error("API Failure");
 
-      let attempts = 0;
-      let taskFound = false;
-
-      while (attempts < 18 && !taskFound) { 
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        
-        const { data } = await supabase
-          .from('tasks')
-          .select('id')
-          .eq('user', userId);
-
-        if (data && data.length > initialTaskCount) {
-          taskFound = true;
-          await fetchTasks(); 
-        }
-        attempts++;
-      }
-
-      clearInterval(loadingInterval);
-      setIsGeneratingTask(false);
-      setGenerationStatusText("Fetch Missing Task");
+      // 🔥 FIX 2: Removed the while() polling loop!
+      // The Python backend is processing asynchronously. Your Supabase Realtime Listener 
+      // (already active in useEffect) will catch the INSERT and update the UI perfectly.
+      
+      // Fallback Timeout just in case the Realtime socket drops
+      setTimeout(() => {
+         clearInterval(loadingInterval);
+         setIsGeneratingTask(false);
+         setGenerationStatusText("Fetch Missing Task");
+         fetchTasks(); // Silent manual check
+      }, 45000);
 
     } catch (error) {
       console.error('Task queue failed:', error);
