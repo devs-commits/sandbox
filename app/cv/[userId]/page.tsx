@@ -1,11 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { notFound } from "next/navigation"
 import { Badge } from "@/app/components/ui/badge"
-import { ShieldCheck, Clock, FileText } from "lucide-react"
+import { ShieldCheck, Clock } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 
 export const revalidate = 0
-// 🔥 CRITICAL: Prevents Vercel from timing out the AI generation request
 export const maxDuration = 60 
 
 async function getCVData(userId: string) {
@@ -40,7 +39,7 @@ async function getCVData(userId: string) {
 
   const completedTasks = tasks || []
 
-  // 3. Fetch Sola's Feedback for those tasks
+  // 3. Fetch Sola's Feedback
   const feedbacks: Record<string, string> = {}
   for (const t of completedTasks) {
     const { data: sub } = await supabaseAdmin
@@ -51,10 +50,17 @@ async function getCVData(userId: string) {
     if (sub?.ai_feedback) feedbacks[t.id] = sub.ai_feedback
   }
 
+  // 4. Fetch Earned Badges
+  const { data: badges } = await supabaseAdmin
+    .from("user_badges")
+    .select("badge_name")
+    .eq("user_id", finalUser.auth_id)
+
   return {
     user: finalUser,
     tasks: completedTasks,
-    feedbacks
+    feedbacks,
+    badges: badges?.map(b => b.badge_name) || []
   }
 }
 
@@ -66,33 +72,27 @@ export default async function PublicCVPage(
 
   if (!data) return notFound()
 
-  const { user, tasks, feedbacks } = data
+  const { user, tasks, feedbacks, badges } = data
 
-  // ==========================================
-  // SAFEGUARD: 0 TASKS COMPLETED STATE
-  // ==========================================
   if (tasks.length === 0) {
     return (
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 font-sans">
-        <div className="max-w-xl w-full bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-10 sm:p-14 text-center">
+        <div className="max-w-xl w-full bg-white rounded-2xl shadow-2xl p-10 sm:p-14 text-center">
           <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 border border-slate-200">
             <Clock className="w-10 h-10 text-slate-400" />
           </div>
           <h1 className="text-3xl font-black text-slate-900 mb-4">Portfolio in Progress</h1>
           <p className="text-slate-600 text-lg mb-8 leading-relaxed">
-            <strong>{user.full_name || "This candidate"}</strong> has recently enrolled in the WDC Labs Virtual Office program and is actively working on their first set of industry simulations.
+            <strong>{user.full_name || "This candidate"}</strong> has recently enrolled in the WDC Labs program and is actively working on their first set of industry simulations.
           </p>
           <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl text-blue-900 text-sm font-medium shadow-sm">
-            Please check back later! Once they successfully pass their first technical review, Coach Kemi (AI) will automatically generate their verified, ATS-ready resume here.
+            Check back later! Once they pass their first technical review, Coach Kemi (AI) will generate their verified, ATS-ready resume here.
           </div>
         </div>
       </div>
     );
   }
 
-  // ==========================================
-  // NORMAL RESUME GENERATION (1+ TASKS)
-  // ==========================================
   let resumeContent = ""
   try {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
@@ -103,7 +103,9 @@ export default async function PublicCVPage(
         user_id: user.auth_id,
         user_name: user.full_name,
         track: user.track,
-        tasks: tasks,
+        level: user.current_identity || user.user_level || "Intern", 
+        badges: badges,
+        tasks: tasks.map((t: any) => ({ title: t.title, brief: t.brief_content })),
         feedback: Object.entries(feedbacks).map(([k, v]) => ({ task_id: Number(k), feedback: v }))
       }),
     })
@@ -113,39 +115,43 @@ export default async function PublicCVPage(
       resumeContent = apiData.cv_content || apiData.resume
     }
   } catch (error) {
-    console.error("Failed to fetch AI resume, falling back to basic layout.")
+    console.error("Failed to fetch AI resume.")
   }
 
-  // Fallback Generation if Python server is sleeping
+  // 🔥 Enhanced Fallback Generation with Executive Styling
   if (!resumeContent) {
     const trackString = (user.track || 'General').toUpperCase()
+    const taskCount = tasks.length;
+    
     resumeContent = `
 # ${user.full_name || "WDC Candidate"}
-**${trackString} PROFESSIONAL**
+## ${trackString} PROFESSIONAL | Current Rank: ${user.current_identity || 'Intern'}
 
 ---
 
 ### PROFESSIONAL SUMMARY
-Dedicated and practical professional with hands-on simulated experience in ${trackString}. Successfully completed ${tasks.length} rigorous industry-standard technical tasks at WDC Labs, demonstrating a strong ability to solve real-world business problems and deliver actionable results.
+Dedicated and practical professional with hands-on simulated experience in ${trackString}. Demonstrated a strong ability to solve real-world business problems, operate autonomously under pressure, and deliver actionable, executive-ready results.
 
 ### PROFESSIONAL EXPERIENCE
-**WDC Labs** | *Virtual ${user.track || ''} Intern*
-*Completed intensive, real-world task simulations graded by AI technical supervisors.*
-
-${tasks.map((t: any) => `* **${t.title}**: ${t.brief_content.substring(0, 120)}...`).join('\n')}
+**WDC Labs** | Remote
+*Virtual ${user.track?.replace('-', ' ') || ''} Intern*
+- Successfully executed ${taskCount} rigorous industry-standard technical tasks, simulating real-world corporate demands.
+- Navigated strict project deadlines and complex client briefs, ensuring high-quality deliverables.
+- Consistently passed rigorous technical evaluations graded by AI technical supervisors.
 
 ### CORE COMPETENCIES
-* Practical Problem Solving
-* Technical Execution
-* Project Delivery
-* Cross-functional Communication
+- **Technical Execution:** Practical Problem Solving, Data-Driven Decision Making.
+- **Professional Strengths:** Autonomous Execution, Cross-functional Communication, Time Management.
+
+### CERTIFICATION & TRAINING
+**WDC Labs Industry Simulation Program**
+- **Pace & Volume:** Completed ${taskCount} comprehensive technical simulations with high efficiency.
+- **Performance:** Maintained strict adherence to corporate guidelines, demonstrating rapid skill acquisition and professional excellence.
 `
   }
 
   return (
     <div className="min-h-screen bg-[#0f172a] py-12 px-4 sm:px-6 font-sans">
-      
-      {/* Platform Header */}
       <div className="max-w-4xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
         <div>
             <h1 className="text-2xl font-black text-white tracking-tighter">
@@ -160,10 +166,7 @@ ${tasks.map((t: any) => `* **${t.title}**: ${t.brief_content.substring(0, 120)}.
         </div>
       </div>
 
-      {/* THE RESUME PAPER (This is what recruiters see/print) */}
       <div className="max-w-4xl mx-auto bg-white shadow-2xl rounded-sm overflow-hidden print:shadow-none print:m-0 print:p-0">
-        
-        {/* Verification Banner */}
         <div className="bg-emerald-50 border-b border-emerald-100 px-8 py-3 flex items-center justify-center gap-3 print:hidden">
           <ShieldCheck className="text-emerald-600 w-5 h-5 shrink-0" />
           <p className="text-emerald-800 text-sm font-medium text-center">
@@ -171,28 +174,21 @@ ${tasks.map((t: any) => `* **${t.title}**: ${t.brief_content.substring(0, 120)}.
           </p>
         </div>
 
-        {/* Dynamic Markdown Resume Content */}
+        {/* ATS Optimized Prose Formatting */}
         <div className="p-10 sm:p-16">
           <div className="prose prose-slate max-w-none
-            prose-headings:text-slate-900 
-            prose-h1:text-4xl prose-h1:font-black prose-h1:mb-2 prose-h1:text-center
-            prose-h2:text-2xl prose-h2:font-bold prose-h2:text-center prose-h2:text-slate-500 prose-h2:mb-8
-            prose-h3:text-lg prose-h3:font-bold prose-h3:border-b-2 prose-h3:border-slate-800 prose-h3:pb-2 prose-h3:mt-8 prose-h3:uppercase
-            prose-p:text-slate-700 prose-p:leading-relaxed
+            prose-headings:text-slate-900 prose-headings:m-0 prose-headings:p-0
+            prose-h1:text-4xl prose-h1:font-black prose-h1:mb-1 prose-h1:text-center prose-h1:uppercase
+            prose-h2:text-sm prose-h2:font-bold prose-h2:text-center prose-h2:text-slate-500 prose-h2:mb-8 prose-h2:uppercase prose-h2:tracking-widest
+            prose-h3:text-lg prose-h3:font-bold prose-h3:border-b-2 prose-h3:border-slate-800 prose-h3:pb-1 prose-h3:mt-6 prose-h3:mb-3 prose-h3:uppercase
+            prose-p:text-slate-700 prose-p:leading-snug prose-p:mb-3
+            prose-ul:my-2 prose-ul:list-disc prose-li:my-0.5
             prose-li:text-slate-700 prose-li:marker:text-slate-400
-            prose-strong:text-slate-900
-            prose-a:text-purple-600">
+            prose-strong:text-slate-900">
             <ReactMarkdown>{resumeContent}</ReactMarkdown>
           </div>
         </div>
-
       </div>
-
-      <footer className="max-w-4xl mx-auto mt-12 text-center print:hidden">
-        <p className="text-slate-500 text-sm">
-          Want to hire this candidate? <a href="mailto:hello@wdc.ng" className="text-purple-400 hover:text-purple-300 underline">Contact WDC Labs</a>
-        </p>
-      </footer>
     </div>
   )
 }

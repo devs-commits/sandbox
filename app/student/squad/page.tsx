@@ -38,7 +38,7 @@ export default function SquadDashboard() {
   const [loading, setLoading] = useState(true);
   const [squadData, setSquadData] = useState<any>(null);
   
-  // 🔥 NEW: Pending Invites State
+  // 🔥 Pending Invites State
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
 
@@ -59,7 +59,7 @@ export default function SquadDashboard() {
   const [invitedPeers, setInvitedPeers] = useState<string[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
-  // 🔥 NEW: Fetch unexpired invites
+  // Fetch unexpired invites
   const fetchPendingInvites = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -127,7 +127,7 @@ export default function SquadDashboard() {
     return squadData.squad.roster.find((m: any) => m.userId === user.id);
   }, [squadData, user?.id]);
 
-  // 🔥 NEW: Handle Accept/Decline directly from the dashboard
+  // Handle Accept/Decline directly from the dashboard
   const handleInviteResponse = async (notificationId: string, squadId: string, action: 'accepted' | 'declined') => {
     setProcessingInviteId(notificationId);
     try {
@@ -174,7 +174,9 @@ export default function SquadDashboard() {
   const joinSquadBySlug = async (slugToJoin: string) => {
     setProcessing(true);
     try {
-      let slug = slugToJoin.trim();
+      // 🔥 THE FIX: Force the input to lowercase right here
+      let slug = slugToJoin.trim().toLowerCase(); 
+      
       if (slug.includes("/squad/")) slug = slug.split("/squad/")[1].split("?")[0];
 
       const res = await fetch("/api/squad/join", {
@@ -188,7 +190,11 @@ export default function SquadDashboard() {
         setJoinInput("");
         fetchSquad(); 
       } else toast.error(data.error || "Failed to join squad.");
-    } catch { toast.error("Network error."); } finally { setProcessing(false); }
+    } catch { 
+      toast.error("Network error."); 
+    } finally { 
+      setProcessing(false); 
+    }
   };
 
   const handleJoinSquad = () => {
@@ -338,7 +344,7 @@ export default function SquadDashboard() {
             {sortedRoster.map((member: any) => (
               <div key={member.userId} className={`p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors hover:bg-muted/10 ${member.userId === user?.id ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'}`}>
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/80 to-primary/40 text-white flex items-center justify-center font-bold text-xl relative shadow-md">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/80 to-primary/40 text-white flex items-center justify-center font-bold text-xl relative shadow-md shrink-0">
                     {member.name.charAt(0)}
                     {member.isLead && <div className="absolute -top-2 -right-2 bg-amber-400 text-amber-900 rounded-full p-1 shadow-md border-2 border-card"><Crown size={14} fill="currentColor" /></div>}
                   </div>
@@ -348,18 +354,29 @@ export default function SquadDashboard() {
                       <span className={member.status === 'active' ? 'text-green-500' : 'text-amber-500'}>●</span>
                       {member.identity} • <span className="capitalize">{member.track.replace(/-/g, ' ')}</span>
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 mt-2">
-                      {member.email && <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Mail size={12}/> {member.email}</span>}
-                      {member.phone && <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Phone size={12}/> {member.phone}</span>}
-                      {member.country && <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><MapPin size={12}/> {formatCountry(member.country)}</span>}
-                    </div>
+                    
+                    {/* 🔥 THE FIX: Render Squad Member Badges! */}
+                    {member.badges && member.badges.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                        {member.badges.map((b: any, idx: number) => (
+                          <div key={idx} className="group relative flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/10 border border-yellow-500/30 cursor-help">
+                            <Award size={12} className="text-yellow-500" />
+                            {/* CSS Tooltip */}
+                            <span className="absolute bottom-8 left-1/2 -translate-x-1/2 scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-black text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none">
+                              {b.badge_name || b}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                   </div>
                 </div>
                 
                 <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto mt-2 md:mt-0">
                   <div className="flex-1 md:w-32 mr-4">
-                     <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Progress</span><span className="text-primary font-medium">{member.individualProgress}%</span></div>
-                     <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${member.individualProgress}%` }}></div></div>
+                    <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">Progress</span><span className="text-primary font-medium">{member.individualProgress}%</span></div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${member.individualProgress}%` }}></div></div>
                   </div>
                   {isLead && !member.isLead && (
                     <Button variant="ghost" size="icon" onClick={() => handleRemoveMember(member.userId, false)} disabled={processing} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 ml-2" title="Remove Member"><UserMinus size={16} /></Button>
@@ -474,6 +491,22 @@ export default function SquadDashboard() {
                       <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         {peer.identity} • <span className="capitalize">{peer.track.replace(/-/g, ' ')}</span>
                       </p>
+
+                      {/* 🔥 THE FIX: Render Peer Badges in Discover! */}
+                      {peer.badges && peer.badges.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                          {peer.badges.map((b: any, badgeIdx: number) => (
+                            <div key={badgeIdx} className="group relative flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500/10 border border-yellow-500/30 cursor-help">
+                              <Award size={10} className="text-yellow-500" />
+                              {/* CSS Tooltip */}
+                              <span className="absolute bottom-7 left-1/2 -translate-x-1/2 scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-black text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none">
+                                {b.badge_name || b}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                     </div>
                   </div>
 
