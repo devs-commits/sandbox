@@ -20,7 +20,7 @@ import {
   Megaphone,
   Award,
   Settings,
-  Users, // 🔥 Added Users icon for the Squad menu
+  Users, 
 } from "lucide-react";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -31,7 +31,6 @@ import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContexts";
 import CareerJourneyModal from "../gamification/CareerJourneyModal";
 
-// 🔥 Added Squad to the menu items
 const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
@@ -40,7 +39,6 @@ const navItems = [
   { label: "Squad", icon: Users, path: "/student/squad" }, 
 ];
 
-// 🔥 Added Squad to the tour targets
 const tourTargetByPath: Record<string, string> = {
   "/student/office": "sidebar-office",
   "/student/portfolio": "sidebar-portfolio",
@@ -92,8 +90,13 @@ export const StudentSidebar = () => {
   const [showCareerModal, setShowCareerModal] = useState(false);
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
   const [isOfficeLocked, setIsOfficeLocked] = useState(false);
+  
+  // 🔥 THE AUTOMATION FIX: Direct state variables reading the True Database values
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [currentIdentity, setCurrentIdentity] = useState<string>("Intern");
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [currentTrack, setCurrentTrack] = useState<"data-analytics" | "digital-marketing" | "cyber-security">("data-analytics");
+  
   const lastFetchedId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -117,39 +120,40 @@ export const StudentSidebar = () => {
 
     const fetchSidebarData = async () => {
       try {
-        console.log("Sidebar: Initiating DB Connection for ID:", currentId);
-        
-        // Fetch Badges
+        // 1. Fetch User Record (for track setup and UI notifications)
+        const { data: userRes } = await supabase
+          .from("users")
+          .select("track, tasks_completed")
+          .eq("auth_id", currentId)
+          .maybeSingle();
+
+        // 2. 🔥 FETCH TRUE RANK FROM PROGRESSION (Fix for Sidebar Automation)
+        const { data: progRes } = await supabase
+          .from("user_progression")
+          .select("current_week, current_identity")
+          .eq("user_id", currentId)
+          .maybeSingle();
+
+        // 3. Fetch Badges
         const { data: badgeRes } = await supabase
           .from("user_badges")
           .select("badge_name")
           .eq("user_id", currentId);
 
         if (!isMounted) return;
+
         if (badgeRes) setEarnedBadges(badgeRes.map(b => b.badge_name));
-
-        // Fetch User Record natively (including tasks_completed directly!)
-        const { data: userRes, error: usersError } = await supabase
-          .from("users")
-          .select("track, subscription_status, subscription_expires_at, tasks_completed, current_streak")
-          .eq("auth_id", currentId)
-          .maybeSingle();
         
-        if (usersError) {
-          console.error("Sidebar: Supabase User Query Error:", usersError.message);
-          return;
+        if (progRes) {
+           setCurrentWeek(progRes.current_week || 1);
+           setCurrentIdentity(progRes.current_identity || "Intern");
         }
-
-        console.log("Sidebar: Successfully connected to DB row:", userRes);
 
         if (userRes) {
           setIsOfficeLocked(false);
-
-          // NATIVE DB ASSIGNMENT
           setCompletedTasksCount(userRes.tasks_completed || 0);
 
           const rawTrack = (userRes.track || "").trim().toLowerCase();
-          console.log("RAW TRACK:", rawTrack);
 
           if (rawTrack.includes("data") || rawTrack.includes("analytics")) {
             setCurrentTrack("data-analytics");
@@ -160,11 +164,6 @@ export const StudentSidebar = () => {
           } else {
             setCurrentTrack("data-analytics");
           }
-
-          console.log("================================");
-          console.log("DB TRACK:", userRes.track);
-          console.log("CURRENT TRACK STATE:", currentTrack);
-          console.log("================================");
         }
       } catch (err) {
         console.error("Sidebar: Critical failure connecting to DB:", err);
@@ -173,27 +172,26 @@ export const StudentSidebar = () => {
 
     fetchSidebarData();
 
-    // Listen to users table to dynamically update the tasks_completed and streak in real time
+    // 🔥 AUTOMATION LISTENERS: Now actively listening to user_progression table!
+    const progChannel = supabase.channel(`sidebar-prog-${currentId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_progression", filter: `user_id=eq.${currentId}` }, fetchSidebarData).subscribe();
+      
     const userChannel = supabase.channel(`sidebar-user-${currentId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "users", filter: `auth_id=eq.${currentId}` }, fetchSidebarData).subscribe();
+      
     const badgeChannel = supabase.channel(`sidebar-badges-${currentId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_badges", filter: `user_id=eq.${currentId}` }, fetchSidebarData).subscribe();
 
     return () => {
       isMounted = false;
+      supabase.removeChannel(progChannel);
       supabase.removeChannel(userChannel);
       supabase.removeChannel(badgeChannel);
     };
   }, [user?.id]);
 
-  // THE FIX: Current week is tasks completed + 1
-  const currentWeek = Math.min(completedTasksCount + 1, 24);
   const currentTrackData = GAMIFICATION_TRACKS[currentTrack] || GAMIFICATION_TRACKS["data-analytics"];
   const progressPercentage = Math.min((currentWeek / 24) * 100, 100);
-
-  const currentIdentity = useMemo(() => {
-    return currentTrackData.progression.find(stage => currentWeek >= stage.minWeek && currentWeek <= stage.maxWeek);
-  }, [currentTrackData, currentWeek]);
 
   const CurrentTrackIcon = currentTrackData.icon || Trophy;
   const mappedTrackKeyForModal = currentTrack.replace("-", "_");
@@ -272,7 +270,8 @@ export const StudentSidebar = () => {
                   <CurrentTrackIcon size={20} className="text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-base font-bold text-white">{currentIdentity?.title}</p>
+                  {/* 🔥 Renders True Identity from DB */}
+                  <p className="text-base font-bold text-white">{currentIdentity}</p>
                   <p className="text-xs text-slate-400 mt-1">Week {currentWeek} of 24</p>
                 </div>
               </div>
@@ -322,7 +321,7 @@ export const StudentSidebar = () => {
         onClose={() => setShowCareerModal(false)}
         roadmap={currentTrackData.progression.map((stage) => ({ week: stage.minWeek, title: stage.title }))}
         currentWeek={currentWeek}
-        currentIdentity={currentIdentity?.title || "Intern"}
+        currentIdentity={currentIdentity}
         unlockedBadges={earnedBadges.map((badge) => ({ badge_name: badge }))}
         activeTrackKey={mappedTrackKeyForModal}
       />

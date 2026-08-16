@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty, ArchiveItem } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
@@ -110,6 +110,15 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [weekStatus, setWeekStatus] = useState<'in_progress' | 'passed_waiting'>('in_progress');
   const [nextUnlockDate, setNextUnlockDate] = useState<string | null>(null);
   const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
+
+  // 🔥 THE LEAKAGE FIX: Bulletproof Track Normalizer
+  const normalizedTrack = useMemo(() => {
+    const t = (trackName || '').toLowerCase().replace(/[- ]/g, "_");
+    if (t.includes("cyber") || t.includes("security")) return "cyber_security";
+    if (t.includes("data") || t.includes("analytic")) return "data_analytics";
+    if (t.includes("market") || t.includes("digital")) return "digital_marketing";
+    return "data_analytics"; // Absolute safe fallback
+  }, [trackName]);
 
   // ==========================================
   // GLOBALLY SCOPED FUNCTIONS
@@ -349,7 +358,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const logGeneratedTask = useCallback((taskId: string, source: 'automatic' | 'manual') => {
     if (!userId) return;
 
-    // Tracking is deliberately best effort: a logging outage cannot affect task delivery.
     void fetch('/api/tasks/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -367,7 +375,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   useEffect(() => {
     if (!userId) return;
 
-    // 🔥 DYNAMIC CHANNEL FIX 🔥
     const uniqueChannelName = `realtime-tasks-${userId}-${Date.now()}`;
 
     const taskSubscription = supabase
@@ -760,7 +767,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId, 
           bio_text: bio,
-          track: trackName.toLowerCase().replace(/[- ]/g, "_"),
+          // 🔥 ALWAYS USE NORMALIZED TRACK
+          track: normalizedTrack,
           cv_url: cvUrl 
         })
       });
@@ -796,13 +804,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }
 
     setShowToluWelcome(true);
-  }, [trackName, addChatMessage, userId, persistState]);
+  }, [normalizedTrack, addChatMessage, userId, persistState]);
 
   // ==========================================
   // GENERATE TASK (RELIABLE QUEUE HANDOFF)
   // ==========================================
   const generateTask = useCallback(async (source: 'automatic' | 'manual' = 'manual') => {
-    // 1. Check if they already have an active task
     const hasActiveTask = tasks.some(t => 
       t.difficulty !== 'Bounty' && 
       !['approved', 'passed'].includes(t.status as string)
@@ -859,9 +866,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    // 🔥 FIX 1: Removed the premature "New task assigned" message here!
-    // We only announce it when the task actually arrives via the Realtime Listener.
-
     setGenerationStatusText("Pinging Emem...");
     const statusCycle = [
       "Reviewing your curriculum...",
@@ -879,14 +883,14 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }, 2500);
 
     try {
-      // Trigger the backend queue
       const response = await fetch('/api/tasks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
           user_name: user?.fullName,
-          track: trackName.toLowerCase().replace(/[- ]/g, "_"),
+          // 🔥 ALWAYS USE NORMALIZED TRACK
+          track: normalizedTrack,
           task_number: currentWeek, 
           difficulty: "intermediate",
           include_video_brief: true
@@ -939,7 +943,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
+  }, [tasks, addChatMessage, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
@@ -958,7 +962,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   // ==========================================
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     
-    // 1. 🔥 THE 3-STRIKE DAILY LOCKOUT ENGINE 🔥
     const today = new Date().toISOString().split('T')[0];
     const attemptKey = `wdc-attempts-${userId}-${taskId}-${today}`;
     const currentAttempts = parseInt(localStorage.getItem(attemptKey) || '0', 10);
@@ -1014,7 +1017,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId,
           task_id: taskId,
-          // 🔥 CRITICAL FIX: Explicitly passing `null` if empty. Passing `file.name` here crashes Python's HttpUrl validator!
           file_url: fileUrl || null, 
           fileName: file ? file.name : 'submission',
           file_content: notes, 
@@ -1123,7 +1125,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
             is_submission: false,
             is_first_login: false,
             user_level: userLevel,
-            track: trackName.toLowerCase().replace(/[- ]/g, "_"),
+            // 🔥 ALWAYS USE NORMALIZED TRACK
+            track: normalizedTrack,
             task_brief: currentTaskInfo?.description,
             deadline: currentTaskInfo?.deadline,
             current_identity: currentIdentity, 
@@ -1143,7 +1146,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('Chat failed:', error);
       addChatMessage({ id: (Date.now() + 1).toString(), agentName: 'Sola', message: "Connection issue. Please check if the AI backend is running.", timestamp: new Date() });
     }
-  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount, userId, currentIdentity, currentWeek]);
+  }, [addChatMessage, tasks, userLevel, normalizedTrack, chatMessages, messageCount, userId, currentIdentity, currentWeek]);
 
   const sendInterviewMessage = useCallback(async (message: string, interviewType: string, interviewHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1153,7 +1156,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId, message,
-          context: { is_mock_interview: true, interview_type: interviewType, user_level: userLevel, track: trackName.toLowerCase().replace(/[- ]/g, "_"), is_submission: false, is_first_login: false },
+          // 🔥 ALWAYS USE NORMALIZED TRACK
+          context: { is_mock_interview: true, interview_type: interviewType, user_level: userLevel, track: normalizedTrack, is_submission: false, is_first_login: false },
           chat_history: interviewHistory
         })
       });
@@ -1167,7 +1171,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('Interview message failed:', error);
       return { agent: 'Kemi' as AgentName, message: "Connection issue. Please check if the AI backend is running." };
     }
-  }, [userId, userLevel, trackName]);
+  }, [userId, userLevel, normalizedTrack]);
 
   const sendSalaryNegotiationMessage = useCallback(async (message: string, negotiationHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1177,7 +1181,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId, message,
-          context: { is_salary_negotiation: true, user_level: userLevel, track: trackName.toLowerCase().replace(/[- ]/g, "_"), is_submission: false, is_first_login: false },
+          // 🔥 ALWAYS USE NORMALIZED TRACK
+          context: { is_salary_negotiation: true, user_level: userLevel, track: normalizedTrack, is_submission: false, is_first_login: false },
           chat_history: negotiationHistory
         })
       });
@@ -1191,7 +1196,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('Salary negotiation message failed:', error);
       return { agent: 'Tolu' as AgentName, message: "Connection issue. Please check if the AI backend is running." };
     }
-  }, [userId, userLevel, trackName]);
+  }, [userId, userLevel, normalizedTrack]);
 
   return (
     <OfficeContext.Provider
