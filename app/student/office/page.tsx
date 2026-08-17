@@ -8,7 +8,8 @@ import { CVUploadUI } from '@/app/components/students/office/CVUploadUI';
 import { useAuth } from '@/app/contexts/AuthContexts';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Sparkles } from 'lucide-react'; 
+import { FileText, Sparkles, Loader2 } from 'lucide-react'; // 🔥 Added Loader2
+import { toast } from 'sonner'; // 🔥 Added toast
 
 function OfficeContent() {
   const { phase, isLoadingOnboarding, subscription } = useOffice();
@@ -16,6 +17,23 @@ function OfficeContent() {
   
   const [hasCv, setHasCv] = useState(true); 
   const [showCvWidget, setShowCvWidget] = useState(false);
+
+  // 🔥 NEW: State for Inline Payment
+  const [renewalPlan, setRenewalPlan] = useState<"monthly" | "quarterly">("monthly");
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // 🔥 NEW: Load Paystack script dynamically
+  useEffect(() => {
+    const loadPaystack = () => {
+      if (document.getElementById('paystack-script')) return;
+      const script = document.createElement('script');
+      script.id = 'paystack-script';
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      document.body.appendChild(script);
+    };
+    loadPaystack();
+  }, []);
 
   useEffect(() => {
     const checkCvStatus = async () => {
@@ -61,6 +79,45 @@ function OfficeContent() {
     }
   }, [user, phase]);
 
+  // 🔥 NEW: Your exact Live Paystack Plan Codes
+  const PAYSTACK_PLAN_CODES = {
+    monthly: "PLN_46z8gz0p4foduy8",
+    quarterly: "PLN_ddzhasixy441mju"
+  };
+
+  // 🔥 NEW: Inline Paystack Handler
+  const handleInstantRenewal = () => {
+    if (!(window as any).PaystackPop) {
+      toast.error("Payment gateway is loading. Please try again in a second.");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    
+    const amount = renewalPlan === "quarterly" ? 40500 : 15000;
+    const planCode = PAYSTACK_PLAN_CODES[renewalPlan];
+
+    const paystack = new (window as any).PaystackPop();
+    paystack.setup({
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+      email: user?.email,
+      amount: amount * 100, // Paystack expects Kobo
+      channels: ['card'],   // Enforce card payments for auto-renewal
+      plan: planCode,       // Connects the payment to your recurring plan
+      onSuccess: async (transaction: any) => {
+        toast.success("Subscription Renewed! Unlocking office...");
+        setIsProcessingPayment(false);
+        // Forcefully reload the window so the Context fetches the new active subscription dates
+        window.location.reload(); 
+      },
+      onClose: () => {
+        setIsProcessingPayment(false);
+        toast.error("Payment cancelled. Office remains locked.");
+      }
+    });
+    paystack.openIframe();
+  };
+
   if (isLoadingOnboarding) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
@@ -81,20 +138,59 @@ function OfficeContent() {
   if (!subscription || isInactive || hasNoExpiryDate || isPastExpiry) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0f172a]/95 backdrop-blur-md p-6 text-center">
-        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
+        <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 border border-emerald-500/20">
           <span className="text-3xl">🔒</span>
         </div>
         <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">Office Access Restricted</h2>
-        <p className="text-white/60 max-w-md mb-8 text-base leading-relaxed">
+        <p className="text-white/60 max-w-md mb-6 text-sm leading-relaxed">
           Your internship subscription has expired or cannot be verified. 
-          Please <strong className="text-white">fund your wallet</strong> to renew your 
-          subscription and regain access.
+          Please select a plan and <strong className="text-white">add a valid debit/credit card</strong> to renew and regain access.
         </p>
+
+        {/* 🔥 NEW: Plan Selection Toggle for the Lockout Screen */}
+        <div className="w-full max-w-xs space-y-3 mb-8">
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => setRenewalPlan("monthly")}
+              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
+                renewalPlan === "monthly" 
+                  ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" 
+                  : "border-white/10 text-white/50 hover:bg-white/5"
+              }`}
+            >
+              <span className="text-sm font-bold">Monthly</span>
+              <span className="text-xs mt-1">₦15,000</span>
+            </button>
+
+            <button 
+              onClick={() => setRenewalPlan("quarterly")}
+              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all relative ${
+                renewalPlan === "quarterly" 
+                  ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" 
+                  : "border-white/10 text-white/50 hover:bg-white/5"
+              }`}
+            >
+              <div className="absolute -top-2 right-2 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-lg">
+                SAVE ₦4,500
+              </div>
+              <span className="text-sm font-bold">Quarterly</span>
+              <span className="text-xs mt-1">₦40,500</span>
+            </button>
+          </div>
+        </div>
+
         <button 
-          onClick={() => window.location.href = '/student/wallet'} 
-          className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-xl shadow-red-900/20 uppercase tracking-widest text-xs"
+          onClick={handleInstantRenewal} 
+          disabled={isProcessingPayment}
+          className="px-8 py-4 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-xl shadow-emerald-900/20 uppercase tracking-widest text-xs w-full max-w-xs"
         >
-          Fund Wallet & Renew
+          {isProcessingPayment ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+            </>
+          ) : (
+            `Pay ₦${renewalPlan === 'quarterly' ? '40,500' : '15,000'} & Unlock`
+          )}
         </button>
       </div>
     );
