@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Clock, FileText, Upload, CheckCircle, AlertCircle, Loader2, Coffee, 
-  Target, ChevronDown, RefreshCw, AlertTriangle, ChevronRight, AlertOctagon 
+  Target, ChevronDown, RefreshCw, AlertTriangle, ChevronRight, AlertOctagon, Flag 
 } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
@@ -15,6 +15,7 @@ import { TaskDetailModal } from './modals/TaskDetailModal';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from "../../../../lib/supabase";
 import { toast } from 'sonner';
+import { ReportIssueModal } from './ReportIssueModal'; // 🔥 NEW MODAL IMPORT
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -27,17 +28,15 @@ const formatTag = (tag: string | undefined): string => {
   return tag.replace(/_/g, ' ').replace(/-/g, ' ').toUpperCase();
 };
 
-// 🔥 THE FIX: Dynamic Escalating Urgency Calculator
 const getUrgencyDisplay = (task: any) => {
   const isCompleted = task.status === 'approved' || task.status === 'passed' || task.status === 'submitted';
   if (isCompleted) return <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1"><CheckCircle size={12}/> Completed</span>;
-  
+
   if (!task.created_at) return <span className="text-slate-400">Due: Friday</span>;
 
   const createdDate = new Date(task.created_at);
   const deadline = new Date(createdDate);
   const dayOfWeek = createdDate.getDay();
-  // Finds the next Friday (or gives 7 days if generated ON a Friday)
   const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
   deadline.setDate(createdDate.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
   deadline.setHours(23, 59, 59, 999);
@@ -128,7 +127,8 @@ export function TaskDashboard() {
 
   const [submissionTask, setSubmissionTask] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
-  
+  const [reportIssueTask, setReportIssueTask] = useState<Task | null>(null); // 🔥 NEW MODAL STATE
+
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
   const [previewFeedback, setPreviewFeedback] = useState<string | null>(null);
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
@@ -214,15 +214,15 @@ export function TaskDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          task_id: task.id.toString(), // Ensured to be string payload
+          task_id: task.id.toString(),
           user_name: user?.fullName || "Intern",
           track: task.type || (task as any).task_track,
           task_number: tasks.length
         })
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         toast.success("Emem has issued a new brief!");
         setPreviewTask(null); 
@@ -250,7 +250,7 @@ export function TaskDashboard() {
   if (weekStatus === 'passed_waiting') {
     const score = performanceMetrics?.technicalAccuracy || 92;
     const rating = score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 50 ? "Pass" : "Fail";
-    
+
     const solaMessages = chatMessages.filter(m => m.agentName === 'Sola' || (m.agentName as string) === 'System');
     const actualFeedback = solaMessages[solaMessages.length - 1]?.message || "Task completed successfully. The metrics have been recorded in your performance report.";
 
@@ -282,20 +282,37 @@ export function TaskDashboard() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <TaskResultScreen score={score} rating={rating} feedback={actualFeedback} recommendations={recommendations} />
           </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="flex justify-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="flex justify-center flex-col items-center gap-6">
             <div className="bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-slate-700 p-6 rounded-2xl w-full max-w-sm text-center shadow-xl">
               <p className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-2">Next Task Unlocks</p>
               <p className="text-2xl font-black text-white">Monday @ 8:00 AM</p>
             </div>
+
+            {/* 🔥 INLINE REPORT BUTTON FOR WAITING STATE */}
+            <button 
+              onClick={() => setReportIssueTask(currentTask || { id: 'N/A', type: 'General' } as any)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-400 transition-colors"
+            >
+              <Flag size={14} /> Think there's a mistake with Sola's grading? Report it here.
+            </button>
           </motion.div>
         </div>
+
+        {/* 🔥 NEW MODAL INJECTED */}
+        <ReportIssueModal 
+          isOpen={!!reportIssueTask}
+          onClose={() => setReportIssueTask(null)}
+          userId={user?.id || ''} 
+          taskId={reportIssueTask?.id?.toString() || currentTask?.id?.toString() || 'N/A'} 
+          trackName={reportIssueTask?.type || currentTask?.type || (currentTask as any)?.task_track || 'Unknown'} 
+        />
       </div>
     );
   }
 
   return (
     <div className={`h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 overflow-y-auto ${openSans.className}`}>
-      
+
       <div className="p-6 pb-0 flex flex-col gap-4">
         <div className="flex justify-between items-center">
              <h2 className="text-xl font-bold text-foreground">Your Desk</h2>
@@ -330,7 +347,7 @@ export function TaskDashboard() {
                 <div className="grid gap-4">
                   {sortedRegularTasks.map((task, index) => {
                     const isCompleted = task.status === 'approved' || (task.status as string) === 'passed';
-                    
+
                     return (
                       <motion.div
                         key={task.id}
@@ -351,11 +368,11 @@ export function TaskDashboard() {
                             {getStatusLabel(task.status)}
                           </span>
                         </div>
-                        
+
                         <h3 className="font-semibold text-foreground mb-2">
                           {(task as any).week ? `Week ${(task as any).week}: ` : ''}{task.title}
                         </h3>
-                        
+
                         <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
                           <ReactMarkdown>{task.description || ''}</ReactMarkdown>
                         </div>
@@ -369,8 +386,6 @@ export function TaskDashboard() {
                               </summary>
                               <div className="p-3 border-t border-border/50 space-y-2 bg-card/40">
                                {task.resources.map((res) => {
-                                // 🔥 FIX 3: Route PDFs through Google Docs Viewer for strict browser safety
-                                // Added optional chaining (?.) and fallback (|| '') for strict TypeScript compliance
                                 const isPdf = res.type === 'pdf' || res.url?.toLowerCase().endsWith('.pdf');
                                 const safeUrl = isPdf 
                                   ? `https://docs.google.com/viewer?url=${encodeURIComponent(res.url || '')}&embedded=true` 
@@ -389,16 +404,25 @@ export function TaskDashboard() {
                         )}
 
                         <div className="flex items-center justify-between text-xs pt-3 border-t border-border/30">
-                          {/* 🔥 INJECTED DYNAMIC URGENCY SYSTEM HERE */}
                           <div className="flex items-center gap-1.5">
                             {getUrgencyDisplay(task)}
                           </div>
-                          
-                          {task.attachments && task.attachments.length > 0 && (
-                            <span className="flex items-center gap-1.5 text-muted-foreground">
-                              <FileText size={12} /> {task.attachments.length} files
-                            </span>
-                          )}
+
+                          {/* 🔥 INLINE REPORT BUTTON ON TASK CARD */}
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setReportIssueTask(task); }}
+                              className="text-muted-foreground hover:text-red-400 flex items-center gap-1 transition-colors font-medium"
+                            >
+                              <Flag size={12} /> Report
+                            </button>
+
+                            {task.attachments && task.attachments.length > 0 && (
+                              <span className="flex items-center gap-1.5 text-muted-foreground">
+                                <FileText size={12} /> {task.attachments.length} files
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -425,6 +449,16 @@ export function TaskDashboard() {
                       </div>
                       <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
                       <div className="text-sm text-muted-foreground line-clamp-2 mb-4"><ReactMarkdown>{task.description || ''}</ReactMarkdown></div>
+                      
+                      {/* 🔥 INLINE REPORT BUTTON ON BOUNTY CARD */}
+                      <div className="flex justify-end pt-2 border-t border-yellow-500/20 mt-2">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setReportIssueTask(task); }}
+                          className="text-muted-foreground hover:text-red-400 flex items-center gap-1 transition-colors text-xs font-medium"
+                        >
+                          <Flag size={12} /> Report
+                        </button>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -454,7 +488,6 @@ export function TaskDashboard() {
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs font-bold bg-primary/20 text-primary px-3 py-1 rounded-full tracking-wider">{formatTag(previewTask.type || (previewTask as any).task_track)}</span>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      {/* 🔥 INJECTED DYNAMIC URGENCY SYSTEM IN PREVIEW TOO */}
                       {getUrgencyDisplay(previewTask)}
                     </div>
                   </div>
@@ -468,13 +501,18 @@ export function TaskDashboard() {
               {(previewTask.status as string) !== 'approved' && (previewTask.status as string) !== 'passed' && (previewTask.status as string) !== 'submitted' && (previewTask.status as string) !== 'under-review' && (previewTask.status as string) !== 'under_review' && (
                 <>
                   <Button onClick={() => setSubmissionTask(previewTask)} className="flex-1 gap-2 min-w-[140px]"><Upload size={16} /> Submit Work</Button>
-                  {/* <Button variant="destructive" onClick={() => handleRegenerate(previewTask)} disabled={(previewTask as any).is_regenerated || isRegenerating} className="flex-1 gap-2 min-w-[140px] bg-red-900/50 hover:bg-red-900 text-red-200 border-none">
-                    {isRegenerating ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-                    {(previewTask as any).is_regenerated ? "Already Regenerated" : "Request New Brief"}
-                  </Button> */}
                 </>
               )}
               <Button variant="outline" className="flex-1 gap-2 min-w-[140px]" onClick={() => setDetailTask(previewTask)}><FileText size={16} /> View Full Details</Button>
+              
+              {/* 🔥 INLINE REPORT BUTTON INSIDE THE PREVIEW MODAL */}
+              <Button 
+                variant="ghost" 
+                className="gap-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 px-3 transition-colors" 
+                onClick={() => setReportIssueTask(previewTask)}
+              >
+                <Flag size={16} />
+              </Button>
             </div>
           </motion.div>
         </motion.div>
@@ -482,6 +520,15 @@ export function TaskDashboard() {
 
       {submissionTask && <SubmissionModal isOpen={!!submissionTask} onClose={() => setSubmissionTask(null)} taskId={submissionTask.id} taskTitle={submissionTask.title} />}
       <TaskDetailModal isOpen={!!detailTask} onClose={() => setDetailTask(null)} task={detailTask} />
+      
+      {/* 🔥 THE CENTERED MODAL */}
+      <ReportIssueModal 
+        isOpen={!!reportIssueTask}
+        onClose={() => setReportIssueTask(null)}
+        userId={user?.id || ''} 
+        taskId={reportIssueTask?.id?.toString() || 'N/A'} 
+        trackName={reportIssueTask?.type || (reportIssueTask as any)?.task_track || 'Unknown'} 
+      />
     </div >
   );
 }

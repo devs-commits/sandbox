@@ -767,7 +767,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId, 
           bio_text: bio,
-          // 🔥 ALWAYS USE NORMALIZED TRACK
           track: normalizedTrack,
           cv_url: cvUrl 
         })
@@ -889,7 +888,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId,
           user_name: user?.fullName,
-          // 🔥 ALWAYS USE NORMALIZED TRACK
           track: normalizedTrack,
           task_number: currentWeek, 
           difficulty: "intermediate",
@@ -897,7 +895,23 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         })
       });
 
-      if (!response.ok) throw new Error("API Failure");
+      // 🔥 THE GRACEFUL ERROR FIX
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        clearInterval(loadingInterval);
+        setIsGeneratingTask(false);
+        setGenerationStatusText("Fetch Missing Task");
+        pendingTaskGenerationSourceRef.current = null;
+        
+        addChatMessage({
+          id: Date.now().toString(),
+          agentName: 'Emem',
+          message: data.error || "Connection issue. The system couldn't reach the queue. Please try again.",
+          timestamp: new Date()
+        });
+        return; // Prevent execution from continuing to the polling loop
+      }
 
       let attempts = 0;
       let taskFound = false;
@@ -905,12 +919,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       while (attempts < 18 && !taskFound) { 
         await new Promise(resolve => setTimeout(resolve, 5000));
         
-        const { data } = await supabase
+        const { data: dbData } = await supabase
           .from('tasks')
           .select('id')
           .eq('user', userId);
 
-        const generatedTask = data?.find(task => !initialTaskIds.has(task.id.toString()));
+        const generatedTask = dbData?.find(task => !initialTaskIds.has(task.id.toString()));
         if (generatedTask) {
           taskFound = true;
           logGeneratedTask(generatedTask.id.toString(), source);
@@ -924,17 +938,21 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task");
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Task queue failed:', error);
       pendingTaskGenerationSourceRef.current = null;
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
       
+      const errorMessage = error instanceof Error && error.message !== "API Failure" && error.message !== "Failed to fetch"
+        ? error.message 
+        : "Connection issue. The system couldn't reach the queue. Please try again.";
+
       addChatMessage({
         id: Date.now().toString(),
         agentName: 'Emem',
-        message: "Connection issue. The system couldn't reach the queue. Please try again.",
+        message: errorMessage,
         timestamp: new Date()
       });
     }
@@ -1125,7 +1143,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
             is_submission: false,
             is_first_login: false,
             user_level: userLevel,
-            // 🔥 ALWAYS USE NORMALIZED TRACK
             track: normalizedTrack,
             task_brief: currentTaskInfo?.description,
             deadline: currentTaskInfo?.deadline,
@@ -1156,7 +1173,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId, message,
-          // 🔥 ALWAYS USE NORMALIZED TRACK
           context: { is_mock_interview: true, interview_type: interviewType, user_level: userLevel, track: normalizedTrack, is_submission: false, is_first_login: false },
           chat_history: interviewHistory
         })
@@ -1181,7 +1197,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId, message,
-          // 🔥 ALWAYS USE NORMALIZED TRACK
           context: { is_salary_negotiation: true, user_level: userLevel, track: normalizedTrack, is_submission: false, is_first_login: false },
           chat_history: negotiationHistory
         })

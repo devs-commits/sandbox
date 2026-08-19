@@ -63,10 +63,25 @@ export async function POST(request: Request) {
       })
     });
 
+    // 🔥 THE GRACEFUL ERROR FIX
     if (!backendResponse.ok) {
       const errText = await backendResponse.text();
       console.error("Backend generation error:", errText);
-      throw new Error(`Backend API Error: ${backendResponse.status}`);
+      
+      let errorMessage = "The system couldn't reach the queue. Please try again.";
+      try {
+        const parsedErr = JSON.parse(errText);
+        if (parsedErr.detail) {
+          errorMessage = parsedErr.detail; // Grabs the exact "Access Denied..." message
+        }
+      } catch (e) {
+        console.error("Could not parse backend error as JSON");
+      }
+
+      return NextResponse.json(
+        { success: false, error: errorMessage }, 
+        { status: backendResponse.status }
+      );
     }
 
     return NextResponse.json({ 
