@@ -27,6 +27,9 @@ import { ReferenceLetterTemplate, type LetterData } from "../../components/lette
 import { HeadquartersProvider } from "../../contexts/HeadquartersContext";
 import { HeadquartersTour } from "../../components/students/headquarters/HeadquartersTour";
 
+// 🔥 Import the new Subscribe Modal
+import { SubscribeModal } from "@/app/components/students/SubscribeModal"; 
+
 // ==========================================
 // COURSE SYLLABI DEFINITIONS
 // ==========================================
@@ -86,6 +89,9 @@ function HeadquartersContent() {
   const [letterData, setLetterData] = useState<LetterData | null>(null);
   const [downloadRequest, setDownloadRequest] = useState<{ fileName: string } | null>(null);
   const letterRef = useRef<HTMLDivElement>(null);
+
+  // 🔥 State to control the Subscription Modal from Headquarters
+  const [showSubModal, setShowSubModal] = useState(false);
   
   const tasksRemaining12 = Math.max(12 - tasksCompleted, 0);
   const tasksRemaining24 = Math.max(24 - tasksCompleted, 0);
@@ -216,7 +222,8 @@ function HeadquartersContent() {
                 Your personalized learning environment is currently locked. Complete your subscription to unlock your AI Assistant, daily tasks, and start earning experience points. Otherwise, feel free to manage your funds in the Global Wallet!
               </p>
               <div className="flex flex-wrap gap-4">
-                <Button onClick={() => router.push("/student/office")} className="bg-primary text-white font-bold px-6">
+                {/* 🔥 OPEN MODAL DIRECTLY INSTEAD OF ROUTING */}
+                <Button onClick={() => setShowSubModal(true)} className="bg-primary text-white font-bold px-6">
                   <CreditCard className="w-4 h-4 mr-2" /> Pay & Unlock Office
                 </Button>
                 <Button onClick={() => router.push("/student/wallet")} variant="outline" className="border-border">
@@ -403,6 +410,14 @@ function HeadquartersContent() {
 
       <HeadquartersTour />
       <WhatsAppSupport />
+
+      {/* 🔥 The Global Subscription Modal for Headquarters */}
+      <SubscribeModal 
+        open={showSubModal} 
+        onClose={() => setShowSubModal(false)} 
+        userId={user?.id || ""} 
+        userEmail={user?.email || ""} 
+      />
       
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         {letterData && <ReferenceLetterTemplate ref={letterRef} data={letterData} />}

@@ -9,15 +9,12 @@ import { supabase } from "@/lib/supabase"
 import ReactMarkdown from "react-markdown"
 import { toast } from "sonner"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/app/components/ui/dialog"
 import {
   Wand2, Lock, Share2, CheckCircle2, Copy, Link as LinkIcon,
   Instagram, Facebook, Linkedin, Mail, Twitter, MessageCircle, Send,
-  Loader2, Target, TrendingUp, Trophy, Star, Activity,
+  Loader2, Target, TrendingUp, Trophy, Star, Activity, FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -29,6 +26,8 @@ interface Task {
   task_track: string;
   completed: boolean;
   status?: string;
+  score?: number;
+  score_breakdown?: Record<string, string>;
 }
 
 export default function PortfolioPage() {
@@ -40,7 +39,6 @@ export default function PortfolioPage() {
   const [resumeContent, setResumeContent] = useState("")
   const [isGeneratingResume, setIsGeneratingResume] = useState(false)
 
-  // Metrics State
   const [metrics, setMetrics] = useState({
     currentTask: "Awaiting Assignment...",
     currentLevel: (user as any)?.user_level || "Junior Intern",
@@ -73,21 +71,18 @@ export default function PortfolioPage() {
 
       setTasks(completed)
 
-      // 1. Fetch user data (average score & level)
       const { data: userData } = await supabase
         .from('users')
         .select('average_score, user_level')
         .eq('auth_id', user?.id)
         .single()
 
-      // 2. 🔥 THE FIX: Fetch the exact buckets natively from user_progression
       const { data: progData } = await supabase
         .from('user_progression')
         .select('excellent_count, good_count, pass_count')
         .eq('user_id', user?.id)
         .maybeSingle()
 
-      // 3. Keep pulling the AI feedback for the resume generator
       const feedbacks: { [key: number]: string } = {}
       for (const task of completed) {
         const { data: subData } = await supabase
@@ -104,12 +99,10 @@ export default function PortfolioPage() {
       }
       setFeed(feedbacks)
 
-      // 4. Retroactive Fallback (If DB counts are 0 but you have completed tasks)
       let excCount = progData?.excellent_count || 0;
       let gdCount = progData?.good_count || 0;
       let psCount = progData?.pass_count || 0;
 
-      // This ensures your current 88.0 score immediately flags as "Excellent"
       if (completed.length > 0 && excCount === 0 && gdCount === 0 && psCount === 0) {
           const avg = userData?.average_score || 0;
           if (avg >= 85) excCount = completed.length;
@@ -283,7 +276,7 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* Skills */}
+        {/* Verified Skills */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4 text-foreground">Verified Skills</h3>
           {isLoading ? (
@@ -301,6 +294,50 @@ export default function PortfolioPage() {
             <p className="text-muted-foreground text-sm">Complete tasks to verify skills.</p>
           )}
         </div>
+
+        {/* 🔥 THE NEW TRANSPARENCY FIX: Completed Task Scoring Breakdown */}
+        {tasks.length > 0 && (
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-400"/> Task History & Scoring
+            </h3>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              {tasks.map((task) => (
+                <div key={task.id} className="p-4 bg-muted/30 border border-border/50 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-foreground">{task.title}</h4>
+                      <span className="text-xs text-muted-foreground uppercase">{task.task_track?.replace(/-/g, ' ')}</span>
+                    </div>
+                    {task.score !== undefined && (
+                      <div className="flex flex-col items-end">
+                        <span className={cn("px-3 py-1 rounded-full text-sm font-bold border", 
+                          task.score >= 85 ? "text-green-500 border-green-500/50 bg-green-500/10" : 
+                          task.score >= 70 ? "text-cyan-500 border-cyan-500/50 bg-cyan-500/10" : 
+                          "text-yellow-500 border-yellow-500/50 bg-yellow-500/10"
+                        )}>
+                          {task.score} / 100
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* The actual AI Breakdown outputted straight from the DB */}
+                  {task.score_breakdown && Object.keys(task.score_breakdown).length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-border/50 grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {Object.entries(task.score_breakdown).map(([criteria, points]) => (
+                        <div key={criteria} className="flex justify-between md:flex-col md:justify-start">
+                          <span className="text-xs text-muted-foreground">{criteria}</span>
+                          <span className="text-sm font-medium text-foreground">{points}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Resume Output Inline */}
         <div className="mt-8">

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { OfficeState, OfficePhase, ChatMessage, Task, UserLevel, AgentName, UserPortfolio, PerformanceMetrics, Bounty, ArchiveItem } from "../components/students/office/types"
 import { useAuth } from './AuthContexts';
@@ -110,6 +110,15 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [weekStatus, setWeekStatus] = useState<'in_progress' | 'passed_waiting'>('in_progress');
   const [nextUnlockDate, setNextUnlockDate] = useState<string | null>(null);
   const [unlockedBadges, setUnlockedBadges] = useState<any[]>([]);
+
+  // 🔥 THE LEAKAGE FIX: Bulletproof Track Normalizer
+  const normalizedTrack = useMemo(() => {
+    const t = (trackName || '').toLowerCase().replace(/[- ]/g, "_");
+    if (t.includes("cyber") || t.includes("security")) return "cyber_security";
+    if (t.includes("data") || t.includes("analytic")) return "data_analytics";
+    if (t.includes("market") || t.includes("digital")) return "digital_marketing";
+    return "data_analytics"; // Absolute safe fallback
+  }, [trackName]);
 
   // ==========================================
   // GLOBALLY SCOPED FUNCTIONS
@@ -349,7 +358,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const logGeneratedTask = useCallback((taskId: string, source: 'automatic' | 'manual') => {
     if (!userId) return;
 
-    // Tracking is deliberately best effort: a logging outage cannot affect task delivery.
     void fetch('/api/tasks/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -367,7 +375,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   useEffect(() => {
     if (!userId) return;
 
-    // 🔥 DYNAMIC CHANNEL FIX 🔥
     const uniqueChannelName = `realtime-tasks-${userId}-${Date.now()}`;
 
     const taskSubscription = supabase
@@ -760,7 +767,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId, 
           bio_text: bio,
-          track: trackName.toLowerCase().replace(/[- ]/g, "_"),
+          track: normalizedTrack,
           cv_url: cvUrl 
         })
       });
@@ -796,10 +803,10 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }
 
     setShowToluWelcome(true);
-  }, [trackName, addChatMessage, userId, persistState]);
+  }, [normalizedTrack, addChatMessage, userId, persistState]);
 
   // ==========================================
-  // GENERATE TASK (ASYNC QUEUE POLLING SYSTEM)
+  // GENERATE TASK (RELIABLE QUEUE HANDOFF)
   // ==========================================
   const generateTask = useCallback(async (source: 'automatic' | 'manual' = 'manual') => {
     const hasActiveTask = tasks.some(t => 
@@ -823,25 +830,16 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     setIsGeneratingTask(true);
     setMessageCount(0); 
 
-    const isMobileTeamIntroduction = isFirstTask
-      && typeof window !== 'undefined'
-      && window.innerWidth < 1024;
-    const isDesktopTeamIntroduction = isFirstTask
-      && typeof window !== 'undefined'
-      && window.innerWidth >= 1024;
+    const isMobileTeamIntroduction = isFirstTask && typeof window !== 'undefined' && window.innerWidth < 1024;
+    const isDesktopTeamIntroduction = isFirstTask && typeof window !== 'undefined' && window.innerWidth >= 1024;
 
-    if (isMobileTeamIntroduction) {
-      setActiveView('meeting');
-    }
-
-    if (isDesktopTeamIntroduction) {
-      setIsExpanded(true);
-    }
+    if (isMobileTeamIntroduction) setActiveView('meeting');
+    if (isDesktopTeamIntroduction) setIsExpanded(true);
 
     if (isFirstTask) {
       await new Promise(r => setTimeout(r, 1000));
 
-      const introductionMessages: { agent: AgentName; message: string; delay: number }[] = [
+      const introductionMessages = [
         { agent: 'Tolu', message: "Alright, let me patch in the team. These are the people who will determine if you get a recommendation letter or not.", delay: 24000 },
         { agent: 'Tolu', message: `Team, this is the new intern, ${userName}. Assigned to the ${trackName} unit.`, delay: 24000 },
         { agent: 'Kemi', message: `Hi ${userName}! I'm Kemi, your career coach. I'll be translating your work here into a portfolio that gets you hired.`, delay: 36000 },
@@ -853,42 +851,19 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       for (const msg of introductionMessages) {
         const typingId = `typing-${Date.now()}`;
         addChatMessage({
-          id: typingId,
-          agentName: msg.agent,
-          message: '',
-          timestamp: new Date(),
-          isTyping: true,
+          id: typingId, agentName: msg.agent as AgentName, message: '', timestamp: new Date(), isTyping: true,
         });
-
         await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
-
         setChatMessages(prev => prev.filter(m => m.id !== typingId));
         addChatMessage({
-          id: `${Date.now()}-${msg.agent}`,
-          agentName: msg.agent,
-          message: msg.message,
-          timestamp: new Date(),
+          id: `${Date.now()}-${msg.agent}`, agentName: msg.agent as AgentName, message: msg.message, timestamp: new Date(),
         });
-
         await new Promise(r => setTimeout(r, 400));
       }
 
-      // Keep the final introduction visible briefly, then return mobile users
-      // to their desk before the first task arrives.
-      if (isMobileTeamIntroduction) {
-        queueReturnToDesk(1000);
-      }
+      if (isMobileTeamIntroduction) queueReturnToDesk(1000);
       await new Promise(r => setTimeout(r, 2000));
     }
-
-    addChatMessage({
-      id: Date.now().toString(),
-      agentName: 'Emem',
-      message: isFirstTask
-        ? "Your first task is on the way. Read the brief carefully. Deadline is non‑negotiable."
-        : "New task assigned. Check your desk.",
-      timestamp: new Date(),  
-    });
 
     setGenerationStatusText("Pinging Emem...");
     const statusCycle = [
@@ -913,14 +888,30 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId,
           user_name: user?.fullName,
-          track: trackName.toLowerCase().replace(/[- ]/g, "_"),
+          track: normalizedTrack,
           task_number: currentWeek, 
           difficulty: "intermediate",
           include_video_brief: true
         })
       });
 
-      if (!response.ok) throw new Error("API Failure");
+      // 🔥 THE GRACEFUL ERROR FIX
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        clearInterval(loadingInterval);
+        setIsGeneratingTask(false);
+        setGenerationStatusText("Fetch Missing Task");
+        pendingTaskGenerationSourceRef.current = null;
+        
+        addChatMessage({
+          id: Date.now().toString(),
+          agentName: 'Emem',
+          message: data.error || "Connection issue. The system couldn't reach the queue. Please try again.",
+          timestamp: new Date()
+        });
+        return; // Prevent execution from continuing to the polling loop
+      }
 
       let attempts = 0;
       let taskFound = false;
@@ -928,12 +919,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       while (attempts < 18 && !taskFound) { 
         await new Promise(resolve => setTimeout(resolve, 5000));
         
-        const { data } = await supabase
+        const { data: dbData } = await supabase
           .from('tasks')
           .select('id')
           .eq('user', userId);
 
-        const generatedTask = data?.find(task => !initialTaskIds.has(task.id.toString()));
+        const generatedTask = dbData?.find(task => !initialTaskIds.has(task.id.toString()));
         if (generatedTask) {
           taskFound = true;
           logGeneratedTask(generatedTask.id.toString(), source);
@@ -947,17 +938,21 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task");
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Task queue failed:', error);
       pendingTaskGenerationSourceRef.current = null;
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
       
+      const errorMessage = error instanceof Error && error.message !== "API Failure" && error.message !== "Failed to fetch"
+        ? error.message 
+        : "Connection issue. The system couldn't reach the queue. Please try again.";
+
       addChatMessage({
         id: Date.now().toString(),
         agentName: 'Emem',
-        message: "Connection issue. The system couldn't reach the queue. Please try again.",
+        message: errorMessage,
         timestamp: new Date()
       });
     }
@@ -966,7 +961,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
+  }, [tasks, addChatMessage, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
@@ -985,7 +980,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   // ==========================================
   const submitWork = useCallback(async (taskId: string, file: File, notes: string) => {
     
-    // 1. 🔥 THE 3-STRIKE DAILY LOCKOUT ENGINE 🔥
     const today = new Date().toISOString().split('T')[0];
     const attemptKey = `wdc-attempts-${userId}-${taskId}-${today}`;
     const currentAttempts = parseInt(localStorage.getItem(attemptKey) || '0', 10);
@@ -1041,7 +1035,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         body: JSON.stringify({
           user_id: userId,
           task_id: taskId,
-          // 🔥 CRITICAL FIX: Explicitly passing `null` if empty. Passing `file.name` here crashes Python's HttpUrl validator!
           file_url: fileUrl || null, 
           fileName: file ? file.name : 'submission',
           file_content: notes, 
@@ -1150,7 +1143,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
             is_submission: false,
             is_first_login: false,
             user_level: userLevel,
-            track: trackName.toLowerCase().replace(/[- ]/g, "_"),
+            track: normalizedTrack,
             task_brief: currentTaskInfo?.description,
             deadline: currentTaskInfo?.deadline,
             current_identity: currentIdentity, 
@@ -1170,7 +1163,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('Chat failed:', error);
       addChatMessage({ id: (Date.now() + 1).toString(), agentName: 'Sola', message: "Connection issue. Please check if the AI backend is running.", timestamp: new Date() });
     }
-  }, [addChatMessage, tasks, userLevel, trackName, chatMessages, messageCount, userId, currentIdentity, currentWeek]);
+  }, [addChatMessage, tasks, userLevel, normalizedTrack, chatMessages, messageCount, userId, currentIdentity, currentWeek]);
 
   const sendInterviewMessage = useCallback(async (message: string, interviewType: string, interviewHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1180,7 +1173,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId, message,
-          context: { is_mock_interview: true, interview_type: interviewType, user_level: userLevel, track: trackName.toLowerCase().replace(/[- ]/g, "_"), is_submission: false, is_first_login: false },
+          context: { is_mock_interview: true, interview_type: interviewType, user_level: userLevel, track: normalizedTrack, is_submission: false, is_first_login: false },
           chat_history: interviewHistory
         })
       });
@@ -1194,7 +1187,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('Interview message failed:', error);
       return { agent: 'Kemi' as AgentName, message: "Connection issue. Please check if the AI backend is running." };
     }
-  }, [userId, userLevel, trackName]);
+  }, [userId, userLevel, normalizedTrack]);
 
   const sendSalaryNegotiationMessage = useCallback(async (message: string, negotiationHistory: Array<{role: string, content: string}> = []) => {
     const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'http://localhost:8001';
@@ -1204,7 +1197,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId, message,
-          context: { is_salary_negotiation: true, user_level: userLevel, track: trackName.toLowerCase().replace(/[- ]/g, "_"), is_submission: false, is_first_login: false },
+          context: { is_salary_negotiation: true, user_level: userLevel, track: normalizedTrack, is_submission: false, is_first_login: false },
           chat_history: negotiationHistory
         })
       });
@@ -1218,7 +1211,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('Salary negotiation message failed:', error);
       return { agent: 'Tolu' as AgentName, message: "Connection issue. Please check if the AI backend is running." };
     }
-  }, [userId, userLevel, trackName]);
+  }, [userId, userLevel, normalizedTrack]);
 
   return (
     <OfficeContext.Provider

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/app/components/ui/dialog";
 import { Button } from "@/app/components/ui/button";
-import { Share2, Copy, Heart, GraduationCap } from "lucide-react";
+import { Share2, Copy, Heart, GraduationCap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ShareWalletModalProps {
@@ -12,33 +12,28 @@ interface ShareWalletModalProps {
   accountName: string;
   accountNumber: string;
   bankName: string;
-  track: string; // We keep the prop just in case, but we don't rely on it for the default anymore
+  track: string; // 🔥 Now strictly enforced!
 }
 
-export function ShareWalletModal({ open, onClose, accountName, accountNumber, bankName }: ShareWalletModalProps) {
+export function ShareWalletModal({ open, onClose, accountName, accountNumber, bankName, track }: ShareWalletModalProps) {
   
-  // The official learning paths
-  const availableTracks = ["Cybersecurity", "Data Analytics", "Digital Marketing"];
-  
-  // 🔥 Set to empty by default so they MUST select one
-  const [selectedTrack, setSelectedTrack] = useState<string>("");
+  // 🔥 Automatically format the track string to a beautiful display name
+  const formattedTrack = useMemo(() => {
+    const t = (track || "").toLowerCase();
+    if (t.includes("cyber") || t.includes("security")) return "Cybersecurity";
+    if (t.includes("data") || t.includes("analytic")) return "Data Analytics";
+    if (t.includes("market") || t.includes("digital")) return "Digital Marketing";
+    return "Tech"; // Fallback
+  }, [track]);
 
-  // Reset the selection whenever the modal closes/opens
-  useEffect(() => {
-    if (!open) setSelectedTrack("");
-  }, [open]);
-
-  const shareMessage = `🚀 Support my tech journey at WDC Labs!\n\nI am currently training to become a world-class ${selectedTrack || "[Your Path]"} professional. You can support my learning by funding my workspace wallet to cover my ₦15,000 monthly subscription.\n\n📚 Path: ${selectedTrack || "[Your Path]"}\n🏦 Bank: ${bankName}\n🔢 Account: ${accountNumber}\n👤 Name: ${accountName}\n\nThank you for investing in my future! 💻✨`;
+  const shareMessage = `🚀 Support my tech journey at WDC Labs!\n\nI am currently training to become a world-class ${formattedTrack} professional. You can support my learning by funding my workspace wallet to cover my ₦15,000 monthly subscription.\n\n📚 Path: ${formattedTrack}\n🏦 Bank: ${bankName}\n🔢 Account: ${accountNumber}\n👤 Name: ${accountName}\n\nThank you for investing in my future! 💻✨`;
 
   const handleCopy = () => {
-    if (!selectedTrack) return toast.error("Please select a learning path first!");
     navigator.clipboard.writeText(shareMessage);
     toast.success("Funding message copied to clipboard!");
   };
 
   const handleShare = async () => {
-    if (!selectedTrack) return toast.error("Please select a learning path first!");
-    
     const shareData = {
       title: 'Support my WDC Labs Journey',
       text: shareMessage,
@@ -56,8 +51,6 @@ export function ShareWalletModal({ open, onClose, accountName, accountNumber, ba
       handleCopy();
     }
   };
-
-  const isReady = selectedTrack !== "";
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -80,25 +73,14 @@ export function ShareWalletModal({ open, onClose, accountName, accountNumber, ba
                 Invite friends and family to fund your wallet for your ₦15,000/month subscription.
               </p>
 
-              {/* 🔥 Interactive Track Selector */}
-              <div className="w-full mb-6">
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-2 transition-colors ${selectedTrack ? 'text-white/40' : 'text-amber-400 animate-pulse'}`}>
-                  {selectedTrack ? "Path Selected" : "Select your path to continue *"}
+              {/* 🔥 Locked-In Track Display */}
+              <div className="w-full mb-6 flex flex-col items-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
+                  Your Enrolled Path
                 </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {availableTracks.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setSelectedTrack(t)}
-                      className={`text-[10px] uppercase font-black tracking-widest px-3 py-2 rounded-xl transition-all duration-300 ${
-                        selectedTrack === t 
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/10 scale-105" 
-                          : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white/60"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-500/10">
+                  <CheckCircle2 size={16} className="text-emerald-400" />
+                  <span className="text-xs uppercase font-black tracking-widest">{formattedTrack}</span>
                 </div>
               </div>
 
@@ -134,16 +116,14 @@ export function ShareWalletModal({ open, onClose, accountName, accountNumber, ba
         <div className="p-6 bg-black/40 flex gap-3">
            <Button 
               onClick={handleCopy} 
-              disabled={!isReady}
               variant="outline" 
-              className="flex-1 bg-transparent border-white/10 text-white hover:bg-white/5 h-12 rounded-xl font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 bg-transparent border-white/10 text-white hover:bg-white/5 h-12 rounded-xl font-bold"
            >
               <Copy className="w-4 h-4 mr-2" /> Copy text
            </Button>
            <Button 
               onClick={handleShare} 
-              disabled={!isReady}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white h-12 rounded-xl font-bold shadow-lg shadow-emerald-900/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white h-12 rounded-xl font-bold shadow-lg shadow-emerald-900/20"
            >
               <Share2 className="w-4 h-4 mr-2" /> Share now
            </Button>
