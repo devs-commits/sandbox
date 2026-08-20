@@ -30,13 +30,14 @@ import { cn } from "../../../lib/utils";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContexts";
 import CareerJourneyModal from "../gamification/CareerJourneyModal";
+import { studentFeatures } from "../../../config/features";
 
 const navItems = [
   { label: "Headquarters", icon: LayoutGrid, path: "/student/headquarters" },
   { label: "My Office", icon: Briefcase, path: "/student/office", id: "office" },
   { label: "My Portfolio", icon: FolderOpen, path: "/student/portfolio" },
   { label: "Global Wallet", icon: Wallet, path: "/student/wallet" },
-  { label: "Squad", icon: Users, path: "/student/squad" }, 
+  ...(studentFeatures.squad ? [{ label: "Squad", icon: Users, path: "/student/squad" }] : []),
 ];
 
 const tourTargetByPath: Record<string, string> = {

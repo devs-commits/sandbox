@@ -7,6 +7,7 @@ import { Button } from '@/app/components/ui/button';
 import { useHeadquarters } from '@/app/contexts/HeadquartersContext';
 import { AgentAvatar } from '../office/AgentAvatar';
 import { cn } from '@/lib/utils';
+import { studentFeatures } from '@/config/features';
 
 const TOUR_STEPS = [
   {
@@ -24,11 +25,11 @@ const TOUR_STEPS = [
     title: 'Global Wallet',
     description: 'Track your referral earnings, fund your subscription, and manage withdrawals. Your referral bonuses and wallet balance are managed here.',
   },
-  {
+  ...(studentFeatures.squad ? [{
     target: 'sidebar-squad',
     title: 'Your Squad',
     description: 'Create or join a Squad to learn with peers, follow shared progress, and invite members with your Squad link.',
-  },
+  }] : []),
   {
     target: 'sidebar-earn',
     title: 'Earn Money',
