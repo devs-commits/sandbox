@@ -26,7 +26,7 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
       } else if (allowedRoles && user && !allowedRoles.includes(user.role)) {
         // Redirect to their appropriate dashboard if they are in the wrong place
         const roleRedirects: Record<string, string> = {
-          student: "/student/headquarters",
+          student: "/student/office",
           recruiter: "/recruiter/talent-market",
           admin: "/admin/dashboard",
           enterprise: "/enterprise/white-label",

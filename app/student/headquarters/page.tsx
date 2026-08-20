@@ -332,7 +332,7 @@ function HeadquartersContent() {
         {/* ========================================== */}
         {/* REFERENCE LETTERS                          */}
         {/* ========================================== */}
-        <div className="bg-card border border-border rounded-xl p-5 lg:p-8" data-tour="hq-letters">
+        <div className="bg-card border border-border rounded-xl p-5 lg:p-8">
           <div className="flex flex-col lg:flex-row lg:justify-between gap-4 mb-4">
             <div className="flex items-start gap-3">
               <FileText className="text-purple-400" size={24} />
@@ -359,7 +359,7 @@ function HeadquartersContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4" data-tour="hq-letters">
             {/* WORK LETTER CARD */}
             <div className="bg-muted/30 border border-border rounded-xl p-5 flex justify-between items-center">
               <div className="flex gap-3 items-center">

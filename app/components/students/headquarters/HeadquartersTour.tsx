@@ -25,19 +25,29 @@ const TOUR_STEPS = [
     description: 'Track your referral earnings, fund your subscription, and manage withdrawals. Your referral bonuses and wallet balance are managed here.',
   },
   {
+    target: 'sidebar-squad',
+    title: 'Your Squad',
+    description: 'Create or join a Squad to learn with peers, follow shared progress, and invite members with your Squad link.',
+  },
+  {
     target: 'sidebar-earn',
     title: 'Earn Money',
     description: 'Unlock additional income streams through referrals and bonus opportunities. Share your progress with friends and earn more.',
   },
   {
+    target: 'sidebar-profile',
+    title: 'Profile Settings',
+    description: 'Manage your personal details and avatar, account verification, billing, and withdrawal security here.',
+  },
+  {
     target: 'hq-stats',
     title: 'Your Progress Hub',
-    description: 'Track your key metrics: completed tasks, daily streaks, recruiter views, and profile stats. Stay motivated as you grow.',
+    description: 'See your completed tasks alongside recruiter activity and profile views as you build your professional presence.',
   },
   {
     target: 'hq-letters',
     title: 'Reference Letters',
-    description: 'Complete 12 weeks for the Work Letter and 24 weeks for the Visa Letter which is essential for immigration and job applications.',
+    description: 'Complete 12 tasks to unlock your Work Reference and 24 tasks to unlock your Visa Reference letter.',
   },
 ];
 
@@ -48,38 +58,41 @@ const TOUR_CONFIG = {
   MOBILE_BREAKPOINT: 1024,
   SIDEBAR_OFFSET: 16,
   CONTENT_OFFSET: 20,
+  REFERENCE_LETTERS_OFFSET: 40,
   PADDING: 8,
-  DRAWER_OPEN_DELAY: 100,
-  DRAWER_CLOSE_DELAY: 100,
+  DRAWER_OPEN_DELAY: 320,
+  DRAWER_CLOSE_DELAY: 320,
   SCROLL_DELAY: 50,
   EXTERNAL_EVENTS_LOCKOUT: 100,
   VIGNETTE_COLOR: 'rgba(0, 0, 0, 0.75)',
   VIGNETTE_RADIUS: 9999,
 } as const;
 
-const isVisible = (el: HTMLElement): boolean => {
+const isRendered = (el: HTMLElement): boolean => {
   const rect = el.getBoundingClientRect();
   const style = window.getComputedStyle(el);
-  
   const isHidden =
     style.display === 'none' ||
     style.visibility === 'hidden' ||
     style.opacity === '0';
 
+  return !isHidden && rect.width > 0 && rect.height > 0;
+};
+
+const isVisible = (el: HTMLElement): boolean => {
+  const rect = el.getBoundingClientRect();
   const isInViewport =
-    rect.width > 0 &&
-    rect.height > 0 &&
     rect.top < window.innerHeight &&
     rect.bottom > 0 &&
     rect.left < window.innerWidth &&
     rect.right > 0;
 
-  return !isHidden && isInViewport;
+  return isRendered(el) && isInViewport;
 };
 
-const findVisibleTarget = (selector: string): HTMLElement | null => {
+const findTarget = (selector: string, requireVisible: boolean): HTMLElement | null => {
   const elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
-  return elements.find(isVisible) || null;
+  return elements.find(requireVisible ? isVisible : isRendered) || null;
 };
 
 const dispatchSidebarEvent = (event: 'open' | 'close') => {
@@ -91,6 +104,7 @@ const calculateTooltipPosition = (
   isSidebarStep: boolean,
   tooltipWidth: number,
   tooltipHeight: number,
+  contentOffset: number = TOUR_CONFIG.CONTENT_OFFSET,
 ): { pos: { top: number; left: number }; placement: 'right' | 'bottom' | 'top' } => {
   let placement: 'right' | 'bottom' | 'top' = 'right';
   let pos: { top: number; left: number };
@@ -120,10 +134,10 @@ const calculateTooltipPosition = (
   } else {
     const bottomSpace = window.innerHeight - rect.bottom;
     
-    if (bottomSpace > tooltipHeight + TOUR_CONFIG.CONTENT_OFFSET) {
+    if (bottomSpace > tooltipHeight + contentOffset) {
       placement = 'bottom';
       pos = {
-        top: rect.bottom + TOUR_CONFIG.CONTENT_OFFSET,
+        top: rect.bottom + contentOffset,
         left: Math.max(
           TOUR_CONFIG.PADDING,
           Math.min(
@@ -135,7 +149,7 @@ const calculateTooltipPosition = (
     } else {
       placement = 'top';
       pos = {
-        top: rect.top - tooltipHeight - TOUR_CONFIG.CONTENT_OFFSET,
+        top: rect.top - tooltipHeight - contentOffset,
         left: Math.max(
           TOUR_CONFIG.PADDING,
           Math.min(
@@ -158,46 +172,52 @@ export function HeadquartersTour() {
   
   const currentStep = TOUR_STEPS[tourStep] ?? TOUR_STEPS[TOUR_STEPS.length - 1];
   const isSidebarStep = currentStep.target.startsWith('sidebar-');
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < TOUR_CONFIG.MOBILE_BREAKPOINT;
-  
-  const isMeasuringRef = useRef(false);
+  const isReferenceLettersStep = currentStep.target === 'hq-letters';
+  const measurementVersionRef = useRef(0);
   const skipExternalEventsRef = useRef(false);
   const skipExternalEventsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const sidebarChangeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const measureTarget = async () => {
-    if (isMeasuringRef.current) return;
-    isMeasuringRef.current = true;
+    const measurementVersion = ++measurementVersionRef.current;
+    const isCurrentMeasurement = () => measurementVersion === measurementVersionRef.current;
     skipExternalEventsRef.current = true;
 
     try {
-      let element = findVisibleTarget(`[data-tour="${currentStep.target}"]`);
+      const isMobile = window.innerWidth < TOUR_CONFIG.MOBILE_BREAKPOINT;
+      let element = findTarget(`[data-tour="${currentStep.target}"]`, isSidebarStep);
       
       if (!element && isSidebarStep && isMobile) {
         dispatchSidebarEvent('open');
         await new Promise(resolve => setTimeout(resolve, TOUR_CONFIG.DRAWER_OPEN_DELAY));
-        element = findVisibleTarget(`[data-tour="${currentStep.target}"]`);
+        if (!isCurrentMeasurement()) return;
+        element = findTarget(`[data-tour="${currentStep.target}"]`, true);
       }
       
       if (!isSidebarStep && isMobile) {
         dispatchSidebarEvent('close');
         await new Promise(resolve => setTimeout(resolve, TOUR_CONFIG.DRAWER_CLOSE_DELAY));
+        if (!isCurrentMeasurement()) return;
       }
       
       if (!element) {
         if (isSidebarStep && isMobile) {
           dispatchSidebarEvent('close');
         }
+        if (!isCurrentMeasurement()) return;
         setTargetRect(null);
         setTooltipPos(null);
         return;
       }
 
       try {
-        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        element.scrollIntoView({ block: isReferenceLettersStep ? 'end' : 'center', behavior: 'smooth' });
         await new Promise(resolve => setTimeout(resolve, TOUR_CONFIG.SCROLL_DELAY));
       } catch {
         // Continue even if scroll fails
       }
+
+      if (!isCurrentMeasurement()) return;
 
       const rect = element.getBoundingClientRect();
       
@@ -214,11 +234,12 @@ export function HeadquartersTour() {
         isSidebarStep,
         TOUR_CONFIG.TOOLTIP_WIDTH,
         TOUR_CONFIG.TOOLTIP_HEIGHT,
+        isReferenceLettersStep ? TOUR_CONFIG.REFERENCE_LETTERS_OFFSET : undefined,
       );
 
       setTooltipPos(pos);
     } finally {
-      isMeasuringRef.current = false;
+      if (!isCurrentMeasurement()) return;
       skipExternalEventsTimeoutRef.current = setTimeout(() => {
         skipExternalEventsRef.current = false;
       }, TOUR_CONFIG.EXTERNAL_EVENTS_LOCKOUT);
@@ -227,6 +248,7 @@ export function HeadquartersTour() {
 
   useEffect(() => {
     if (!isTourActive) {
+      measurementVersionRef.current += 1;
       dispatchSidebarEvent('close');
       return;
     }
@@ -245,7 +267,10 @@ export function HeadquartersTour() {
     const handleResize = createCheckedHandler(() => measureTarget());
     const handleScroll = createCheckedHandler(() => measureTarget());
     const handleSidebarChange = createCheckedHandler(() => {
-      setTimeout(measureTarget, 320);
+      if (sidebarChangeTimeoutRef.current) {
+        clearTimeout(sidebarChangeTimeoutRef.current);
+      }
+      sidebarChangeTimeoutRef.current = setTimeout(measureTarget, TOUR_CONFIG.DRAWER_OPEN_DELAY);
     });
 
     window.addEventListener('resize', handleResize);
@@ -261,8 +286,11 @@ export function HeadquartersTour() {
       if (skipExternalEventsTimeoutRef.current) {
         clearTimeout(skipExternalEventsTimeoutRef.current);
       }
+      if (sidebarChangeTimeoutRef.current) {
+        clearTimeout(sidebarChangeTimeoutRef.current);
+      }
     };
-  }, [isTourActive]);
+  }, [isTourActive, tourStep]);
 
   const handleNextStep = async () => {
     if (tourStep < TOUR_STEPS.length - 1) {

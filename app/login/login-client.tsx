@@ -52,12 +52,12 @@ const LoginContent = () => {
         router.push(from);
       } else {
         const roleRedirects: Record<string, string> = {
-          student: "/student/headquarters",
+          student: "/student/office",
           recruiter: "/recruiter/talent-market",
           admin: "/admin/dashboard",
           enterprise: "enterprise/white-label",
         };
-        router.push(roleRedirects[role] || "/student/headquarters");
+        router.push(roleRedirects[role] || "/student/office");
       }
     } else {
       setError(result.error || "Login failed");

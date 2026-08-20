@@ -40,12 +40,12 @@ const navItems = [
   { label: "Squad", icon: Users, path: "/student/squad" }, 
 ];
 
-// 🔥 Added Squad to the tour targets
 const tourTargetByPath: Record<string, string> = {
   "/student/office": "sidebar-office",
   "/student/portfolio": "sidebar-portfolio",
   "/student/wallet": "sidebar-wallet",
-  "/student/squad": "sidebar-squad", 
+  "/student/squad": "sidebar-squad",
+  "/student/profile": "sidebar-profile",
 };
 
 const GAMIFICATION_TRACKS = {
@@ -249,6 +249,7 @@ export const StudentSidebar = () => {
         </Link>
         <Link
           href="/student/profile"
+          data-tour={tourTargetByPath["/student/profile"]}
           onClick={() => setMobileOpen(false)}
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
