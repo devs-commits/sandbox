@@ -39,6 +39,7 @@ export interface StudentListItem {
   courseLabel: string;
   enrollmentStatus: string;
   status: string;
+  accountStatus: "Active" | "Inactive";
   plan: string;
   subscriptionExpiresAt: string | null;
   startDate: string | null;
@@ -108,6 +109,7 @@ export default function StudentTab({
                 <TableHead className="text-foreground font-semibold">Email</TableHead>
                 <TableHead className="text-foreground font-semibold">Course</TableHead>
                 <TableHead className="text-foreground font-semibold">Enrollment Status</TableHead>
+                <TableHead className="text-foreground font-semibold">Account Status</TableHead>
                 <TableHead className="text-foreground font-semibold">ID Verification</TableHead>
                 <TableHead className="text-foreground font-semibold">Progress</TableHead>
                 <TableHead className="text-foreground font-semibold">First Task</TableHead>
@@ -133,6 +135,16 @@ export default function StudentTab({
                   <TableCell>
                     <Badge variant="outline" className={statusClass(student.enrollmentStatus)}>
                       {student.enrollmentStatus}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={student.accountStatus === "Active"
+                        ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                        : "border-slate-500/30 bg-slate-500/15 text-slate-300"}
+                    >
+                      {student.accountStatus}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -208,7 +220,7 @@ export default function StudentTab({
               ))}
               {paginatedData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                     No students match the current filters.
                   </TableCell>
                 </TableRow>

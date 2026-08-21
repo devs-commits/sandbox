@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Gift,
   Search,
+  Share2,
   SlidersHorizontal,
   UserCheck,
   Users,
@@ -134,14 +135,18 @@ const isExpired = (date?: string | null) => {
   return new Date(date).getTime() < Date.now();
 };
 
+const isActiveSubscription = (student: EnrollmentSource) =>
+  String(student.subscription_status || "").toLowerCase() === "active" && !isExpired(student.subscription_expires_at);
+
 const deriveEnrollmentStatus = (student: EnrollmentSource) => {
   const plan = String(student.subscription_plan || "").toLowerCase();
   const status = String(student.subscription_status || "").toLowerCase();
 
-  if (plan === "trial") return "Free trial";
+  if (plan.startsWith("trial")) return "Free trial";
   if (isExpired(student.subscription_expires_at)) return "Expired";
-  if (status === "active") return "Active";
+  if (plan && plan !== "free") return "Paid";
   if (!status) return "Not started";
+  if (status === "active") return "Not started";
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
@@ -158,6 +163,7 @@ const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
     courseLabel: formatCourseName(s.track),
     enrollmentStatus: deriveEnrollmentStatus(s),
     status: s.subscription_status || "inactive",
+    accountStatus: isActiveSubscription(s) ? "Active" : "Inactive",
     plan: s.subscription_plan || "N/A",
     subscriptionExpiresAt: s.subscription_expires_at || null,
     startDate: s.start_date || s.created_at || null,
@@ -181,6 +187,7 @@ export default function UserBase() {
   const [filterBy, setFilterBy] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
   const [enrollmentFilter, setEnrollmentFilter] = useState("all");
+  const [accountStatusFilter, setAccountStatusFilter] = useState("all");
   const [progressFilter, setProgressFilter] = useState("all");
   const [verificationFilter, setVerificationFilter] = useState("all");
   const [taskReceivedFilter, setTaskReceivedFilter] = useState("all");
@@ -268,15 +275,14 @@ export default function UserBase() {
         const matchesSearch = !query || searchable.includes(query);
         const matchesDate = isWithinDateRange(student.startDate, startDate, endDate);
         const matchesCourse = courseFilter === "all" || student.course === courseFilter;
-        const normalizedStatus = String(student.status || "").toLowerCase();
         const normalizedPlan = String(student.plan || "").toLowerCase();
         const matchesEnrollment =
           enrollmentFilter === "all" ||
-          (enrollmentFilter === "active" && normalizedStatus === "active" && !isExpired(student.subscriptionExpiresAt)) ||
-          (enrollmentFilter === "trial" && normalizedPlan === "trial") ||
-          (enrollmentFilter === "paid" && normalizedPlan !== "trial") ||
-          (enrollmentFilter === "expired" && isExpired(student.subscriptionExpiresAt)) ||
-          (enrollmentFilter === "inactive" && normalizedStatus !== "active");
+          (enrollmentFilter === "trial" && normalizedPlan.startsWith("trial")) ||
+          (enrollmentFilter === "paid" && Boolean(normalizedPlan) && normalizedPlan !== "trial" && !normalizedPlan.startsWith("trial") && normalizedPlan !== "free");
+        const matchesAccountStatus =
+          accountStatusFilter === "all" ||
+          student.accountStatus.toLowerCase() === accountStatusFilter;
         const matchesProgress =
           progressFilter === "all" ||
           (progressFilter === "not-started" && student.tasksCompleted === 0) ||
@@ -292,7 +298,7 @@ export default function UserBase() {
           (taskReceivedFilter === "received" && student.hasReceivedFirstTask === true) ||
           (taskReceivedFilter === "not-received" && student.hasReceivedFirstTask === false);
 
-        return matchesSearch && matchesDate && matchesCourse && matchesEnrollment && matchesProgress && matchesVerification && matchesTaskReceived;
+        return matchesSearch && matchesDate && matchesCourse && matchesEnrollment && matchesAccountStatus && matchesProgress && matchesVerification && matchesTaskReceived;
       });
     }
 
@@ -319,7 +325,7 @@ export default function UserBase() {
       const matchesDate = isWithinDateRange(enterprise.expiresOn, startDate, endDate);
       return matchesSearch && matchesFilter && matchesDate;
     });
-  }, [activeTab, search, filterBy, students, recruiters, courseFilter, enrollmentFilter, progressFilter, verificationFilter, taskReceivedFilter, startDate, endDate]);
+  }, [activeTab, search, filterBy, students, recruiters, courseFilter, enrollmentFilter, accountStatusFilter, progressFilter, verificationFilter, taskReceivedFilter, startDate, endDate]);
 
   const studentSummary = useMemo(() => {
     const scopedStudents = activeTab === "students" ? (filteredData as StudentListItem[]) : students;
@@ -348,10 +354,38 @@ export default function UserBase() {
     setFilterBy("all");
     setCourseFilter("all");
     setEnrollmentFilter("all");
+    setAccountStatusFilter("all");
     setProgressFilter("all");
     setVerificationFilter("all");
     setTaskReceivedFilter("all");
     setCurrentPage(1);
+  };
+
+  const handleExport = () => {
+    const escapeCsvField = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const rows = (filteredData as UserBaseRow[]).filter((row): row is StudentListItem => activeTab === "students" && "enrollmentStatus" in row);
+    const headers = ["Student", "Email", "Course", "Enrollment Status", "Account Status", "Plan", "Start Date", "Subscription Expires", "ID Verification", "Tasks Completed", "Progress", "Average Score"];
+    const csvRows = rows.map((student) => [
+      student.name,
+      student.email,
+      student.courseLabel || student.course,
+      student.enrollmentStatus,
+      student.accountStatus,
+      student.plan,
+      student.startDate,
+      student.subscriptionExpiresAt,
+      student.idVerified ? "Verified" : "Unverified",
+      student.tasksCompleted,
+      `${student.progress}%`,
+      `${student.averageScore}%`,
+    ]);
+    const csvContent = [headers, ...csvRows].map((row) => row.map(escapeCsvField).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`);
+    link.setAttribute("download", `admin_userbase_export_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleTabChange = (value: string) => {
@@ -392,6 +426,10 @@ export default function UserBase() {
                 subscription_expires_at: profile.subscriptionExpiresAt,
               }),
               status: profile.subscriptionStatus || student.status,
+              accountStatus: isActiveSubscription({
+                subscription_status: profile.subscriptionStatus || student.status,
+                subscription_expires_at: profile.subscriptionExpiresAt || student.subscriptionExpiresAt,
+              }) ? "Active" : "Inactive",
               plan: profile.subscriptionPlan || student.plan,
               subscriptionExpiresAt: profile.subscriptionExpiresAt || student.subscriptionExpiresAt,
               country: profile.country || student.country,
@@ -638,10 +676,20 @@ export default function UserBase() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="trial">Free trial</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="expired">Expired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm text-muted-foreground">Account Status</p>
+                  <Select value={accountStatusFilter} onValueChange={(value) => { setAccountStatusFilter(value); setCurrentPage(1); }}>
+                    <SelectTrigger className="border-border/30 bg-[#102033]">
+                      <SelectValue placeholder="All account statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All account statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
@@ -705,6 +753,14 @@ export default function UserBase() {
             )}
               </div>
             </div>
+            {activeTab === "students" && (
+              <div className="mt-4 flex justify-end">
+                <Button variant="outline" className="gap-2 border-violet-400/30 bg-violet-400/10 text-violet-100 hover:bg-violet-400/15" onClick={handleExport}>
+                  <Share2 className="h-4 w-4" />
+                  Export
+                </Button>
+              </div>
+            )}
           </div>
 
           {loading ? (
