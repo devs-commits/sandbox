@@ -38,7 +38,7 @@ type AiFaq = {
 
 const trackOrder = Object.keys(tracks) as TrackKey[];
 
-const faqs = [
+const trialFaqs = [
   [
     "Is the first assignment really free?",
     "Yes. You can choose a track, complete one workplace task in 7 days and receive a performance review before deciding whether to continue.",
@@ -62,6 +62,33 @@ const faqs = [
   [
     "How does payment work after the free task?",
     "Continue with Monthly Flex at ₦15,000 per month or save with the complete 12-week Career Accelerator at ₦40,500.",
+  ],
+];
+
+const standardFaqs = [
+  [
+    "How do I get started?",
+    "Choose the plan that suits your goals, select a career track and begin working through realistic assignments with clear deadlines and feedback.",
+  ],
+  [
+    "Do I need previous experience?",
+    "No. Each track supports beginners, while the tasks become progressively more challenging as you build confidence.",
+  ],
+  [
+    "How much time should I set aside?",
+    "Plan for about 6-10 focused hours per week. You can work around your schedule, but every task has a realistic deadline.",
+  ],
+  [
+    "What will be in my portfolio?",
+    "Your portfolio contains selected completed assignments, your decisions, final outputs and verified feedback, not generic course certificates.",
+  ],
+  [
+    "Does WDC Labs guarantee a job?",
+    "No programme can guarantee employment. WDC Labs helps you build practical evidence, stronger interview stories and the ability to demonstrate how you work.",
+  ],
+  [
+    "How does payment work?",
+    "Choose Monthly Flex at ₦15,000 per month or save with the complete 12-week Career Accelerator at ₦40,500.",
   ],
 ];
 
@@ -91,6 +118,7 @@ const aiFaqs: AiFaq[] = [
 const supportLink = "https://chat.whatsapp.com/IWMuvfGQhTJHCXBMlfGzir?mode=gi_t";
 const privacyLink = "https://wdc.ng/privacy-policy/";
 const signupPromoLink = "/signup?promo=FIRSTTASK";
+const signupLink = "/signup";
 
 function Arrow() {
   return <span aria-hidden="true">↗</span>;
@@ -129,13 +157,15 @@ function PartnerLogos() {
   );
 }
 
-export default function Landing() {
+export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
   const [activeTrack, setActiveTrack] = useState<TrackKey>("analytics");
   const [rotatingTrack, setRotatingTrack] = useState<TrackKey>("analytics");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [openAiFaq, setOpenAiFaq] = useState<number | null>(0);
   const selected = tracks[activeTrack];
   const rotatingCourse = tracks[rotatingTrack];
+  const registrationLink = isTrial ? signupPromoLink : signupLink;
+  const faqs = isTrial ? trialFaqs : standardFaqs;
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -168,8 +198,8 @@ export default function Landing() {
           <Link className="text-link" href="/login">
             Sign in
           </Link>
-          <a className="button button-small" href={signupPromoLink}>
-            Try your first task <Arrow />
+          <a className="button button-small" href={registrationLink}>
+            {isTrial ? "Try your first task" : "Get started"} <Arrow />
           </a>
         </div>
       </header>
@@ -189,14 +219,14 @@ export default function Landing() {
           </p>
           <div className="hero-actions">
             <a className="button button-large" href="#first-task">
-              Complete your first task free <Arrow />
+              {isTrial ? "Complete your first task free" : "Choose your career track"} <Arrow />
             </a>
             <a className="secondary-link" href="#sample-task">
               <span className="play">▶</span> See a sample assignment
             </a>
           </div>
-          <div className="hero-notes" aria-label="Trial benefits">
-            <span>✓ No payment required</span>
+          <div className="hero-notes" aria-label={isTrial ? "Trial benefits" : "Programme benefits"}>
+            <span>{isTrial ? "✓ No payment required" : "✓ Structured 12-week experience"}</span>
             <span>✓ Choose from 3 career tracks</span>
             <span>✓ Get a performance review</span>
           </div>
@@ -232,7 +262,7 @@ export default function Landing() {
               </div>
               <div className="task-bottom">
                 <span>Progress · 38%</span>
-                <Link href={signupPromoLink}>
+                <Link href={registrationLink}>
                   Continue task →
                 </Link>
               </div>
@@ -393,7 +423,7 @@ export default function Landing() {
               ))}
             </div>
             <button className="ghost-button" type="button" onClick={scrollToStart}>
-              Try this assignment free <Arrow />
+              {isTrial ? "Try this assignment free" : "Explore this assignment"} <Arrow />
             </button>
           </div>
           <div className="review-preview">
@@ -524,11 +554,25 @@ export default function Landing() {
         <div className="section-intro centered">
           <span className="section-label">SIMPLE, FLEXIBLE PRICING</span>
           <h2>
-            Experience the value first.
-            <br />
-            <em>Pay only when you&apos;re ready.</em>
+            {isTrial ? (
+              <>
+                Experience the value first.
+                <br />
+                <em>Pay only when you&apos;re ready.</em>
+              </>
+            ) : (
+              <>
+                Invest in experience that
+                <br />
+                <em>moves your career forward.</em>
+              </>
+            )}
           </h2>
-          <p>Complete your first assignment and review free. Upgrade to continue your 12-week experience.</p>
+          {isTrial ? (
+            <p>Complete your first assignment and review free. Upgrade to continue your 12-week experience.</p>
+          ) : (
+            <p>Choose the programme that matches your goals and build credible evidence of how you work.</p>
+          )}
         </div>
         <div className="pricing-grid">
           <article className="plan-card">
@@ -545,8 +589,8 @@ export default function Landing() {
               <li>Verified portfolio development</li>
               <li>Monthly performance summary</li>
             </ul>
-            <Link className="plan-button" href={signupPromoLink}>
-              Start with a free task <Arrow />
+            <Link className="plan-button" href={registrationLink}>
+              {isTrial ? "Start with a free task" : "Choose Monthly Flex"} <Arrow />
             </Link>
           </article>
           <article className="plan-card featured-plan">
@@ -565,8 +609,8 @@ export default function Landing() {
               <li>Career Readiness Score</li>
               <li>Recommendation eligibility</li>
             </ul>
-            <Link className="plan-button bright" href={signupPromoLink}>
-              Try your first task free <Arrow />
+            <Link className="plan-button bright" href={registrationLink}>
+              {isTrial ? "Try your first task free" : "Choose Career Accelerator"} <Arrow />
             </Link>
             <small>One payment. No recurring billing.</small>
           </article>
@@ -644,15 +688,21 @@ export default function Landing() {
 
       <section className="activation" id="first-task">
         <div className="activation-copy">
-          <span className="section-label light-label">YOUR FIRST ASSIGNMENT IS FREE</span>
+          <span className="section-label light-label">
+            {isTrial ? "YOUR FIRST ASSIGNMENT IS FREE" : "BEGIN YOUR CAREER ACCELERATOR"}
+          </span>
           <h2>
             Ready to stop watching
             <br />
             and <em>start doing?</em>
           </h2>
-          <p>Create your account and start with a free workplace assignment before deciding whether to continue.</p>
+          <p>
+            {isTrial
+              ? "Create your account and start with a free workplace assignment before deciding whether to continue."
+              : "Create your account, choose your plan and start building practical evidence of what you can do."}
+          </p>
           <div className="activation-badges">
-            <span>✓ No card required</span>
+            <span>{isTrial ? "✓ No card required" : "✓ Choose the plan that fits you"}</span>
             <span>✓ Takes 2 minutes</span>
             <span>✓ Feedback included</span>
           </div>
@@ -670,11 +720,11 @@ export default function Landing() {
             ))}
           </div>
           <p>You can choose or change your track on the signup page before creating your account.</p>
-          <Link href={signupPromoLink} className="start-cta">
-            Start free assignment <Arrow />
+          <Link href={registrationLink} className="start-cta">
+            {isTrial ? "Start free assignment" : "Create your account"} <Arrow />
           </Link>
           <small>
-            No card details required. By continuing, you agree to our{" "}
+            {isTrial ? "No card details required. " : ""}By continuing, you agree to our{" "}
             <a href={privacyLink} target="_blank" rel="noopener noreferrer">
               Terms and Privacy Policy
             </a>
