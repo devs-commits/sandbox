@@ -9,7 +9,6 @@ const LOGO_URL = "https://labs.wdc.ng/_next/image?url=%2F_next%2Fstatic%2Fmedia%
 async function sendZeptoMail(toEmail: string, toName: string, subject: string, htmlBody: string) {
   try {
     // 1. Generate a basic Plain Text fallback (Crucial for Yahoo Spam Filters)
-    // This strips HTML tags and replaces common block elements with newlines.
     const plainTextFallback = htmlBody
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>|<\/div>|<\/h[1-6]>/gi, '\n\n')
@@ -25,22 +24,12 @@ async function sendZeptoMail(toEmail: string, toName: string, subject: string, h
         "Authorization": `Zoho-enczapikey ${ZEPTO_API_KEY}`,
       },
       body: JSON.stringify({
-        // The bounce_address must match the domain you verified in ZeptoMail
         bounce_address: `bounce@wdc.ng`, 
-        from: { 
-            address: SENDER_ADDRESS, 
-            name: SENDER_NAME 
-        },
-        to: [{ 
-            email_address: { address: toEmail, name: toName } 
-        }],
-        reply_to: [{ 
-            address: "support@wdc.ng", 
-            name: "WDC Support" 
-        }],
+        from: { address: SENDER_ADDRESS, name: SENDER_NAME },
+        to: [{ email_address: { address: toEmail, name: toName } }],
+        reply_to: [{ address: "support@wdc.ng", name: "WDC Support" }],
         subject: subject,
         htmlbody: htmlBody,
-        // 🔥 The missing piece for Yahoo:
         textbody: plainTextFallback,
       }),
     });
@@ -185,15 +174,12 @@ export async function sendAbandonedCartEmail(email: string, name: string) {
         <h2 style="color: #0f172a; font-size: 22px; margin-top: 0;">Don't leave your spot empty!</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${name.split(' ')[0]},</p>
         <p style="font-size: 15px; color: #475569;">We noticed you started your registration but didn't quite finish the payment step. Your chosen track is waiting for you, but access is limited.</p>
-        
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px dashed #cbd5e1;">
           <p style="margin: 0; font-size: 14px; color: #64748b; text-align: center;">
             Your progress has been saved. You can pick up exactly where you left off.
           </p>
         </div>
-
         <a href="https://labs.wdc.ng/auth/signup" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">Complete My Registration</a>
-        
         <p style="font-size: 13px; color: #94a3b8; margin-top: 25px; text-align: center;">
           Having trouble with the payment? Just reply to this email and our support team will help you out manually.
         </p>
@@ -206,20 +192,12 @@ export async function sendAbandonedCartEmail(email: string, name: string) {
   await sendZeptoMail(email, name, subject, htmlBody);
 }
 
-
 // ============================================================================
 // 🎓 WDC LABS ACADEMIC ENGINE EMAILS (TASK RELEASE & PROGRESSION)
 // ============================================================================
 
 // 🔴 NEEDS REVISION NUDGE (Daily at 4 PM for failing students)
-export async function sendNeedsRevisionNudgeEmail(
-  email: string, 
-  name: string, 
-  weekNumber: number, 
-  taskTopic: string, 
-  score: number | string, 
-  feedbackSummary: string
-) {
+export async function sendNeedsRevisionNudgeEmail(email: string, name: string, weekNumber: number, taskTopic: string, score: number | string, feedbackSummary: string) {
   const subject = `Feedback Required: Your Week ${weekNumber} Submission`;
   const firstName = name.split(' ')[0];
   const htmlBody = `
@@ -231,20 +209,15 @@ export async function sendNeedsRevisionNudgeEmail(
         <h2 style="color: #ef4444; font-size: 20px; margin-top: 0;">Revision Required</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">We have completed the review of your Week ${weekNumber} task on <strong>${taskTopic}</strong>. Unfortunately, your submission did not meet the minimum passing score of <strong>50%</strong>.</p>
-        
         <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0; font-size: 14px; color: #7f1d1d;"><strong>Your Score:</strong> ${score}%</p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">At WDC Labs, every task is designed to simulate real workplace expectations. Quality matters, and progression is based on meeting the required standard.</p>
-        
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0;">
           <p style="margin: 0 0 10px 0; font-weight: 600; color: #0f172a;">Sola's Feedback Summary:</p>
           <p style="margin: 0; font-size: 14px; color: #64748b; font-style: italic;">"${feedbackSummary}"</p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">Review your submission and try again. Once your submission achieves the required pass mark, you will immediately unlock the next task.</p>
-
         <a href="https://labs.wdc.ng/login" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Review & Resubmit Here</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -256,15 +229,7 @@ export async function sendNeedsRevisionNudgeEmail(
 }
 
 // 🟢 FRIDAY WRAP-UP (Every Friday at 4 PM)
-export async function sendFridayWrapUpEmail(
-  email: string, 
-  name: string, 
-  completedWeek: number, 
-  trackName: string, 
-  weekTopic: string, 
-  tasksCompleted: number, 
-  skillsDeveloped: string
-) {
+export async function sendFridayWrapUpEmail(email: string, name: string, completedWeek: number, trackName: string, weekTopic: string, tasksCompleted: number, skillsDeveloped: string) {
   const subject = `🏆 Well done on completing Week ${completedWeek}!`;
   const firstName = name.split(' ')[0];
   const htmlBody = `
@@ -276,16 +241,13 @@ export async function sendFridayWrapUpEmail(
         <h2 style="color: #10b981; font-size: 22px; margin-top: 0;">Week ${completedWeek} Complete!</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">Well done on wrapping up Week ${completedWeek} of your <strong>${trackName}</strong> journey.</p>
-        
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0;">
           <p style="margin: 0 0 10px 0; font-size: 14px; color: #475569;">This week, you tackled <strong>${weekTopic}</strong> and successfully completed <strong>${tasksCompleted}</strong> assignments.</p>
           <p style="margin: 15px 0 5px 0; font-weight: 600; color: #0f172a; font-size: 14px;">Skills Developed:</p>
           <p style="margin: 0; font-size: 14px; color: #64748b;">${skillsDeveloped}</p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">These are not just classroom lessons. They are the exact skills you will need when working on real projects, handling real deadlines, and solving real business problems.</p>
         <p style="font-size: 15px; color: #475569;">Take the weekend to rest and recharge. You've earned it.</p>
-
         <a href="https://labs.wdc.ng/login" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Review Your Dashboard</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -297,12 +259,7 @@ export async function sendFridayWrapUpEmail(
 }
 
 // 🔵 SUNDAY BRIDGE (Every Sunday Evening)
-export async function sendSundayBridgeEmail(
-  email: string, 
-  name: string, 
-  completedWeekTopic: string, 
-  nextWeekTopic: string
-) {
+export async function sendSundayBridgeEmail(email: string, name: string, completedWeekTopic: string, nextWeekTopic: string) {
   const subject = `🚀 Prep for tomorrow: Here is what's next.`;
   const firstName = name.split(' ')[0];
   const htmlBody = `
@@ -315,12 +272,10 @@ export async function sendSundayBridgeEmail(
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">We hope you had a great weekend and took time to recharge.</p>
         <p style="font-size: 15px; color: #475569;">Last week, you leveled up your skills in <strong>${completedWeekTopic}</strong>. Tomorrow morning at 8:00 AM, the system will release your next set of objectives.</p>
-        
         <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0 0 5px 0; font-weight: 600; color: #16a34a; font-size: 14px;">What to look out for this week:</p>
           <p style="margin: 0; font-size: 14px; color: #15803d;">We will be diving into <strong>${nextWeekTopic}</strong>. Be prepared to apply what you've already learned to a completely new set of workplace challenges.</p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">Clear your desk, review your past feedback, and get ready to hit the ground running tomorrow morning. See you at 8 AM.</p>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -332,14 +287,7 @@ export async function sendSundayBridgeEmail(
 }
 
 // ⚡ MONDAY ACTIVATION - PASSED (Monday 8 AM for progressing students)
-export async function sendMondayActivationPassedEmail(
-  email: string, 
-  name: string, 
-  nextWeek: number, 
-  trackName: string, 
-  nextWeekTopic: string, 
-  nextWeekOutcome: string
-) {
+export async function sendMondayActivationPassedEmail(email: string, name: string, nextWeek: number, trackName: string, nextWeekTopic: string, nextWeekOutcome: string) {
   const subject = `⚡ Your New Task Is Ready: Week ${nextWeek}`;
   const firstName = name.split(' ')[0];
   const htmlBody = `
@@ -351,17 +299,13 @@ export async function sendMondayActivationPassedEmail(
         <h2 style="color: #0f172a; font-size: 22px; margin-top: 0;">Your Desk is Ready.</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">You are now officially moving into <strong>Week ${nextWeek}</strong> of your <strong>${trackName}</strong> track.</p>
-        
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px solid #e2e8f0;">
           <p style="margin: 0 0 5px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #64748b;">This Week's Focus</p>
           <p style="margin: 0 0 15px 0; font-weight: bold; font-size: 16px; color: #0f172a;">${nextWeekTopic}</p>
-          
           <p style="margin: 0 0 5px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #64748b;">The Objective</p>
           <p style="margin: 0; font-size: 14px; color: #475569;">${nextWeekOutcome}</p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">The goal is simple: help you move from learning concepts to applying them in a realistic work environment. Take the tasks seriously. Submit your work. Review your feedback. Improve as you go.</p>
-
         <a href="https://labs.wdc.ng/login" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Start Week ${nextWeek} Now</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -373,11 +317,7 @@ export async function sendMondayActivationPassedEmail(
 }
 
 // ⏸️ MONDAY ACTIVATION - PENDING (Monday 8 AM for failing students)
-export async function sendMondayActivationPendingEmail(
-  email: string, 
-  name: string, 
-  currentWeek: number
-) {
+export async function sendMondayActivationPendingEmail(email: string, name: string, currentWeek: number) {
   const subject = `A New Week: Let's clear your desk, ${name.split(' ')[0]} 💼`;
   const firstName = name.split(' ')[0];
   const htmlBody = `
@@ -389,13 +329,10 @@ export async function sendMondayActivationPendingEmail(
         <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">A New Week Begins</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">A new week has started at WDC Labs! We noticed you are still wrapping up your revisions for <strong>Week ${currentWeek}</strong>.</p>
-        
         <p style="font-size: 15px; color: #475569;">In the real world, roadblocks happen and deadlines shift—but the core objective remains the same: delivering high-quality work. We want to see you crush this task.</p>
-        
         <div style="background-color: #f8fafc; border-left: 4px solid #eab308; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0; font-size: 14px; color: #475569;">Use today to review Sola's feedback, consult your resources, and give it another shot. The moment you hit that 50% passing mark, your next task will unlock immediately so you can catch up to the timeline.</p>
         </div>
-
         <a href="https://labs.wdc.ng/login" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Head to your desk</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -410,7 +347,7 @@ export async function sendMondayActivationPendingEmail(
 // 🤝 WDC LABS REFERRAL ENGINE EMAILS
 // ============================================================================
 
-// ⏳ REFERRAL PENDING (When someone signs up using their link)
+// ⏳ REFERRAL PENDING
 export async function sendReferralPendingEmail(email: string, name: string, referredName: string) {
   const subject = `🎉 You just got a new referral! (Pending)`;
   const firstName = name.split(' ')[0];
@@ -423,11 +360,9 @@ export async function sendReferralPendingEmail(email: string, name: string, refe
         <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Your network is growing!</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">Great news! <strong>${referredName}</strong> just used your unique link to join WDC Labs.</p>
-        
         <div style="background-color: #f8fafc; border-left: 4px solid #eab308; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0; font-size: 14px; color: #475569;">They are currently marked as <strong>Pending (Trial)</strong>. If they successfully convert to a paid subscription after their trial, you will automatically receive a 10% commission straight to your WDC Wallet.</p>
         </div>
-
         <a href="https://labs.wdc.ng/student/earn" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">View Referral Dashboard</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -438,7 +373,7 @@ export async function sendReferralPendingEmail(email: string, name: string, refe
   await sendZeptoMail(email, name, subject, htmlBody);
 }
 
-// 💰 REFERRAL PAID / SUCCESS (When the 10% commission hits their wallet)
+// 💰 REFERRAL SUCCESS
 export async function sendReferralSuccessEmail(email: string, name: string, referredName: string, amount: number) {
   const subject = `💰 You just got paid! Referral Converted.`;
   const firstName = name.split(' ')[0];
@@ -453,14 +388,11 @@ export async function sendReferralSuccessEmail(email: string, name: string, refe
         <h2 style="color: #10b981; font-size: 22px; margin-top: 0;">Money in the bank! 🚀</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">One of your pending referrals, <strong>${referredName}</strong>, just converted to a paid WDC Labs subscription!</p>
-        
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; text-align: center;">
           <p style="margin: 0; font-size: 14px; color: #64748b;">Commission Earned:</p>
           <h2 style="margin: 5px 0 0; font-size: 28px; color: #10b981;">+${formattedAmount}</h2>
         </div>
-        
         <p style="font-size: 15px; color: #475569;">This has been credited to your WDC Wallet. You can withdraw this to your local bank account at any time from your dashboard.</p>
-
         <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Cash Out Now</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -470,6 +402,9 @@ export async function sendReferralSuccessEmail(email: string, name: string, refe
   `;
   await sendZeptoMail(email, name, subject, htmlBody);
 }
+
+// ⚠️ ALIAS FOR BACKWARD COMPATIBILITY
+export const sendReferralPaidEmail = sendReferralSuccessEmail;
 
 // ============================================================================
 // 🏦 WITHDRAWAL APPROVAL ENGINE (ADMIN & USER ALERTS)
@@ -488,11 +423,9 @@ export async function sendWithdrawalApprovedEmail(email: string, name: string, a
         <h2 style="color: #10b981; font-size: 20px; margin-top: 0;">Withdrawal Approved</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">Your withdrawal request for <strong>₦${amount.toLocaleString()}</strong> has been approved by the finance team. The funds are currently being routed to your destination bank account.</p>
-        
         <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0; font-size: 14px; color: #475569;">Depending on your bank, it may take a few minutes for the funds to reflect in your account.</p>
         </div>
-
         <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">View Ledger History</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -516,14 +449,11 @@ export async function sendWithdrawalRejectedEmail(email: string, name: string, a
         <h2 style="color: #ef4444; font-size: 20px; margin-top: 0;">Withdrawal Rejected</h2>
         <p style="font-size: 15px; color: #475569;">Hi ${firstName},</p>
         <p style="font-size: 15px; color: #475569;">Your withdrawal request for <strong>₦${amount.toLocaleString()}</strong> could not be processed.</p>
-        
         <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0 0 5px 0; font-weight: 600; color: #7f1d1d; font-size: 14px;">Reason for rejection:</p>
           <p style="margin: 0; font-size: 14px; color: #991b1b;">${reason}</p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">Don't worry! Your funds have been completely restored to your WDC Wallet. Please review the reason above and initiate a new request when you are ready.</p>
-
         <a href="https://labs.wdc.ng/student/wallet" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">Review Wallet</a>
       </div>
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
@@ -546,7 +476,6 @@ export async function sendAdminWithdrawalAlert(adminEmail: string, studentName: 
       <div style="padding: 30px 20px;">
         <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">Vault Audit Log</h2>
         <p style="font-size: 15px; color: #475569;">A withdrawal action was just recorded in the system.</p>
-        
         <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0;">
            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
             <tr><td style="padding: 8px 0; color: #64748b;">Student:</td><td style="padding: 8px 0; font-weight: 600; text-align: right;">${studentName}</td></tr>
@@ -561,4 +490,85 @@ export async function sendAdminWithdrawalAlert(adminEmail: string, studentName: 
     </div>
   `;
   await sendZeptoMail(adminEmail, "WDC Admin", subject, htmlBody);
+}
+
+// ============================================================================
+// 🛠️ SUPPORT & BUG REPORT UPDATES
+// ============================================================================
+
+export async function sendIssueUpdateEmail(
+  email: string,
+  name: string,
+  category: string,
+  status: string,
+  notes: string
+) {
+  const firstName = name.trim().split(/\s+/)[0] || "there";
+  const normalizedStatus = status.toLowerCase();
+  const statusColor =
+    normalizedStatus === "resolved" ? "#10b981" : "#f59e0b";
+
+  const subject = `Update on your WDC Labs Support Ticket 🛠️`;
+
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img
+          src="${LOGO_URL}"
+          alt="WDC Labs"
+          style="height: 40px; margin: 0 auto; display: block;"
+        />
+      </div>
+
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">
+          Support Ticket Update
+        </h2>
+
+        <p style="font-size: 15px; color: #475569;">
+          Hi ${firstName},
+        </p>
+
+        <p style="font-size: 15px; color: #475569;">
+          There has been an update regarding the issue you reported:
+          <strong>${category}</strong>.
+        </p>
+
+        <div style="background-color: #f8fafc; border-left: 4px solid ${statusColor}; border-radius: 8px; padding: 15px 20px; margin: 25px 0;">
+          <p style="margin: 0 0 10px; font-size: 14px; color: #475569;">
+            <strong>Current Status:</strong>
+            <span style="color: ${statusColor}; text-transform: uppercase; font-weight: bold; margin-left: 5px;">
+              ${status}
+            </span>
+          </p>
+
+          <p style="margin: 0; font-size: 14px; color: #475569;">
+            <strong>Admin Notes:</strong><br />
+            ${notes || "We are looking into this for you."}
+          </p>
+        </div>
+
+        <p style="font-size: 15px; color: #475569;">
+          If you have any further questions or the issue persists, please reply
+          to this email or submit a new report.
+        </p>
+
+        <a
+          href="https://labs.wdc.ng/login"
+          style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;"
+        >
+          Return to Dashboard
+        </a>
+      </div>
+
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">
+          © ${new Date().getFullYear()} WDC Labs.
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendZeptoMail(email, name, subject, htmlBody);
 }

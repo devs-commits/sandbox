@@ -3,9 +3,8 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import Image from "next/image";
-import { LayoutGrid, Target, Wallet, Menu, X, Landmark } from "lucide-react"; // 🔥 Added Landmark
+import { LayoutGrid, Target, Wallet, Menu, X, Landmark, ListChecks, Flag } from "lucide-react"; // 🔥 Added Flag for Support
 import { cn } from "../../../lib/utils";
-import { ListChecks } from "lucide-react";
 import { useState } from "react";
 import LogoutButton from "../shared/LogoutButton";
 
@@ -13,9 +12,10 @@ const navItems = [
   { label: "Admin Dashboard", path: "/admin/dashboard", icon: LayoutGrid },
   { label: "User Base", path: "/admin/user-base", icon: Wallet },
   { label: "Bounty Management", path: "/admin/bounty", icon: Wallet },
-  { label: "Withdrawal Requests", path: "/admin/withdrawals", icon: Landmark }, // 🔥 Added Withdrawals Menu
+  { label: "Withdrawal Requests", path: "/admin/withdrawals", icon: Landmark }, 
   { label: "Task Activity", path: "/admin/task-activity", icon: ListChecks },
   { label: "Revenue", path: "/admin/revenue", icon: Target },
+  { label: "Support & Bugs", path: "/admin/issues", icon: Flag }, // 🔥 NEW: Support Dashboard Route
 ];
 
 export default function AdminSidebar() {
