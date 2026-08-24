@@ -219,7 +219,7 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
           </p>
           <div className="hero-actions">
             <a className="button button-large" href="#first-task">
-              {isTrial ? "Complete your first task free" : "Choose your career track"} <Arrow />
+              {isTrial ? "Complete your first task free" : "Start Your Virtual Work Experience"} <Arrow />
             </a>
             <a className="secondary-link" href="#sample-task">
               <span className="play">▶</span> See a sample assignment
@@ -721,7 +721,7 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
           </div>
           <p>You can choose or change your track on the signup page before creating your account.</p>
           <Link href={registrationLink} className="start-cta">
-            {isTrial ? "Start free assignment" : "Create your account"} <Arrow />
+            {isTrial ? "Start free assignment" : "Start Working"} <Arrow />
           </Link>
           <small>
             {isTrial ? "No card details required. " : ""}By continuing, you agree to our{" "}
