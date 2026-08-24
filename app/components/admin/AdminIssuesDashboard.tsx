@@ -255,25 +255,26 @@ export function AdminIssuesDashboard() {
    * 2. Any engineers already saved in the database
    */
   const assignmentEngineers = useMemo(() => {
-    const previouslyAssigned = issues
-      .map((issue) =>
-        issue.assigned_engineer?.trim()
-      )
-      .filter(
-        (engineer): engineer is string =>
-          Boolean(engineer) &&
-          engineer.toLowerCase() !== "unassigned"
-      );
-
-    return Array.from(
-      new Set([
-        ...AVAILABLE_ENGINEERS,
-        ...previouslyAssigned,
-      ])
-    ).sort((first, second) =>
-      first.localeCompare(second)
+  const previouslyAssigned = issues
+    .map((issue) =>
+      issue.assigned_engineer?.trim()
+    )
+    .filter(
+      (engineer): engineer is string =>
+        typeof engineer === "string" &&
+        engineer.length > 0 &&
+        engineer.toLowerCase() !== "unassigned"
     );
-  }, [issues]);
+
+  return Array.from(
+    new Set<string>([
+      ...AVAILABLE_ENGINEERS,
+      ...previouslyAssigned,
+    ])
+  ).sort((first, second) =>
+    first.localeCompare(second)
+  );
+}, [issues]);
 
   const filterEngineers = useMemo(
     () => [
