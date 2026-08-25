@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import actdLogo from "../../public/actd-logos.png";
 import wdcLogo from "../../public/wdc-logo copy.jpg";
 import wdcLabsLogo from "../../public/wdc_labs_logo.png";
@@ -124,9 +124,9 @@ function Arrow() {
   return <span aria-hidden="true">↗</span>;
 }
 
-function BrandLogo({ footer = false }: { footer?: boolean }) {
+function BrandLogo({ footer = false, onNavigate }: { footer?: boolean; onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void }) {
   return (
-    <Link className="brand" href="#top" aria-label="WDC Labs home">
+    <Link className="brand" href="#top" onClick={onNavigate} aria-label="WDC Labs home">
       <Image
         src={wdcLabsLogo}
         alt="WDC Labs"
@@ -178,20 +178,24 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
     return () => window.clearInterval(interval);
   }, []);
 
-  const scrollToStart = () => {
-    document.querySelector("#first-task")?.scrollIntoView({ behavior: "smooth" });
+  const handleSectionNavigation = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const target = event.currentTarget.getAttribute("href");
+    if (target?.startsWith("#")) {
+      document.querySelector(target)?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   return (
     <main className="landing-refresh" id="top">
       <header className="site-header">
-        <BrandLogo />
+        <BrandLogo onNavigate={handleSectionNavigation} />
         <nav aria-label="Main navigation">
-          <a href="#how-it-works">How it works</a>
-          <a href="#sample-task">Career tracks</a>
-          <a href="#outcomes">Outcomes</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#ai-qa">AI Q&A</a>
+          <a href="#how-it-works" onClick={handleSectionNavigation}>How it works</a>
+          <a href="#sample-task" onClick={handleSectionNavigation}>Career tracks</a>
+          <a href="#outcomes" onClick={handleSectionNavigation}>Outcomes</a>
+          <a href="#pricing" onClick={handleSectionNavigation}>Pricing</a>
+          <a href="#ai-qa" onClick={handleSectionNavigation}>AI Q&A</a>
         </nav>
         <div className="header-actions">
           {/* <PartnerLogos /> */}
@@ -218,10 +222,10 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
             proof you can confidently show employers.
           </p>
           <div className="hero-actions">
-            <a className="button button-large" href="#first-task">
+            <a className="button button-large" href="#pricing" onClick={handleSectionNavigation}>
               {isTrial ? "Complete your first task free" : "Start Your Virtual Work Experience"} <Arrow />
             </a>
-            <a className="secondary-link" href="#sample-task">
+            <a className="secondary-link" href="#sample-task" onClick={handleSectionNavigation}>
               <span className="play">▶</span> See a sample assignment
             </a>
           </div>
@@ -422,7 +426,7 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
                 </div>
               ))}
             </div>
-            <button className="ghost-button" type="button" onClick={scrollToStart}>
+            <button className="ghost-button" type="button" onClick={() => document.querySelector("#first-task")?.scrollIntoView({ behavior: "smooth" })}>
               {isTrial ? "Try this assignment free" : "Explore this assignment"} <Arrow />
             </button>
           </div>
@@ -525,7 +529,7 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
             <em>a certificate.</em>
           </h2>
           <p>Every part of the programme is designed to help you prove how you think, work and improve.</p>
-          <a href="#first-task" className="outline-light">
+          <a href="#first-task" onClick={handleSectionNavigation} className="outline-light">
             Start building your proof <Arrow />
           </a>
         </div>
@@ -735,7 +739,7 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
 
       <footer>
         <div className="footer-top">
-          <BrandLogo footer />
+          <BrandLogo footer onNavigate={handleSectionNavigation} />
           <p>
             A product of Wild Fusion Digital Centre. Building job-ready African tech talent through practical work
             experience.
@@ -743,10 +747,10 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
           <div className="footer-links">
             <div>
               <strong>Programme</strong>
-              <a href="#how-it-works">How it works</a>
-              <a href="#sample-task">Career tracks</a>
-              <a href="#pricing">Pricing</a>
-              <a href="#ai-qa">AI Q&A</a>
+              <a href="#how-it-works" onClick={handleSectionNavigation}>How it works</a>
+              <a href="#sample-task" onClick={handleSectionNavigation}>Career tracks</a>
+              <a href="#pricing" onClick={handleSectionNavigation}>Pricing</a>
+              <a href="#ai-qa" onClick={handleSectionNavigation}>AI Q&A</a>
             </div>
             <div>
               <strong>Support</strong>
