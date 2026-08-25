@@ -19,7 +19,9 @@ import {
   UserCheck,
   UserX,
   CalendarDays,
-  Layers
+  Layers,
+  TrendingDown,
+  XCircle
 } from "lucide-react";
 import { supabase } from '@/lib/supabase';
 
@@ -120,6 +122,26 @@ export function AdminPaymentsDashboard() {
       return isMonthly || isQuarterly;
     });
   }, [data]);
+
+  // --- NEW CALCULATIONS FOR DAMI'S SCORECARDS ---
+  const totalAmountSuccessful = useMemo(() => {
+    return goldData
+      .filter(tx => tx.status === 'success')
+      .reduce((sum, tx) => sum + parseAmount(tx.amount), 0);
+  }, [goldData]);
+
+  const totalAmountAbandoned = useMemo(() => {
+    return goldData
+      .filter(tx => tx.status === 'abandoned')
+      .reduce((sum, tx) => sum + parseAmount(tx.amount), 0);
+  }, [goldData]);
+
+  const totalAmountFailed = useMemo(() => {
+    return goldData
+      .filter(tx => tx.status === 'failed')
+      .reduce((sum, tx) => sum + parseAmount(tx.amount), 0);
+  }, [goldData]);
+  // ----------------------------------------------
 
   // Apply UI Filters & Sorting
   const filteredData = useMemo(() => {
@@ -222,6 +244,16 @@ export function AdminPaymentsDashboard() {
     }).format(date);
   };
 
+  // Helper for formatting large currency amounts
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 text-slate-200 min-h-screen bg-[#0f1523]">
       
@@ -291,6 +323,36 @@ export function AdminPaymentsDashboard() {
         </div>
       </div>
 
+      {/* NEW: Financial Summary Scorecards (Dami's Request) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-[#131b2b] border border-emerald-900/50 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Total Successful</h3>
+            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><CheckCircle size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">{formatCurrency(totalAmountSuccessful)}</p>
+          <p className="text-xs text-slate-500 mt-2">Actual revenue captured</p>
+        </div>
+
+        <div className="bg-[#131b2b] border border-amber-900/50 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Total Abandoned</h3>
+            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400"><TrendingDown size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">{formatCurrency(totalAmountAbandoned)}</p>
+          <p className="text-xs text-slate-500 mt-2">Value of dropped checkouts</p>
+        </div>
+
+        <div className="bg-[#131b2b] border border-rose-900/50 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-rose-400 uppercase tracking-wider">Total Failed</h3>
+            <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400"><XCircle size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">{formatCurrency(totalAmountFailed)}</p>
+          <p className="text-xs text-slate-500 mt-2">Value of failed attempts</p>
+        </div>
+      </div>
+
       {/* Filter Section */}
       <div className="bg-[#131b2b] border border-slate-800 rounded-xl p-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-white mb-4">
@@ -334,7 +396,7 @@ export function AdminPaymentsDashboard() {
               onChange={(e) => setAmountFilter(e.target.value as AmountFilter)}
               className="w-full bg-[#0a0f18] border border-slate-700 text-sm text-white rounded-lg px-3 py-2.5 focus:outline-none focus:border-cyan-500"
             >
-              <option value="all">All Gold Amounts</option>
+              <option value="all">All Plans</option>
               <option value="monthly">Monthly (~₦15k)</option>
               <option value="quarterly">Quarterly (~₦41k)</option>
             </select>
@@ -368,7 +430,7 @@ export function AdminPaymentsDashboard() {
                   <div className="flex items-center gap-2">Customer <ArrowUpDown size={12}/></div>
                 </th>
                 <th onClick={() => handleSort("accountStatus")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
-                  <div className="flex items-center gap-2">Subscription (DB) <ArrowUpDown size={12}/></div>
+                  <div className="flex items-center gap-2">Sub Status<ArrowUpDown size={12}/></div>
                 </th>
                 <th onClick={() => handleSort("date")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
                   <div className="flex items-center gap-2">Date <ArrowUpDown size={12}/></div>
@@ -382,15 +444,14 @@ export function AdminPaymentsDashboard() {
                 <th onClick={() => handleSort("status")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
                   <div className="flex items-center gap-2">Paystack Status <ArrowUpDown size={12}/></div>
                 </th>
-                <th className="px-5 py-4">Gateway Msg</th>
                 <th className="px-5 py-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
               {loading && data.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10 text-slate-500">Loading records...</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-slate-500">Loading records...</td></tr>
               ) : filteredData.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10 text-slate-500">No matching records found.</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-slate-500">No matching records found.</td></tr>
               ) : filteredData.map((tx) => {
                 const uInfo = registeredUsers.get(tx.customer?.email?.toLowerCase().trim());
                 
@@ -435,9 +496,6 @@ export function AdminPaymentsDashboard() {
                       {tx.currency} {parseAmount(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-5 py-4">{getStatusBadge(tx.status)}</td>
-                    <td className="px-5 py-4 text-xs text-slate-400 truncate max-w-[140px]" title={tx.gatewayResponse}>
-                      {tx.gatewayResponse || "N/A"}
-                    </td>
                     <td className="px-5 py-4 text-right">
                       <button
                         onClick={() => setSelectedTx(tx)}
