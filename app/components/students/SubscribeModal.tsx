@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-// 🔥 FIX: Changed from "@/components/ui/..." to relative paths
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Loader2, CheckCircle2, ShieldCheck, Sparkles, CreditCard } from "lucide-react";
+import { Loader2, ShieldCheck, Sparkles, CreditCard } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 interface SubscribeModalProps {
   open: boolean;
@@ -15,38 +15,64 @@ interface SubscribeModalProps {
 }
 
 export function SubscribeModal({ open, onClose, userId, userEmail }: SubscribeModalProps) {
-  const [selectedPlan, setSelectedPlan] = useState<"MONTHLY" | "QUARTERLY">("MONTHLY");
+  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "quarterly">("monthly");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubscribe = async () => {
+    if (!userId || !userEmail) {
+      toast.error("Your account details are unavailable. Please log in again.");
+      return;
+    }
+
     setIsLoading(true);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
       const res = await fetch("/api/subscription/initialize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           userId,
           email: userEmail,
           plan: selectedPlan,
+          planType: selectedPlan,
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Could not initialize subscription checkout.");
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || data.message || "Could not initialize subscription checkout.");
       }
 
-      // Redirect user directly to Paystack's secure checkout page
-      window.location.href = data.authorization_url;
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong. Please try again.");
+      const checkoutUrl = data.authorization_url || data.data?.authorization_url || data.url;
+      if (!checkoutUrl) {
+        throw new Error("Payment gateway did not return a checkout URL.");
+      }
+
+      // Redirect to Paystack checkout
+      window.location.href = checkoutUrl;
+    } catch (error: any) {
+      console.error("Subscription initialization error:", error);
+      toast.error(error?.message || "Something went wrong. Please try again.");
       setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(isOpen) => {
+        // Prevent closing the modal while redirecting
+        if (!isOpen && !isLoading) {
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-lg bg-[#0f172a] border-white/10 text-white rounded-3xl p-8">
         <DialogHeader className="text-center pb-2">
           <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
@@ -58,12 +84,12 @@ export function SubscribeModal({ open, onClose, userId, userEmail }: SubscribeMo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pt-4">
+        <div className={`space-y-4 pt-4 ${isLoading ? "opacity-50 pointer-events-none" : ""}`}>
           {/* MONTHLY OPTION */}
           <div
-            onClick={() => setSelectedPlan("MONTHLY")}
+            onClick={() => setSelectedPlan("monthly")}
             className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-              selectedPlan === "MONTHLY"
+              selectedPlan === "monthly"
                 ? "bg-emerald-500/10 border-emerald-500 shadow-lg shadow-emerald-500/10"
                 : "bg-white/5 border-white/10 hover:bg-white/[0.08]"
             }`}
@@ -83,15 +109,15 @@ export function SubscribeModal({ open, onClose, userId, userEmail }: SubscribeMo
 
           {/* QUARTERLY OPTION */}
           <div
-            onClick={() => setSelectedPlan("QUARTERLY")}
+            onClick={() => setSelectedPlan("quarterly")}
             className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between relative overflow-hidden ${
-              selectedPlan === "QUARTERLY"
+              selectedPlan === "quarterly"
                 ? "bg-emerald-500/10 border-emerald-500 shadow-lg shadow-emerald-500/10"
                 : "bg-white/5 border-white/10 hover:bg-white/[0.08]"
             }`}
           >
             <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[9px] font-black px-3 py-1 rounded-bl-xl tracking-wider uppercase">
-              Save 10%
+              Save ₦4,500
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -115,7 +141,7 @@ export function SubscribeModal({ open, onClose, userId, userEmail }: SubscribeMo
           <Button
             onClick={handleSubscribe}
             disabled={isLoading}
-            className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-2xl shadow-xl transition-all mt-4"
+            className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-sm rounded-2xl shadow-xl transition-all mt-4"
           >
             {isLoading ? (
               <>

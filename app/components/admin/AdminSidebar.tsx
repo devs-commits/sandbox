@@ -3,7 +3,17 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import Image from "next/image";
-import { LayoutGrid, Target, Wallet, Menu, X, Landmark, ListChecks, Flag } from "lucide-react"; // 🔥 Added Flag for Support
+import { 
+  LayoutGrid, 
+  Target, 
+  Wallet, 
+  Menu, 
+  X, 
+  Landmark, 
+  ListChecks, 
+  Flag,
+  CreditCard // 🔥 Added CreditCard for Payments
+} from "lucide-react"; 
 import { cn } from "../../../lib/utils";
 import { useState } from "react";
 import LogoutButton from "../shared/LogoutButton";
@@ -15,7 +25,8 @@ const navItems = [
   { label: "Withdrawal Requests", path: "/admin/withdrawals", icon: Landmark }, 
   { label: "Task Activity", path: "/admin/task-activity", icon: ListChecks },
   { label: "Revenue", path: "/admin/revenue", icon: Target },
-  { label: "Support & Bugs", path: "/admin/issues", icon: Flag }, // 🔥 NEW: Support Dashboard Route
+  { label: "Support & Bugs", path: "/admin/issues", icon: Flag }, 
+  { label: "Payments & Subs", path: "/admin/payments", icon: CreditCard }, // 🔥 NEW: Payments Dashboard Route
 ];
 
 export default function AdminSidebar() {
@@ -37,9 +48,9 @@ export default function AdminSidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 space-y-1">
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.path;
+          const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
           return (
             <Link
               key={item.path}

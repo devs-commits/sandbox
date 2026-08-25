@@ -1,0 +1,615 @@
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import { 
+  Search, 
+  CreditCard, 
+  RefreshCcw, 
+  Filter, 
+  Activity, 
+  X, 
+  CheckCircle, 
+  AlertCircle, 
+  Clock, 
+  ArrowUpDown, 
+  ShieldAlert, 
+  Smartphone, 
+  Monitor, 
+  RotateCcw,
+  UserCheck,
+  UserX,
+  CalendarDays,
+  Layers
+} from "lucide-react";
+import { supabase } from '@/lib/supabase';
+
+type TxStatus = "all" | "success" | "abandoned" | "failed";
+type AmountFilter = "all" | "monthly" | "quarterly";
+type SortKey = "email" | "accountStatus" | "date" | "plan" | "amount" | "status" | null;
+type DrawerTab = "analytics" | "customer" | "timeline";
+
+export function AdminPaymentsDashboard() {
+  const [data, setData] = useState<any[]>([]);
+  
+  // 🔥 Now stores the full database subscription info, not just a true/false check
+  const [registeredUsers, setRegisteredUsers] = useState<Map<string, any>>(new Map());
+  const [loading, setLoading] = useState<boolean>(true);
+  
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TxStatus>("all");
+  const [amountFilter, setAmountFilter] = useState<AmountFilter>("all");
+  const [selectedTx, setSelectedTx] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<DrawerTab>("analytics");
+
+  // Sorting States
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
+    key: "date",
+    direction: "desc"
+  });
+
+  const parseAmount = (val: any) => {
+    if (!val) return 0;
+    const clean = val.toString().replace(/,/g, '').replace(/[^\d.-]/g, '');
+    return Number(clean) || 0;
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      // 1. Fetch live transactions from Paystack
+      const payRes = await fetch(`/api/admin/payments?status=${statusFilter}`, {
+        headers
+      });
+      
+      if (payRes.ok) {
+        const payJson = await payRes.json();
+        if (payJson.success) {
+          setData(payJson.data);
+        }
+      }
+
+      // 2. Fetch users and map their exact Database Subscription Status
+      const userRes = await fetch(`/api/admin/users?type=student`, {
+        headers
+      });
+      
+      if (userRes.ok) {
+        const userJson = await userRes.json();
+        if (userJson.success && Array.isArray(userJson.data)) {
+          const uMap = new Map();
+          userJson.data.forEach((u: any) => {
+            if (u.email) {
+              uMap.set(u.email.toLowerCase().trim(), {
+                isRegistered: true,
+                subStatus: u.subscription_status || "inactive",
+              });
+            }
+          });
+          setRegisteredUsers(uMap);
+        }
+      }
+    } catch (err) {
+      console.error("Dashboard Sync Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [statusFilter]);
+
+  // Gold Data Filter (Monthly: ~15,000 / ~15,329.95, Quarterly: ~40,500 / ~41,218.28)
+  const goldData = useMemo(() => {
+    return data.filter((tx) => {
+      const amt = parseAmount(tx.amount);
+      const isMonthly = (amt >= 14800 && amt <= 15600) || (amt >= 1480000 && amt <= 1560000);
+      const isQuarterly = (amt >= 40000 && amt <= 42500) || (amt >= 4000000 && amt <= 4250000);
+      return isMonthly || isQuarterly;
+    });
+  }, [data]);
+
+  // Apply UI Filters & Sorting
+  const filteredData = useMemo(() => {
+    let result = [...goldData];
+
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (tx) =>
+          tx.customer?.email?.toLowerCase().includes(lowerQuery) ||
+          tx.customer?.name?.toLowerCase().includes(lowerQuery) ||
+          tx.reference?.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    if (amountFilter === "monthly") {
+      result = result.filter(tx => {
+        const amt = parseAmount(tx.amount);
+        return (amt >= 14800 && amt <= 15600) || (amt >= 1480000 && amt <= 1560000);
+      });
+    } else if (amountFilter === "quarterly") {
+      result = result.filter(tx => {
+        const amt = parseAmount(tx.amount);
+        return (amt >= 40000 && amt <= 42500) || (amt >= 4000000 && amt <= 4250000);
+      });
+    }
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortConfig.key) {
+          case "email":
+            aValue = a.customer?.email || "";
+            bValue = b.customer?.email || "";
+            break;
+          case "accountStatus":
+            aValue = registeredUsers.get(a.customer?.email?.toLowerCase())?.subStatus || "";
+            bValue = registeredUsers.get(b.customer?.email?.toLowerCase())?.subStatus || "";
+            break;
+          case "date":
+            aValue = new Date(a.createdAt).getTime();
+            bValue = new Date(b.createdAt).getTime();
+            break;
+          case "plan":
+            aValue = a.plan?.name || a.reference || "";
+            bValue = b.plan?.name || b.reference || "";
+            break;
+          case "amount":
+            aValue = parseAmount(a.amount);
+            bValue = parseAmount(b.amount);
+            break;
+          case "status":
+            aValue = a.status || "";
+            bValue = b.status || "";
+            break;
+          default:
+            return 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [goldData, searchQuery, amountFilter, sortConfig, registeredUsers]);
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
+    }));
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "success":
+        return <span className="border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider">Successful</span>;
+      case "abandoned":
+        return <span className="border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider">Abandoned</span>;
+      case "failed":
+        return <span className="border border-rose-500/30 bg-rose-500/10 text-rose-400 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider">Failed</span>;
+      default:
+        return <span className="border border-slate-500/30 bg-slate-500/10 text-slate-400 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider">{status}</span>;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  };
+
+  return (
+    <div className="p-6 max-w-[1600px] mx-auto space-y-6 text-slate-200 min-h-screen bg-[#0f1523]">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold tracking-wider mb-2 uppercase">
+            <CreditCard size={14} />
+            <span>Financial Operations</span>
+          </div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Payments & Subscriptions</h2>
+          <p className="text-sm text-slate-400 mt-1">
+            Monitor checkout sessions alongside actual database subscription access.
+          </p>
+        </div>
+        <button 
+          onClick={fetchData}
+          className="flex items-center gap-2 px-4 py-2 bg-[#1a2333] border border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+        >
+          <RefreshCcw size={16} className={loading ? "animate-spin text-cyan-400" : "text-cyan-400"} />
+          Refresh records
+        </button>
+      </div>
+
+      {/* Stats Cards - Married Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-[#131b2b] border border-slate-800 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sessions</h3>
+            <div className="p-2 bg-slate-800/50 rounded-lg text-cyan-400"><Activity size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">{goldData.length}</p>
+          <p className="text-xs text-slate-500 mt-2">All Paystack checkouts</p>
+        </div>
+
+        <div className="bg-[#131b2b] border border-slate-800 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Office Subs</h3>
+            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400"><UserCheck size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">
+            {Array.from(registeredUsers.values()).filter(u => u.subStatus === 'active').length}
+          </p>
+          <p className="text-xs text-slate-500 mt-2">Currently active in database</p>
+        </div>
+
+        <div className="bg-[#131b2b] border border-slate-800 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Paid Monthly</h3>
+            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><CalendarDays size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">
+            {goldData.filter(d => d.status === 'success' && parseAmount(d.amount) < 20000).length}
+          </p>
+          <p className="text-xs text-slate-500 mt-2">Successful ~₦15k payments</p>
+        </div>
+
+        <div className="bg-[#131b2b] border border-slate-800 rounded-xl p-5">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Paid Quarterly</h3>
+            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Layers size={18} /></div>
+          </div>
+          <p className="text-3xl font-bold text-white">
+             {goldData.filter(d => d.status === 'success' && parseAmount(d.amount) > 20000).length}
+          </p>
+          <p className="text-xs text-slate-500 mt-2">Successful ~₦40k payments</p>
+        </div>
+      </div>
+
+      {/* Filter Section */}
+      <div className="bg-[#131b2b] border border-slate-800 rounded-xl p-5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-white mb-4">
+          <Filter size={16} className="text-cyan-400" />
+          Filter records
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          <div className="md:col-span-4">
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Search</label>
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Search email, name, or reference..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#0a0f18] border border-slate-700 text-sm text-white rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-cyan-500 transition-colors"
+              />
+            </div>
+          </div>
+          
+          <div className="md:col-span-3">
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Paystack Status</label>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as TxStatus)}
+              className="w-full bg-[#0a0f18] border border-slate-700 text-sm text-white rounded-lg px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="all">All statuses</option>
+              <option value="success">Successful</option>
+              <option value="abandoned">Abandoned</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-3">
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Plan / Tier</label>
+            <select 
+              value={amountFilter}
+              onChange={(e) => setAmountFilter(e.target.value as AmountFilter)}
+              className="w-full bg-[#0a0f18] border border-slate-700 text-sm text-white rounded-lg px-3 py-2.5 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="all">All Gold Amounts</option>
+              <option value="monthly">Monthly (~₦15k)</option>
+              <option value="quarterly">Quarterly (~₦41k)</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <button 
+              onClick={() => { setSearchQuery(""); setStatusFilter("all"); setAmountFilter("all"); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-transparent border border-slate-700 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors"
+            >
+              <X size={16} /> Clear
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-[#131b2b] border border-slate-800 rounded-xl overflow-hidden">
+        <div className="p-5 border-b border-slate-800 flex justify-between items-center">
+          <div>
+            <h3 className="font-semibold text-white">Payment Records</h3>
+            <p className="text-xs text-slate-400 mt-1">Showing {filteredData.length} records</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-[#0a0f18] text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-800 select-none">
+              <tr>
+                <th onClick={() => handleSort("email")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center gap-2">Customer <ArrowUpDown size={12}/></div>
+                </th>
+                <th onClick={() => handleSort("accountStatus")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center gap-2">Subscription (DB) <ArrowUpDown size={12}/></div>
+                </th>
+                <th onClick={() => handleSort("date")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center gap-2">Date <ArrowUpDown size={12}/></div>
+                </th>
+                <th onClick={() => handleSort("plan")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center gap-2">Plan / Ref <ArrowUpDown size={12}/></div>
+                </th>
+                <th onClick={() => handleSort("amount")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center gap-2">Amount <ArrowUpDown size={12}/></div>
+                </th>
+                <th onClick={() => handleSort("status")} className="px-5 py-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center gap-2">Paystack Status <ArrowUpDown size={12}/></div>
+                </th>
+                <th className="px-5 py-4">Gateway Msg</th>
+                <th className="px-5 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {loading && data.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10 text-slate-500">Loading records...</td></tr>
+              ) : filteredData.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10 text-slate-500">No matching records found.</td></tr>
+              ) : filteredData.map((tx) => {
+                const uInfo = registeredUsers.get(tx.customer?.email?.toLowerCase().trim());
+                
+                return (
+                  <tr key={tx.id || tx.reference} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded bg-cyan-900/30 text-cyan-400 flex items-center justify-center font-bold text-xs uppercase border border-cyan-800/50">
+                          {tx.customer?.email?.[0] || "?"}
+                        </div>
+                        <div>
+                          <div className="font-medium text-white">{tx.customer?.name !== '-' ? tx.customer?.name : tx.customer?.email}</div>
+                          {tx.customer?.name !== '-' && (
+                            <div className="text-xs text-slate-400">{tx.customer?.email}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      {/* 🔥 Pure DB Truth: Pulled strictly from your 'users' table */}
+                      {!uInfo ? (
+                        <span className="text-slate-500 text-xs font-medium flex items-center gap-1.5"><UserX size={13}/> Unregistered</span>
+                      ) : uInfo.subStatus === 'active' ? (
+                        <span className="text-emerald-400 text-xs font-medium flex items-center gap-1.5"><UserCheck size={13}/> Active</span>
+                      ) : uInfo.subStatus === 'trial' ? (
+                        <span className="text-blue-400 text-xs font-medium flex items-center gap-1.5"><Clock size={13}/> Trial</span>
+                      ) : (
+                        <span className="text-amber-400 text-xs font-medium flex items-center gap-1.5 capitalize"><ShieldAlert size={13}/> {uInfo.subStatus}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-slate-300">
+                      {formatDate(tx.createdAt)}
+                    </td>
+                    <td className="px-5 py-4">
+                      {tx.plan?.name ? (
+                        <span className="text-cyan-400 text-xs font-semibold uppercase">{tx.plan.name}</span>
+                      ) : (
+                        <span className="text-slate-400 text-xs font-mono">{tx.reference}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 font-semibold text-white">
+                      {tx.currency} {parseAmount(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-4">{getStatusBadge(tx.status)}</td>
+                    <td className="px-5 py-4 text-xs text-slate-400 truncate max-w-[140px]" title={tx.gatewayResponse}>
+                      {tx.gatewayResponse || "N/A"}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        onClick={() => setSelectedTx(tx)}
+                        className="px-4 py-1.5 border border-slate-600 rounded-full text-xs font-medium text-white hover:bg-slate-700 hover:border-slate-500 transition-colors"
+                      >
+                        Manage
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Dark Theme Details Drawer */}
+      {selectedTx && (
+        <div className="fixed inset-0 bg-black/70 flex justify-end z-50 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-[#0f1523] h-full overflow-y-auto shadow-2xl border-l border-slate-800 flex flex-col">
+            
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-slate-800">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                  <span>Transactions</span>
+                  <span>›</span>
+                  <span className="text-cyan-400">{selectedTx.reference}</span>
+                </div>
+                <button 
+                  onClick={() => setSelectedTx(null)} 
+                  className="text-slate-400 hover:text-white bg-[#131b2b] p-2 rounded-lg border border-slate-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex justify-between items-start mt-4">
+                <div>
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Amount</p>
+                  <h2 className="text-3xl font-bold text-white tracking-tight">
+                    {selectedTx.currency} {parseAmount(selectedTx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </h2>
+                </div>
+                <div>
+                  {getStatusBadge(selectedTx.status)}
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="px-6 flex gap-6 border-b border-slate-800 bg-[#0a0f18]">
+              <button 
+                onClick={() => setActiveTab("analytics")} 
+                className={`py-3 text-xs font-bold transition-colors border-b-2 uppercase tracking-wider ${activeTab === 'analytics' ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              >
+                Analytics
+              </button>
+              <button 
+                onClick={() => setActiveTab("customer")} 
+                className={`py-3 text-xs font-bold transition-colors border-b-2 uppercase tracking-wider ${activeTab === 'customer' ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              >
+                Customer & Gateway
+              </button>
+              <button 
+                onClick={() => setActiveTab("timeline")} 
+                className={`py-3 text-xs font-bold transition-colors border-b-2 uppercase tracking-wider ${activeTab === 'timeline' ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+              >
+                Timeline Log
+              </button>
+            </div>
+
+            {/* Tab Contents */}
+            <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+              {activeTab === "analytics" && (
+                <div className="space-y-4">
+                  <div className="bg-[#131b2b] border border-slate-800 p-4 rounded-xl">
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">IP Address</p>
+                    <p className="text-sm font-mono text-cyan-400">{selectedTx.insights?.ip || "N/A"}</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#131b2b] border border-slate-800 p-4 rounded-xl text-center">
+                      <div className="flex justify-center mb-2 text-cyan-400">
+                        {selectedTx.insights?.isMobile ? <Smartphone size={18} /> : <Monitor size={18} />}
+                      </div>
+                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Device</p>
+                      <p className="text-sm font-bold text-white mt-1">{selectedTx.insights?.isMobile ? "Mobile" : "Desktop"}</p>
+                    </div>
+
+                    <div className="bg-[#131b2b] border border-slate-800 p-4 rounded-xl text-center">
+                      <div className="flex justify-center mb-2 text-cyan-400">
+                        <Clock size={18} />
+                      </div>
+                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Time Spent</p>
+                      <p className="text-sm font-bold text-white mt-1">{selectedTx.insights?.timeSpentInSeconds}s</p>
+                    </div>
+
+                    <div className="bg-[#131b2b] border border-slate-800 p-4 rounded-xl text-center">
+                      <div className="flex justify-center mb-2 text-cyan-400">
+                        <RotateCcw size={18} />
+                      </div>
+                      <p className="text-[10px] text-slate-400 uppercase font-semibold">Errors</p>
+                      <p className={`text-sm font-bold mt-1 ${selectedTx.insights?.errorCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                        {selectedTx.insights?.errorCount}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "customer" && (
+                <div className="space-y-4 text-sm">
+                  <div className="bg-[#131b2b] border border-slate-800 p-4 rounded-xl space-y-3">
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-400">Customer Name:</span>
+                      <span className="font-medium text-white">{selectedTx.customer?.name}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-400">Email:</span>
+                      <span className="font-medium text-white">{selectedTx.customer?.email}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-400">Database Status:</span>
+                      <span className={`font-medium capitalize ${registeredUsers.has(selectedTx.customer?.email?.toLowerCase().trim()) ? "text-emerald-400" : "text-slate-400"}`}>
+                        {registeredUsers.get(selectedTx.customer?.email?.toLowerCase().trim())?.subStatus || "Unregistered"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-400">Customer Code:</span>
+                      <span className="font-mono text-cyan-400">{selectedTx.customer?.customerCode || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-400">Channel:</span>
+                      <span className="font-medium text-white capitalize">{selectedTx.channel || "Card"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Date:</span>
+                      <span className="font-medium text-white">{formatDate(selectedTx.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#131b2b] border border-slate-800 p-4 rounded-xl space-y-2">
+                    <p className="text-xs text-slate-400 uppercase font-semibold">Gateway Response</p>
+                    <p className="text-sm font-medium text-white">{selectedTx.gatewayResponse || "No gateway message available."}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "timeline" && (
+                <div>
+                  {selectedTx.insights?.fullHistory?.length > 0 ? (
+                    <div className="space-y-4 border-l-2 border-slate-800 ml-2 pl-4 py-1">
+                      {selectedTx.insights.fullHistory.map((step: any, idx: number) => (
+                        <div key={idx} className="relative text-sm">
+                          <span className={`absolute -left-[23px] top-1 h-3 w-3 rounded-full ring-4 ring-[#0f1523] ${step.isError ? "bg-rose-500" : "bg-cyan-500"}`}></span>
+                          <span className="font-medium text-slate-200 block">{step.message}</span>
+                          <span className="text-xs text-slate-500">{step.time} from session start</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 text-slate-500 text-sm">
+                      No live checkout history logged for this session.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,104 +1,171 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  },
 );
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY!;
+type PlanType = "monthly" | "quarterly";
 
+type InitializeBody = {
+  email?: string;
+  amount?: number | string;
+  callback_url?: string;
+  userId?: string;
+  fullName?: string;
+  track?: string;
+  role?: string;
+  subscriptionPlan?: string;
+  planType?: string;
+  plan?: string;
+};
 
-// Text Plan Codes (Make sure these match your Paystack Live Dashboard)
-// const PLAN_CODES: Record<string, { code: string; amountInKobo: number }> = {
-//   MONTHLY: {
-//     code: process.env.PAYSTACK_PLAN_MONTHLY || "PLN_0a0fy91qz8jff3g",
-//     amountInKobo: 1500000, // ₦15,000
-//   },
-//   QUARTERLY: {
-//     code: process.env.PAYSTACK_PLAN_QUARTERLY || "PLN_f2c6kpj0yr50ww9",
-//     amountInKobo: 4050000, // ₦40,500
-//   },
-// };
-
-// Live Plan Codes (Make sure these match your Paystack Live Dashboard)
-const PLAN_CODES: Record<string, { code: string; amountInKobo: number }> = {
-  MONTHLY: {
+// 🚨 Ensure these Plan Codes actually exist on your Paystack Dashboard!
+const PLAN_CONFIG: Record<PlanType, { amountInNaira: number; code: string }> = {
+  monthly: {
+    amountInNaira: 15000,
     code: process.env.PAYSTACK_PLAN_MONTHLY || "PLN_46z8gz0p4foduy8",
-    amountInKobo: 1500000, // ₦15,000
   },
-  QUARTERLY: {
+  quarterly: {
+    amountInNaira: 40500,
     code: process.env.PAYSTACK_PLAN_QUARTERLY || "PLN_ddzhasixy441mju",
-    amountInKobo: 4050000, // ₦40,500
   },
 };
 
-export async function POST(req: NextRequest) {
-  try {
-    const { userId, email, plan } = await req.json();
+const isPlanType = (value: string): value is PlanType =>
+  value === "monthly" || value === "quarterly";
 
-    if (!userId || !email || !plan || !PLAN_CODES[plan]) {
-      return NextResponse.json({ error: "Invalid parameters. Choose MONTHLY or QUARTERLY." }, { status: 400 });
+const getBearerToken = (request: Request) => {
+  const authorization = request.headers.get("authorization") || "";
+  return authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : null;
+};
+
+const getCallbackUrl = (requestedCallback?: string) => {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://labs.wdc.ng";
+  const defaultCallback = new URL("/auth/verify-email", appUrl).toString();
+
+  if (!requestedCallback) return defaultCallback;
+
+  try {
+    const requestedUrl = new URL(requestedCallback);
+    if (requestedUrl.origin === new URL(appUrl).origin) return requestedUrl.toString();
+    if (process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1"].includes(requestedUrl.hostname)) {
+      return requestedUrl.toString();
+    }
+  } catch {
+    // Ignore invalid URLs
+  }
+  return defaultCallback;
+};
+
+export async function POST(request: Request) {
+  try {
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      console.error("❌ [Init Route] PAYSTACK_SECRET_KEY is missing in ENV.");
+      return NextResponse.json({ status: false, error: "Paystack is not configured." }, { status: 500 });
     }
 
-    const selectedPlan = PLAN_CODES[plan];
+    const body = (await request.json()) as InitializeBody;
+    console.log("📥 [Init Route] Received Payload:", body);
 
-    // 1. Fetch the user's current subscription expiry date from the database
-    const { data: currentUser } = await supabaseAdmin
-      .from('users')
-      .select('subscription_expires_at')
-      .eq('auth_id', userId)
-      .maybeSingle();
+    const email = body.email?.trim().toLowerCase();
+    const rawPlan = (body.subscriptionPlan || body.planType || body.plan || "").trim().toLowerCase();
 
-    // 2. Build the Paystack initialization payload
-    const payload: any = {
+    // 1. Validate Email
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      console.error("❌ [Init Route] Validation Failed: Invalid Email ->", email);
+      return NextResponse.json({ status: false, error: "A valid email address is required." }, { status: 400 });
+    }
+
+    // 2. Validate Plan Name
+    if (!isPlanType(rawPlan)) {
+      console.error("❌ [Init Route] Validation Failed: Invalid Plan ->", rawPlan);
+      return NextResponse.json({ status: false, error: "Choose a valid plan: 'monthly' or 'quarterly'." }, { status: 400 });
+    }
+
+    const selectedPlan = PLAN_CONFIG[rawPlan];
+
+    // 3. Authenticate User
+    const accessToken = getBearerToken(request);
+    let authenticatedUserId: string | null = null;
+
+    if (accessToken) {
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+      if (authError || !user) {
+        console.error("❌ [Init Route] Auth Failed: Invalid Token.");
+        return NextResponse.json({ status: false, error: "Your session is invalid. Please log in again." }, { status: 401 });
+      }
+      authenticatedUserId = user.id;
+    }
+
+    const dbUserId = authenticatedUserId || body.userId;
+    const callbackUrl = getCallbackUrl(body.callback_url);
+
+    // 4. Send to Paystack
+    const paystackPayload = {
       email,
-      amount: selectedPlan.amountInKobo,
-      plan: selectedPlan.code, // 🔥 Paystack attaches this card to the subscription plan
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://labs.wdc.ng"}/student/dashboard?payment=success`,
+      amount: selectedPlan.amountInNaira * 100, // Paystack uses Kobo
+      plan: selectedPlan.code,
+      callback_url: callbackUrl,
       metadata: {
-        user_id: userId,
-        subscription_plan: plan,
-        custom_fields: [
-          { display_name: "User ID", variable_name: "user_id", value: userId },
-          { display_name: "Plan", variable_name: "subscription_plan", value: plan }
-        ]
+        user_id: dbUserId || null,
+        subscriptionPlan: rawPlan,
+        payment_source: "signup_subscription",
       },
     };
 
-    // 3. 🔥 THE MAGIC SYNC: If they have future days left, tell Paystack to defer billing!
-    if (currentUser?.subscription_expires_at) {
-       const expiryDate = new Date(currentUser.subscription_expires_at);
-       if (expiryDate > new Date()) {
-           // Pass Paystack the exact future date to start the billing cycle
-           payload.start_date = expiryDate.toISOString(); 
-       }
-    }
+    console.log("📤 [Init Route] Sending to Paystack API:", paystackPayload);
 
-    // 4. Initialize transaction with Paystack
-    const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
+    const paystackResponse = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET}`,
+        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(paystackPayload),
     });
 
-    const paystackData = await paystackRes.json();
+    const paystackData = await paystackResponse.json();
 
-    if (!paystackData.status) {
-      return NextResponse.json({ error: paystackData.message || "Failed to initialize payment" }, { status: 400 });
+    // 5. Handle Paystack Rejections (This is likely where your 400 is coming from)
+    if (!paystackResponse.ok || !paystackData.status) {
+      console.error("❌ [Init Route] Paystack API Rejected Request:", paystackData);
+      return NextResponse.json(
+        { status: false, error: paystackData.message || "Paystack could not initialize the payment." },
+        { status: paystackResponse.ok ? 400 : paystackResponse.status },
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      authorization_url: paystackData.data.authorization_url,
-      access_code: paystackData.data.access_code,
+    // 6. Save Pending Payment to DB
+    const { error: paymentError } = await supabaseAdmin.from("payments").insert({
+      email,
+      role: body.role || "student",
+      amount: selectedPlan.amountInNaira,
+      subscription_plan: rawPlan,
+      payment_method: "paystack",
+      payment_status: "pending",
       reference: paystackData.data.reference,
+      user_id: dbUserId || null,
     });
+
+    if (paymentError) {
+      console.error("❌ [Init Route] DB Insert Failed:", paymentError.message);
+    }
+
+    console.log("✅ [Init Route] Success! Returning checkout URL.");
+    return NextResponse.json(paystackData);
+
   } catch (error: any) {
-    console.error("Subscription Init Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("🔥 [Init Route] Fatal Error:", error?.message || error);
+    return NextResponse.json({ status: false, error: "Payment initialization failed." }, { status: 500 });
   }
 }
