@@ -8,16 +8,55 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+type PlanType = 'monthly' | 'quarterly';
+
+const PLAN_CONFIG: Record<PlanType, { amountInNaira: number; code: string }> = {
+  monthly: {
+    amountInNaira: 15000,
+    code: process.env.PAYSTACK_PLAN_MONTHLY || 'PLN_46z8gz0p4foduy8',
+  },
+  quarterly: {
+    amountInNaira: 40500,
+    code: process.env.PAYSTACK_PLAN_QUARTERLY || 'PLN_ddzhasixy441mju',
+  },
+};
+
+const successfulPaymentStatuses = new Set(['success', 'successful', 'confirmed', 'paid']);
+
+const normalizePlan = (...values: unknown[]): PlanType | null => {
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === 'monthly' || normalized === PLAN_CONFIG.monthly.code.toLowerCase()) {
+      return 'monthly';
+    }
+
+    if (normalized === 'quarterly' || normalized === PLAN_CONFIG.quarterly.code.toLowerCase()) {
+      return 'quarterly';
+    }
+  }
+
+  return null;
+};
+
+const planFromAmount = (amount: number): PlanType | null => {
+  if (amount === PLAN_CONFIG.monthly.amountInNaira) return 'monthly';
+  if (amount === PLAN_CONFIG.quarterly.amountInNaira) return 'quarterly';
+  return null;
+};
+
 export async function POST(req: Request) {
   try {
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+    if (!paystackSecret) {
+      return NextResponse.json({ error: "Paystack is not configured." }, { status: 500 });
+    }
+
     const rawBody = await req.text();
     const signature = req.headers.get('x-paystack-signature');
     
-    const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY!)
-      .update(rawBody)
-      .digest('hex');
-
-    // 🚨 LOCAL TESTING BYPASS
+    const hash = crypto.createHmac('sha512', paystackSecret).update(rawBody).digest('hex');
     const isLocalTest = process.env.NODE_ENV === "development" && !signature;
 
     if (hash !== signature && !isLocalTest) {
@@ -28,117 +67,76 @@ export async function POST(req: Request) {
     console.log(`⚡ [Paystack Webhook] Event: ${event.event}`);
 
     switch (event.event) {
-      // ====================================================
-      // 1. CHARGES & SUBSCRIPTIONS
-      // ====================================================
       case 'charge.success': {
-        const ref = event.data.reference;
-        const customerEmail = event.data?.customer?.email;
-        const customerCode = event.data?.customer?.customer_code;
-        const amountPaid = event.data.amount / 100; // Convert Kobo to Naira
+        try {
+          const ref = event.data.reference;
+          const customerEmail = event.data?.customer?.email;
+          const customerCode = event.data?.customer?.customer_code;
+          const amountPaid = Number(event.data.amount || 0) / 100;
 
-        // 🔥 Extract Metadata from the new Subscription Modal
-        const metaUserId = event.data.metadata?.user_id;
-        const metaPlan = event.data.metadata?.subscription_plan; // "MONTHLY" or "QUARTERLY"
+          if (!ref || !Number.isFinite(amountPaid) || amountPaid <= 0) {
+            console.error('Paystack charge is missing a valid reference or amount.', event.data);
+            return NextResponse.json({ success: true, message: "Invalid payload ignored." });
+          }
 
-        // 🔥 IDEMPOTENCY CHECK (Wallet)
-        const { data: existingTx } = await supabaseAdmin
-          .from('wallet_transactions')
-          .select('id')
-          .eq('reference', ref)
-          .maybeSingle();
+          const metaUserId = event.data.metadata?.user_id;
+          const rawMetaPlan =
+            event.data.metadata?.subscriptionPlan ??
+            event.data.metadata?.planType ??
+            event.data.metadata?.subscription_plan;
+            
+          const metaPlan = normalizePlan(
+            rawMetaPlan,
+            event.data.plan?.plan_code,
+            event.data.plan?.interval,
+          );
 
-        if (existingTx) {
-          console.log(`⚠️ Duplicate Webhook Ignored: Transaction ${ref} already processed.`);
-          return NextResponse.json({ success: true, message: "Duplicate Ignored" });
-        }
-
-        // Attempt to find the payment if it was initiated from the original onboarding flow
-        const { data: updatedPayment } = await supabaseAdmin
-          .from('payments')
-          .update({ payment_status: 'successful', confirmed_at: new Date().toISOString() })
-          .eq('reference', ref)
-          .select('user_id, track, amount, full_name') 
-          .maybeSingle();
-
-        // 👉 SCENARIO A: DASHBOARD SUBSCRIPTION UPGRADE (From the New Modal)
-        if (metaUserId && metaPlan) {
-          let daysToAdd = metaPlan === 'QUARTERLY' ? 90 : 30;
-
-          const { data: currentUser } = await supabaseAdmin
-            .from('users')
-            .select('subscription_expires_at, full_name')
-            .eq('auth_id', metaUserId)
+          const { data: existingPayment, error: paymentLookupError } = await supabaseAdmin
+            .from('payments')
+            .select('id, user_id, email, track, amount, full_name, role, subscription_plan, payment_status')
+            .eq('reference', ref)
             .maybeSingle();
 
-          let baseDate = new Date();
-          if (currentUser?.subscription_expires_at) {
-             const currentExpiry = new Date(currentUser.subscription_expires_at);
-             if (currentExpiry > baseDate) baseDate = currentExpiry; 
+          if (paymentLookupError) throw paymentLookupError;
+
+          const existingPaymentStatus = String(existingPayment?.payment_status || '').toLowerCase();
+          if (existingPayment && successfulPaymentStatuses.has(existingPaymentStatus)) {
+            console.log(`⚠️ Duplicate subscription webhook ignored: ${ref}`);
+            return NextResponse.json({ success: true, message: "Already processed" });
           }
-          const expiryDate = new Date(baseDate);
-          expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
-          await supabaseAdmin.from('users').update({ 
-              has_completed_onboarding: true, 
-              subscription_status: 'active', 
-              subscription_plan: metaPlan, 
-              paystack_customer_code: customerCode, 
-              subscription_expires_at: expiryDate.toISOString(),
-              last_payment_date: new Date().toISOString(), 
-              renewal_status: 'pending'
-          }).eq('auth_id', metaUserId);
-          
-          await sendWelcomeSubscriptionEmail(customerEmail, currentUser?.full_name || "Student");
-          console.log(`✅ Subscription Upgraded via Modal for ${metaUserId} (${metaPlan})`);
-        }
-        
-        // 👉 SCENARIO B: FRONTEND-INITIATED (Original Onboarding or Card Wallet Funding)
-        else if (updatedPayment?.user_id) {
-          if (updatedPayment.track === 'wallet_funding') {
-            const { data: wallet } = await supabaseAdmin
-              .from('wallets')
-              .select('balance, account_name, account_number')
-              .eq('user_id', updatedPayment.user_id)
-              .maybeSingle(); 
-              
-            const balanceBefore = wallet?.balance || 0;
-            const fundingAmount = updatedPayment.amount || 0;
-            const balanceAfter = balanceBefore + fundingAmount;
+          const { data: existingTx } = await supabaseAdmin
+            .from('wallet_transactions')
+            .select('id')
+            .eq('reference', ref)
+            .maybeSingle();
 
-            await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('user_id', updatedPayment.user_id);
+          if (existingTx) {
+            console.log(`⚠️ Duplicate Webhook Ignored: Transaction ${ref} already processed.`);
+            return NextResponse.json({ success: true, message: "Duplicate Ignored" });
+          }
 
-            const { error: txError } = await supabaseAdmin.from('wallet_transactions').insert([{
-                user_id: updatedPayment.user_id,
-                email: customerEmail,
-                reference: ref, 
-                transaction_type: 'INFLOW',
-                funding_method: 'PAYSTACK_CARD',
-                amount: fundingAmount,
-                total_amount: fundingAmount,
-                balance_before: balanceBefore,
-                balance_after: balanceAfter,
-                status: 'SUCCESS',
-                provider_tx_id: `PAYSTACK-${ref}`,
-                source: 'Debit Card Deposit',
-                created_at: event.data.paid_at || new Date().toISOString(),
-                receiver_info: { account_name: wallet?.account_name || "WDC Wallet", account_number: wallet?.account_number || "Virtual" }
-            }]);
+          const updatedPayment = existingPayment;
+          let localPaymentFulfilled = false;
 
-            if (txError) console.error("🚨 Card Ledger Insert Error:", txError.message);
-          } 
-          else {
-            // Initial Subscription Activation
-            let daysToAdd = 30; 
-            const trackString = String(updatedPayment.track || "").toLowerCase();
-            let assignedPlan = 'MONTHLY';
-            
-            if (trackString.includes('quarterly') || updatedPayment.amount >= 10000) {
-              daysToAdd = 90;
-              assignedPlan = 'QUARTERLY';
+          // 👉 SCENARIO A: DASHBOARD SUBSCRIPTION UPGRADE
+          if (metaUserId && metaPlan) {
+            const daysToAdd = metaPlan === 'quarterly' ? 90 : 30;
+
+            if (amountPaid !== PLAN_CONFIG[metaPlan].amountInNaira) {
+              console.error(`Paystack amount (₦${amountPaid}) does not match the ${metaPlan} plan.`);
+              return NextResponse.json({ success: true, message: "Amount mismatch ignored." });
             }
 
-            const { data: currentUser } = await supabaseAdmin.from('users').select('subscription_expires_at').eq('auth_id', updatedPayment.user_id).maybeSingle();
+            const { data: currentUser, error: currentUserError } = await supabaseAdmin
+              .from('users')
+              .select('subscription_expires_at, full_name')
+              .eq('auth_id', metaUserId)
+              .maybeSingle();
+
+            if (currentUserError) throw currentUserError;
+            if (!currentUser) throw new Error(`User not found for subscription payment ${ref}.`);
+
             let baseDate = new Date();
             if (currentUser?.subscription_expires_at) {
                const currentExpiry = new Date(currentUser.subscription_expires_at);
@@ -147,123 +145,257 @@ export async function POST(req: Request) {
             const expiryDate = new Date(baseDate);
             expiryDate.setDate(expiryDate.getDate() + daysToAdd);
 
-            await supabaseAdmin.from('users').update({ 
+            const { error: subscriptionUpdateError } = await supabaseAdmin.from('users').update({
                 has_completed_onboarding: true, 
-                subscription_status: 'active',
-                subscription_plan: assignedPlan, 
-                paystack_customer_code: customerCode,
+                subscription_status: 'active', 
+                subscription_plan: metaPlan, 
+                paystack_customer_code: customerCode, 
                 subscription_expires_at: expiryDate.toISOString(),
                 last_payment_date: new Date().toISOString(), 
-                start_date: currentUser?.subscription_expires_at ? undefined : new Date().toISOString(), 
                 renewal_status: 'pending'
-              }).eq('auth_id', updatedPayment.user_id);
+            }).eq('auth_id', metaUserId);
+
+            if (subscriptionUpdateError) throw subscriptionUpdateError;
+            localPaymentFulfilled = true;
             
-            await sendWelcomeSubscriptionEmail(customerEmail, updatedPayment.full_name);
-          }
-        } 
-        
-        // 👉 SCENARIO C: BACKGROUND AUTO-RENEWAL
-        else if (event.data.plan?.plan_code) {
-          let daysToAdd = event.data.plan.interval === 'quarterly' ? 90 : 30;
-          let renewedPlan = event.data.plan.interval === 'quarterly' ? 'QUARTERLY' : 'MONTHLY';
-
-          const { data: userToRenew } = await supabaseAdmin.from('users').select('auth_id, subscription_expires_at').eq('email', customerEmail).maybeSingle();
-
-          if (userToRenew) {
-            let baseDate = new Date();
-            if (userToRenew.subscription_expires_at) {
-               const currentExpiry = new Date(userToRenew.subscription_expires_at);
-               if (currentExpiry > baseDate) baseDate = currentExpiry; 
+            if (customerEmail) {
+              sendWelcomeSubscriptionEmail(customerEmail, currentUser.full_name || "Student").catch(err => 
+                console.error('Subscription welcome email failed:', err)
+              );
             }
-            const expiryDate = new Date(baseDate);
-            expiryDate.setDate(expiryDate.getDate() + daysToAdd);
-
-            await supabaseAdmin.from('users').update({ 
-              subscription_status: 'active', 
-              subscription_plan: renewedPlan,
-              subscription_expires_at: expiryDate.toISOString(), 
-              last_payment_date: new Date().toISOString() 
-            }).eq('auth_id', userToRenew.auth_id);
-            
-            console.log(`✅ Auto-Renewal Processed for ${customerEmail}`);
+            console.log(`✅ Subscription Upgraded via Modal for ${metaUserId} (${metaPlan})`);
           }
-        }
-        
-        // 👉 SCENARIO D: DIRECT BANK TRANSFER TO VIRTUAL ACCOUNT (DVA)
-        else if (event.data.channel === 'dedicated_nuban' || event.data.authorization?.receiver_bank_account) {
-          const accountNumber = event.data.authorization?.receiver_bank_account?.account_number;
           
-          // 🔥 ROBUST FALLBACK: Find user by Account Number OR Customer Code
-          let targetUserId = null;
-          let walletData = null;
+          // 👉 SCENARIO B: FRONTEND-INITIATED
+          else if (updatedPayment?.user_id) {
+            if (updatedPayment.track === 'wallet_funding') {
+              const { data: wallet } = await supabaseAdmin
+                .from('wallets')
+                .select('id, balance, account_name, account_number')
+                .eq('user_id', updatedPayment.user_id)
+                .maybeSingle(); 
+                
+              if (!wallet) throw new Error(`Wallet not found for payment ${ref}.`);
 
-          if (accountNumber) {
-            const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('account_number', accountNumber).maybeSingle();
-            if (wallet) {
-               targetUserId = wallet.user_id;
-               walletData = wallet;
-            }
-          }
+              const balanceBefore = Number(wallet.balance || 0);
+              const fundingAmount = Number(updatedPayment.amount || 0);
 
-          if (!targetUserId && customerCode) {
-            const { data: user } = await supabaseAdmin.from('users').select('auth_id').eq('paystack_customer_code', customerCode).maybeSingle();
-            if (user) {
-               targetUserId = user.auth_id;
-               const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('user_id', targetUserId).maybeSingle();
-               walletData = wallet;
-            }
-          }
+              if (!Number.isFinite(fundingAmount) || amountPaid !== fundingAmount) {
+                console.error(`Amount mismatch in wallet funding: expected ${fundingAmount}, got ${amountPaid}`);
+                return NextResponse.json({ success: true, message: "Amount mismatch" });
+              }
 
-          if (targetUserId && walletData) {
-              const balanceBefore = walletData.balance || 0;
-              const fundingAmount = amountPaid;
               const balanceAfter = balanceBefore + fundingAmount;
 
-              const narration = event.data.authorization?.narration || 'Wallet Funding via Bank Transfer';
-              const senderName = event.data.authorization?.sender_name || event.data.authorization?.sender_bank_account?.account_name || '';
-              const cleanSource = senderName ? `Bank Transfer from ${senderName}` : 'Bank Transfer Deposit';
-
-              await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('id', walletData.id);
+              const { error: walletUpdateError } = await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('id', wallet.id);
+              if (walletUpdateError) throw walletUpdateError;
 
               const { error: txError } = await supabaseAdmin.from('wallet_transactions').insert([{
-                 user_id: targetUserId,
-                 reference: ref,
-                 transaction_type: 'INFLOW',
-                 funding_method: 'BANK_TRANSFER',
-                 amount: fundingAmount,
-                 total_amount: fundingAmount,
-                 balance_before: balanceBefore,
-                 balance_after: balanceAfter,
-                 status: 'SUCCESS',
-                 provider_tx_id: `PAYSTACK-${ref}`,
-                 source: cleanSource, 
-                 description: narration, 
-                 created_at: event.data.paid_at || new Date().toISOString(),
-                 receiver_info: { account_name: walletData.account_name, account_number: walletData.account_number }
+                  user_id: updatedPayment.user_id,
+                  email: customerEmail,
+                  reference: ref, 
+                  transaction_type: 'INFLOW',
+                  funding_method: 'PAYSTACK_CARD',
+                  amount: fundingAmount,
+                  total_amount: fundingAmount,
+                  balance_before: balanceBefore,
+                  balance_after: balanceAfter,
+                  status: 'SUCCESS',
+                  provider_tx_id: `PAYSTACK-${ref}`,
+                  source: 'Debit Card Deposit',
+                  created_at: event.data.paid_at || new Date().toISOString(),
+                  receiver_info: { account_name: wallet.account_name || "WDC Wallet", account_number: wallet.account_number || "Virtual" }
               }]);
 
-              if (txError) console.error("🚨 DVA Ledger Insert Error:", txError.message);
+              if (txError) throw txError;
+              localPaymentFulfilled = true;
+            } 
+            else {
+              const assignedPlan = normalizePlan(updatedPayment.subscription_plan) || planFromAmount(Number(updatedPayment.amount || amountPaid));
 
-              const { data: userRecord } = await supabaseAdmin.from('users').select('wallet_balance').eq('auth_id', targetUserId).single();
-              if (userRecord) {
-                 await supabaseAdmin.from('users').update({ wallet_balance: (userRecord.wallet_balance || 0) + fundingAmount }).eq('auth_id', targetUserId);
+              if (!assignedPlan || amountPaid !== PLAN_CONFIG[assignedPlan].amountInNaira) {
+                console.error(`Plan mapping failed or amount mismatch for ref ${ref}`);
+                return NextResponse.json({ success: true, message: "Plan/Amount mapping error" });
               }
-              console.log(`✅ DVA Funded: ₦${fundingAmount} to ${walletData.account_name}`);
-          } else {
-              console.error(`🔴 Deposit failed: No wallet found for transfer reference ${ref}`);
+
+              const daysToAdd = assignedPlan === 'quarterly' ? 90 : 30;
+
+              const { data: currentUser, error: currentUserError } = await supabaseAdmin.from('users').select('subscription_expires_at').eq('auth_id', updatedPayment.user_id).maybeSingle();
+              
+              if (currentUserError) throw currentUserError;
+              if (!currentUser) throw new Error(`User not found for subscription payment ${ref}.`);
+
+              let baseDate = new Date();
+              if (currentUser?.subscription_expires_at) {
+                 const currentExpiry = new Date(currentUser.subscription_expires_at);
+                 if (currentExpiry > baseDate) baseDate = currentExpiry; 
+              }
+              const expiryDate = new Date(baseDate);
+              expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+              const { error: subscriptionUpdateError } = await supabaseAdmin.from('users').update({
+                  has_completed_onboarding: true, 
+                  subscription_status: 'active',
+                  subscription_plan: assignedPlan, 
+                  paystack_customer_code: customerCode,
+                  subscription_expires_at: expiryDate.toISOString(),
+                  last_payment_date: new Date().toISOString(), 
+                  start_date: currentUser?.subscription_expires_at ? undefined : new Date().toISOString(), 
+                  renewal_status: 'pending'
+                }).eq('auth_id', updatedPayment.user_id);
+
+              if (subscriptionUpdateError) throw subscriptionUpdateError;
+              localPaymentFulfilled = true;
+              
+              if (customerEmail) {
+                sendWelcomeSubscriptionEmail(customerEmail, updatedPayment.full_name || "Student").catch(err => console.error(err));
+              }
+            }
+          } 
+          
+          // 👉 SCENARIO C: BACKGROUND AUTO-RENEWAL
+          else if (event.data.plan?.plan_code) {
+            const renewedPlan = normalizePlan(event.data.plan.plan_code, event.data.plan.interval);
+
+            if (!renewedPlan || amountPaid !== PLAN_CONFIG[renewedPlan].amountInNaira) {
+              console.error(`Unknown plan or amount mismatch for auto-renewal ${ref}`);
+              return NextResponse.json({ success: true, message: "Auto-renewal mapping error" });
+            }
+
+            const daysToAdd = renewedPlan === 'quarterly' ? 90 : 30;
+
+            if (!customerEmail) throw new Error(`Renewal ${ref} is missing a customer email.`);
+
+            const { data: userToRenew, error: renewalUserError } = await supabaseAdmin.from('users').select('auth_id, subscription_expires_at').eq('email', customerEmail).maybeSingle();
+            if (renewalUserError) throw renewalUserError;
+
+            if (userToRenew) {
+              let baseDate = new Date();
+              if (userToRenew.subscription_expires_at) {
+                 const currentExpiry = new Date(userToRenew.subscription_expires_at);
+                 if (currentExpiry > baseDate) baseDate = currentExpiry; 
+              }
+              const expiryDate = new Date(baseDate);
+              expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+
+              const { error: renewalUpdateError } = await supabaseAdmin.from('users').update({
+                subscription_status: 'active', 
+                subscription_plan: renewedPlan,
+                subscription_expires_at: expiryDate.toISOString(), 
+                last_payment_date: new Date().toISOString() 
+              }).eq('auth_id', userToRenew.auth_id);
+
+              if (renewalUpdateError) throw renewalUpdateError;
+              localPaymentFulfilled = true;
+
+              await supabaseAdmin.from('payments').insert({
+                user_id: userToRenew.auth_id,
+                email: customerEmail,
+                full_name: null,
+                role: 'student',
+                amount: amountPaid,
+                subscription_plan: renewedPlan,
+                payment_method: 'paystack',
+                payment_status: 'success',
+                reference: ref,
+                confirmed_at: event.data.paid_at || new Date().toISOString(),
+              });
+              
+              console.log(`✅ Auto-Renewal Processed for ${customerEmail}`);
+            } else {
+              throw new Error(`User not found for renewal payment ${ref}.`);
+            }
           }
+          
+          // 👉 SCENARIO D: DIRECT BANK TRANSFER TO VIRTUAL ACCOUNT (DVA)
+          else if (event.data.channel === 'dedicated_nuban' || event.data.authorization?.receiver_bank_account) {
+            const accountNumber = event.data.authorization?.receiver_bank_account?.account_number;
+            
+            let targetUserId = null;
+            let walletData = null;
+
+            if (accountNumber) {
+              const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('account_number', accountNumber).maybeSingle();
+              if (wallet) {
+                 targetUserId = wallet.user_id;
+                 walletData = wallet;
+              }
+            }
+
+            if (!targetUserId && customerCode) {
+              const { data: user } = await supabaseAdmin.from('users').select('auth_id').eq('paystack_customer_code', customerCode).maybeSingle();
+              if (user) {
+                 targetUserId = user.auth_id;
+                 const { data: wallet } = await supabaseAdmin.from('wallets').select('*').eq('user_id', targetUserId).maybeSingle();
+                 walletData = wallet;
+              }
+            }
+
+            if (targetUserId && walletData) {
+                const balanceBefore = Number(walletData.balance || 0);
+                const fundingAmount = amountPaid;
+                const balanceAfter = balanceBefore + fundingAmount;
+
+                const narration = event.data.authorization?.narration || 'Wallet Funding via Bank Transfer';
+                const senderName = event.data.authorization?.sender_name || event.data.authorization?.sender_bank_account?.account_name || '';
+                const cleanSource = senderName ? `Bank Transfer from ${senderName}` : 'Bank Transfer Deposit';
+
+                await supabaseAdmin.from('wallets').update({ balance: balanceAfter, updated_at: new Date().toISOString() }).eq('id', walletData.id);
+
+                const { error: txError } = await supabaseAdmin.from('wallet_transactions').insert([{
+                   user_id: targetUserId,
+                   reference: ref,
+                   transaction_type: 'INFLOW',
+                   funding_method: 'BANK_TRANSFER',
+                   amount: fundingAmount,
+                   total_amount: fundingAmount,
+                   balance_before: balanceBefore,
+                   balance_after: balanceAfter,
+                   status: 'SUCCESS',
+                   provider_tx_id: `PAYSTACK-${ref}`,
+                   source: cleanSource, 
+                   description: narration, 
+                   created_at: event.data.paid_at || new Date().toISOString(),
+                   receiver_info: { account_name: walletData.account_name, account_number: walletData.account_number }
+                }]);
+
+                if (txError) console.error("🚨 DVA Ledger Insert Error:", txError.message);
+
+                const { data: userRecord } = await supabaseAdmin.from('users').select('wallet_balance').eq('auth_id', targetUserId).single();
+                if (userRecord) {
+                   await supabaseAdmin.from('users').update({ wallet_balance: (userRecord.wallet_balance || 0) + fundingAmount }).eq('auth_id', targetUserId);
+                }
+                console.log(`✅ DVA Funded: ₦${fundingAmount} to ${walletData.account_name}`);
+            } else {
+                console.error(`🔴 Deposit failed: No wallet found for transfer reference ${ref}`);
+                return NextResponse.json({ success: true, message: "No wallet found to fund" });
+            }
+          }
+
+          if (existingPayment && localPaymentFulfilled) {
+            const { error: paymentUpdateError } = await supabaseAdmin
+              .from('payments')
+              .update({
+                payment_status: 'success',
+                confirmed_at: event.data.paid_at || new Date().toISOString(),
+              })
+              .eq('id', existingPayment.id);
+
+            if (paymentUpdateError) throw paymentUpdateError;
+          }
+
+        } catch (innerError: any) {
+           console.error("🔥 Error processing charge.success:", innerError?.message || innerError);
+           // Rethrowing will send a 500. Paystack will retry. Only do this for database crashes.
+           throw innerError; 
         }
         break;
       }
 
-      // ====================================================
-      // 2. VIRTUAL WALLET (DVA) EVENTS
-      // ====================================================
       case 'customeridentification.success': {
         const customerCode = event.data.customer_code;
-        // 🔥 FIX: Test Mode dynamically handled so it doesn't crash on 'test-bank'
         const isTestMode = process.env.PAYSTACK_SECRET_KEY?.startsWith('sk_test');
-        const reqBody: any = { customer: customerCode };
+        const reqBody: { customer: string; preferred_bank?: string } = { customer: customerCode };
         if (!isTestMode) reqBody.preferred_bank = "titan-paystack";
 
         const dvaRes = await fetch("https://api.paystack.co/dedicated_account", {
@@ -276,7 +408,6 @@ export async function POST(req: Request) {
       }
 
       case 'customeridentification.failed': {
-        // 🔥 FIX: We must update the 'users' table, not 'wallets'
         await supabaseAdmin.from('users').update({ 
            kyc_status: 'failed', 
         }).eq('paystack_customer_code', event.data.customer_code);
@@ -284,7 +415,6 @@ export async function POST(req: Request) {
       }
 
       case 'dedicatedaccount.assign.success': {
-        // 🔥 FIX: Safely retrieve the user_id from the users table first!
         const custCode = event.data.customer.customer_code;
         const { data: user } = await supabaseAdmin.from('users').select('auth_id').eq('paystack_customer_code', custCode).maybeSingle();
         
@@ -308,8 +438,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error("🔥 Webhook Error:", err.message);
+  } catch (error: any) {
+    console.error("🔥 Webhook Fatal Error:", error?.message || error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

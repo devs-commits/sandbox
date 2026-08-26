@@ -8,31 +8,41 @@ import { CVUploadUI } from '@/app/components/students/office/CVUploadUI';
 import { useAuth } from '@/app/contexts/AuthContexts';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Sparkles, Loader2 } from 'lucide-react'; // 🔥 Added Loader2
-import { toast } from 'sonner'; // 🔥 Added toast
+import { Sparkles, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 function OfficeContent() {
-  const { phase, isLoadingOnboarding, subscription } = useOffice();
+  const { phase, isLoadingOnboarding, subscription, refreshSubscription } = useOffice();
   const { user } = useAuth();
   
   const [hasCv, setHasCv] = useState(true); 
   const [showCvWidget, setShowCvWidget] = useState(false);
 
-  // 🔥 NEW: State for Inline Payment
+  // State for Inline Payment
   const [renewalPlan, setRenewalPlan] = useState<"monthly" | "quarterly">("monthly");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  // 🔥 NEW: Load Paystack script dynamically
+  // Load Paystack InlineJS v2 dynamically.
   useEffect(() => {
-    const loadPaystack = () => {
-      if (document.getElementById('paystack-script')) return;
-      const script = document.createElement('script');
-      script.id = 'paystack-script';
-      script.src = 'https://js.paystack.co/v1/inline.js';
-      script.async = true;
-      document.body.appendChild(script);
+    const scriptId = 'paystack-script';
+    const scriptUrl = 'https://js.paystack.co/v2/inline.js';
+    const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    if (existingScript && existingScript.src !== scriptUrl) {
+      existingScript.remove();
+    } else if (existingScript) {
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = scriptUrl;
+    script.async = true;
+    script.onerror = () => {
+      console.error('Failed to load the Paystack payment script.');
+      toast.error('Could not load the payment gateway. Please refresh and try again.');
     };
-    loadPaystack();
+    document.body.appendChild(script);
   }, []);
 
   useEffect(() => {
@@ -79,43 +89,128 @@ function OfficeContent() {
     }
   }, [user, phase]);
 
-  // 🔥 NEW: Your exact Live Paystack Plan Codes
+  // Exact Live Paystack Plan Codes
   const PAYSTACK_PLAN_CODES = {
     monthly: "PLN_46z8gz0p4foduy8",
     quarterly: "PLN_ddzhasixy441mju"
   };
 
-  // 🔥 NEW: Inline Paystack Handler
+  // Inline Paystack handler
   const handleInstantRenewal = () => {
-    if (!(window as any).PaystackPop) {
+    const PaystackPop = (window as any).PaystackPop;
+    const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+    const email = user?.email;
+
+    if (!PaystackPop) {
       toast.error("Payment gateway is loading. Please try again in a second.");
       return;
     }
 
+    if (!publicKey) {
+      console.error('NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY is not configured.');
+      toast.error('Payment is not configured. Please contact support.');
+      return;
+    }
+
+    if (!email) {
+      console.error('Cannot start payment without the signed-in user email.');
+      toast.error('Your account email could not be found. Please sign in again.');
+      return;
+    }
+
     setIsProcessingPayment(true);
-    
+
     const amount = renewalPlan === "quarterly" ? 40500 : 15000;
     const planCode = PAYSTACK_PLAN_CODES[renewalPlan];
 
-    const paystack = new (window as any).PaystackPop();
-    paystack.setup({
-      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-      email: user?.email,
-      amount: amount * 100, // Paystack expects Kobo
-      channels: ['card'],   // Enforce card payments for auto-renewal
-      plan: planCode,       // Connects the payment to your recurring plan
-      onSuccess: async (transaction: any) => {
-        toast.success("Subscription Renewed! Unlocking office...");
-        setIsProcessingPayment(false);
-        // Forcefully reload the window so the Context fetches the new active subscription dates
-        window.location.reload(); 
-      },
-      onClose: () => {
-        setIsProcessingPayment(false);
-        toast.error("Payment cancelled. Office remains locked.");
-      }
-    });
-    paystack.openIframe();
+    try {
+      const paystack = new PaystackPop();
+
+      paystack.newTransaction({
+        key: publicKey,
+        email,
+        amount: amount * 100, // Paystack expects kobo
+        currency: 'NGN',
+        channels: ['card'],
+        plan: planCode,       // 🔥 FIXED: Map the extracted variable to the 'plan' property
+        onSuccess: async (transaction: any) => {
+          try {
+            if (!transaction?.reference) {
+              throw new Error('Paystack did not return a transaction reference.');
+            }
+
+            toast.success("Payment completed! Confirming your subscription...");
+
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+
+            if (sessionError || !accessToken) {
+              throw new Error('Your session has expired. Please sign in again to verify the payment.');
+            }
+
+            const response = await fetch('/api/paystack/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                reference: transaction.reference,
+                planType: renewalPlan,
+              }),
+            });
+
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok) {
+              throw new Error(result?.error || 'Payment verification failed.');
+            }
+
+            const refreshedSubscription = await refreshSubscription();
+            const refreshedExpiry = refreshedSubscription?.expiresAt
+              ? new Date(refreshedSubscription.expiresAt)
+              : null;
+
+            if (
+              refreshedSubscription?.status !== 'active' ||
+              !refreshedExpiry ||
+              Number.isNaN(refreshedExpiry.getTime()) ||
+              refreshedExpiry <= new Date()
+            ) {
+              throw new Error('Payment was verified, but the subscription could not be refreshed.');
+            }
+
+            toast.success("Subscription renewed. Your office is now unlocked.");
+          } catch (error) {
+            console.error('Post-payment verification failed:', error);
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : 'Payment verification failed. Please contact support with your reference.'
+            );
+          } finally {
+            setIsProcessingPayment(false);
+          }
+        },
+        onCancel: () => {
+          setIsProcessingPayment(false);
+          toast.error("Payment cancelled. Office remains locked.");
+        },
+        onError: (error: Error) => {
+          console.error('Paystack payment error:', error);
+          setIsProcessingPayment(false);
+          toast.error(error.message || 'Unable to start payment. Please try again.');
+        }
+      });
+    } catch (error) {
+      console.error('Unable to initialize Paystack:', error);
+      setIsProcessingPayment(false);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Unable to start payment. Please try again.'
+      );
+    }
   };
 
   if (isLoadingOnboarding) {
@@ -147,7 +242,6 @@ function OfficeContent() {
           Please select a plan and <strong className="text-white">add a valid debit/credit card</strong> to renew and regain access.
         </p>
 
-        {/* 🔥 NEW: Plan Selection Toggle for the Lockout Screen */}
         <div className="w-full max-w-xs space-y-3 mb-8">
           <div className="grid grid-cols-2 gap-3">
             <button 
@@ -204,7 +298,6 @@ function OfficeContent() {
     <>
       <OfficeDashboard />
 
-      {/* 🔥 NEW SLEEK, MOBILE-OPTIMIZED MODAL */}
       <AnimatePresence>
         {!hasCv && showCvWidget && (
           <motion.div
@@ -219,10 +312,8 @@ function OfficeContent() {
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               className="bg-[#0f172a] border border-emerald-500/20 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden relative flex flex-col"
             >
-              {/* Subtle Glowing Background */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
               
-              {/* Compact Horizontal Header */}
               <div className="p-5 md:p-6 border-b border-white/5 bg-white/[0.02] flex gap-4 items-start relative z-10">
                 <div className="w-12 h-12 shrink-0 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
                   <Sparkles className="text-emerald-400 w-6 h-6" />
@@ -235,7 +326,6 @@ function OfficeContent() {
                 </div>
               </div>
 
-              {/* Body (Upload UI) */}
               <div className="p-5 md:p-6 relative z-10 max-h-[60vh] overflow-y-auto custom-scrollbar [&_textarea]:min-h-[100px]">
                 <CVUploadUI 
                   userId={user?.id || ''} 
@@ -246,7 +336,6 @@ function OfficeContent() {
                 />
               </div>
 
-              {/* Minimalist Footer */}
               <div className="p-3 border-t border-white/5 bg-black/20 flex justify-center relative z-10">
                 <button 
                   onClick={() => {

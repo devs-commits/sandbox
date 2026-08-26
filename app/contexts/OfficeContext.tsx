@@ -13,8 +13,16 @@ interface PersistedState {
   isFirstTask: boolean;
 }
 
+interface SubscriptionState {
+  daysLeft: number;
+  status: string;
+  expiresAt: string | null;
+}
+
 interface OfficeContextType extends OfficeState {
-  subscription: { daysLeft: number; status: string; expiresAt: string | null } | null;
+  subscription: SubscriptionState | null;
+  refreshSubscription: () => Promise<SubscriptionState | null>;
+  /** @deprecated Subscription activation must happen in the verified server route. */
   activateSubscription: (planType: string) => Promise<void>; 
   setPhase: (phase: OfficePhase) => void;
   setUserLevel: (level: UserLevel) => void;
@@ -94,7 +102,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
   const [messageCount, setMessageCount] = useState(0);
 
-  const [subscription, setSubscription] = useState<{ daysLeft: number; status: string; expiresAt: string | null } | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
   const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
   const pendingTaskGenerationSourceRef = useRef<'automatic' | 'manual' | null>(null);
 
@@ -249,6 +257,44 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   // ==========================================
   // DATA FETCHING
   // ==========================================
+  const refreshSubscription = useCallback(async (): Promise<SubscriptionState | null> => {
+    if (!userId) {
+      setSubscription(null);
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('subscription_status, subscription_expires_at')
+      .eq('auth_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error refreshing subscription:', error);
+      throw error;
+    }
+
+    if (!data) {
+      setSubscription(null);
+      return null;
+    }
+
+    const expiresAt = data.subscription_expires_at || null;
+    const expiryDate = expiresAt ? new Date(expiresAt) : null;
+    const diffTime = expiryDate && !Number.isNaN(expiryDate.getTime())
+      ? expiryDate.getTime() - Date.now()
+      : 0;
+
+    const nextSubscription: SubscriptionState = {
+      daysLeft: Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24))),
+      status: data.subscription_status || 'inactive',
+      expiresAt,
+    };
+
+    setSubscription(nextSubscription);
+    return nextSubscription;
+  }, [userId]);
+
   useEffect(() => {
     const fetchGamificationData = async () => {
       if (!userId) return;
@@ -578,34 +624,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }
   }, [userId]);
 
-  const activateSubscription = useCallback(async (planType: string) => {
-    if (!userId) return;
-    const daysToAdd = planType === 'quarterly' ? 90 : 30;
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + daysToAdd);
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          subscription_status: 'active',
-          subscription_plan: planType,
-          subscription_expires_at: expiryDate.toISOString(),
-          last_payment_date: new Date().toISOString()
-        })
-        .eq('auth_id', userId);
-
-      if (!error) {
-        setSubscription({
-          daysLeft: daysToAdd,
-          status: 'active',
-          expiresAt: expiryDate.toISOString()
-        });
-      }
-    } catch (err) {
-      console.error("Activation Error:", err);
-    }
-  }, [userId]);
+  const activateSubscription = useCallback(async (_planType: string) => {
+    // Kept temporarily for compatibility with existing consumers. Never let
+    // the browser grant itself paid access; the verified server route owns the
+    // database update. This method now only reloads the server-owned state.
+    await refreshSubscription();
+  }, [refreshSubscription]);
 
   const setPhase = useCallback((newPhase: OfficePhase) => setPhaseState(newPhase), []);
 
@@ -1220,7 +1244,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         userLevel,
         currentTask,
         tasks,
-        subscription, 
+        subscription,
+        refreshSubscription,
         activateSubscription, 
         bounties, 
         chatMessages,

@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock } from "lucide-react";
-import { supabase } from "@/lib/supabase"; // Ensure this matches your setup
-// 🔥 Import the new modal we just built! Adjust path if necessary based on your folder structure
+import { Clock, ExternalLink } from "lucide-react";
+import { supabase } from "@/lib/supabase"; 
 import { SubscribeModal } from "@/app/components/students/SubscribeModal"; 
+import { toast } from "sonner"; // <-- Add this import
 
 export function SubscriptionLineCounter({ user }: { user: any }) {
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [percentageSpent, setPercentageSpent] = useState(0);
   
-  // 🔥 State to control our new subscription modal
+  // State to control our subscription modal
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
@@ -50,7 +50,6 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
 
   // ==========================================
   // 1. VISIBILITY RULE
-  // Hide if there are more than 15 days left or if data is missing
   // ==========================================
   if (daysLeft === null || daysLeft > 15) return null;
 
@@ -61,7 +60,8 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
     text: "text-green-500",
     bg: "bg-green-500",
     iconAnim: "",
-    showLink: false // We won't push them to fund until it's amber
+    showLink: false,
+    isExpiring: false
   };
 
   if (daysLeft <= 3) {
@@ -70,7 +70,8 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
       text: "text-destructive", 
       bg: "bg-destructive", 
       iconAnim: "animate-pulse", 
-      showLink: true 
+      showLink: true,
+      isExpiring: true
     };
   } else if (daysLeft <= 7) {
     // AMBER: 4-7 Days
@@ -78,10 +79,21 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
       text: "text-amber-500", 
       bg: "bg-amber-500", 
       iconAnim: "", 
-      showLink: true 
+      showLink: true,
+      isExpiring: true
     };
+  } else {
+    // GREEN: 8-15 Days - We enable the link to "Manage Billing"
+    theme.showLink = true;
+    theme.isExpiring = false; 
   }
-  // GREEN: 8-15 Days (Fallback from our default theme object)
+
+  // NOTE: Replace this with the URL or endpoint that returns the generated Paystack Customer Portal URL.
+  const handleManageBilling = () => {
+    // e.g. const response = await fetch('/api/paystack/portal') -> return url 
+    // window.open(portalUrl, '_blank');
+    toast.info("Customer Portal link will be mapped to Paystack shortly.");
+  };
 
   return (
     <>
@@ -101,18 +113,24 @@ export function SubscriptionLineCounter({ user }: { user: any }) {
           />
         </div>
 
-        {/* 🔥 NEW Subtle CTA that triggers the Modal */}
-        {theme.showLink && (
+        {/* Dynamic CTA */}
+        {theme.showLink && theme.isExpiring ? (
           <button 
             onClick={() => setShowModal(true)}
             className={`${theme.text} hover:underline font-bold whitespace-nowrap flex items-center gap-1 bg-transparent border-none cursor-pointer`}
           >
             Add Card to Renew
           </button>
-        )}
+        ) : theme.showLink && !theme.isExpiring ? (
+          <button 
+            onClick={handleManageBilling}
+            className={`text-muted-foreground hover:text-foreground font-bold whitespace-nowrap flex items-center gap-1 bg-transparent border-none cursor-pointer transition-colors`}
+          >
+            Manage Billing <ExternalLink className="w-3 h-3 ml-0.5" />
+          </button>
+        ) : null}
       </div>
 
-      {/* 🔥 Render the Subscription Modal */}
       <SubscribeModal 
         open={showModal} 
         onClose={() => setShowModal(false)} 
