@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Flag, X, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
 
 const CATEGORIES = [
+  "Missing Task / Empty Desk",
   "The Task Brief / Instructions",
   "The Learning Resources (Videos/PDFs)",
   "Submission & Grading (Sola)",
@@ -12,6 +13,11 @@ const CATEGORIES = [
 ];
 
 const BRANCHES: Record<string, string[]> = {
+  "Missing Task / Empty Desk": [
+    "My desk has been empty for a long time.",
+    "I passed my last task but the next one hasn't appeared.",
+    "My task is stuck on 'Generating...'."
+  ],
   "The Task Brief / Instructions": [
     "It's too vague or unclear.",
     "The requirements contradict each other.",
@@ -28,8 +34,8 @@ const BRANCHES: Record<string, string[]> = {
     "I passed, but the next task won't unlock."
   ],
   "Technical Bug": [
-    "My task is stuck on 'Generating...'.",
-    "My desk is completely empty.",
+    "The platform won't load properly.",
+    "I can't upload my submission file.",
     "Other"
   ]
 };
@@ -38,6 +44,7 @@ const NEEDS_CONTEXT = [
   "It's too vague or unclear.",
   "Sola's feedback is inaccurate or unfair.",
   "It's for the wrong learning track.",
+  "My desk has been empty for a long time.",
   "Other"
 ];
 
@@ -56,6 +63,23 @@ export function ReportIssueModal({ isOpen, onClose, userId, taskId = "unknown", 
   const [optionalNote, setOptionalNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // 🔥 Smart Auto-Routing: If they clicked "Report Missing Task" from an empty desk, jump to Step 2
+  useEffect(() => {
+    if (isOpen) {
+      if (taskId === "Missing Task") {
+        setCategory("Missing Task / Empty Desk");
+        setStep(2);
+      } else {
+        setStep(1);
+        setCategory("");
+      }
+      setIssueDetail("");
+      setOptionalNote("");
+      setIsSuccess(false);
+      setIsSubmitting(false);
+    }
+  }, [isOpen, taskId]);
 
   const handleCategorySelect = (cat: string) => {
     setCategory(cat);
@@ -101,11 +125,6 @@ export function ReportIssueModal({ isOpen, onClose, userId, taskId = "unknown", 
   };
 
   const handleClose = () => {
-    setStep(1);
-    setCategory("");
-    setIssueDetail("");
-    setOptionalNote("");
-    setIsSuccess(false);
     onClose();
   };
 
@@ -132,7 +151,7 @@ export function ReportIssueModal({ isOpen, onClose, userId, taskId = "unknown", 
                 <Flag className="w-4 h-4 text-red-500" />
                 {step === 1 ? "Report an Issue" : step === 2 ? "What's wrong?" : "Extra Context"}
               </h3>
-              <button onClick={handleClose} className="text-gray-400 hover:text-white">
+              <button onClick={handleClose} className="text-gray-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -168,7 +187,7 @@ export function ReportIssueModal({ isOpen, onClose, userId, taskId = "unknown", 
 
                 {step === 2 && (
                   <div className="flex flex-col gap-2">
-                    {BRANCHES[category].map((detail) => (
+                    {BRANCHES[category]?.map((detail) => (
                       <button
                         key={detail}
                         onClick={() => handleDetailSelect(detail)}
@@ -177,7 +196,7 @@ export function ReportIssueModal({ isOpen, onClose, userId, taskId = "unknown", 
                         {detail}
                       </button>
                     ))}
-                    <button onClick={() => setStep(1)} className="text-sm text-gray-500 mt-3 hover:text-gray-300 text-left px-2">
+                    <button onClick={() => setStep(1)} className="text-sm text-gray-500 mt-3 hover:text-gray-300 text-left px-2 transition-colors">
                       ← Back
                     </button>
                   </div>
@@ -194,7 +213,7 @@ export function ReportIssueModal({ isOpen, onClose, userId, taskId = "unknown", 
                       maxLength={200}
                     />
                     <div className="flex justify-between items-center mt-2">
-                      <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-gray-300">
+                      <button onClick={() => setStep(2)} className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
                         ← Back
                       </button>
                       <button

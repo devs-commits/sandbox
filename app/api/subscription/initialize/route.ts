@@ -27,7 +27,7 @@ type InitializeBody = {
   plan?: string;
 };
 
-// 🚨 Ensure these Plan Codes actually exist on your Paystack Dashboard!
+// 🚨 Live Plan
 const PLAN_CONFIG: Record<PlanType, { amountInNaira: number; code: string }> = {
   monthly: {
     amountInNaira: 15000,
@@ -49,15 +49,28 @@ const getBearerToken = (request: Request) => {
     : null;
 };
 
-const getCallbackUrl = (requestedCallback?: string) => {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://labs.wdc.ng";
-  const defaultCallback = new URL("/auth/verify-email", appUrl).toString();
+// 🔥 FIX: Check Headers first for Origin, then request.url, then ENV fallback
+const getCallbackUrl = (request: Request, requestedCallback?: string, isAuthenticated: boolean = false) => {
+  let origin = request.headers.get("origin") 
+    || process.env.NEXT_PUBLIC_APP_URL 
+    || "http://localhost:3000";
+
+  try {
+    if (!request.headers.get("origin") && request.url) {
+      origin = new URL(request.url).origin;
+    }
+  } catch (e) {
+    // Ignore URL parse errors
+  }
+  
+  const defaultPath = isAuthenticated ? "/student/office" : "/auth/verify-email";
+  const defaultCallback = new URL(defaultPath, origin).toString();
 
   if (!requestedCallback) return defaultCallback;
 
   try {
     const requestedUrl = new URL(requestedCallback);
-    if (requestedUrl.origin === new URL(appUrl).origin) return requestedUrl.toString();
+    if (requestedUrl.origin === origin) return requestedUrl.toString();
     if (process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1"].includes(requestedUrl.hostname)) {
       return requestedUrl.toString();
     }
@@ -108,7 +121,10 @@ export async function POST(request: Request) {
     }
 
     const dbUserId = authenticatedUserId || body.userId;
-    const callbackUrl = getCallbackUrl(body.callback_url);
+    
+    // Determine the callback URL based on authentication and dynamic origin
+    const isAuthenticated = !!authenticatedUserId || !!body.userId;
+    const callbackUrl = getCallbackUrl(request, body.callback_url, isAuthenticated);
 
     // 4. Send to Paystack
     const paystackPayload = {
@@ -136,7 +152,6 @@ export async function POST(request: Request) {
 
     const paystackData = await paystackResponse.json();
 
-    // 5. Handle Paystack Rejections (This is likely where your 400 is coming from)
     if (!paystackResponse.ok || !paystackData.status) {
       console.error("❌ [Init Route] Paystack API Rejected Request:", paystackData);
       return NextResponse.json(
@@ -145,7 +160,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Save Pending Payment to DB
+    // 5. Save Pending Payment to DB
     const { error: paymentError } = await supabaseAdmin.from("payments").insert({
       email,
       role: body.role || "student",
@@ -157,11 +172,16 @@ export async function POST(request: Request) {
       user_id: dbUserId || null,
     });
 
+    // Block the payment and return DB error to the screen if insert fails
     if (paymentError) {
-      console.error("❌ [Init Route] DB Insert Failed:", paymentError.message);
+      console.error("❌ [Init Route] DB Insert Failed:", paymentError);
+      return NextResponse.json(
+        { status: false, error: `Database Error: ${paymentError.message}` },
+        { status: 500 }
+      );
     }
 
-    console.log("✅ [Init Route] Success! Returning checkout URL.");
+    console.log(`✅ [Init Route] Success! Callback set to ${callbackUrl}`);
     return NextResponse.json(paystackData);
 
   } catch (error: any) {

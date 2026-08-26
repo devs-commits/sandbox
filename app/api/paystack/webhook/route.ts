@@ -10,6 +10,20 @@ const supabaseAdmin = createClient(
 
 type PlanType = 'monthly' | 'quarterly';
 
+
+// // Text Plan Codes (for reference, not used in this file)
+// const PLAN_CONFIG: Record<PlanType, { amountInNaira: number; code: string }> = {
+//   monthly: {
+//     amountInNaira: 15000,
+//     code: process.env.PAYSTACK_PLAN_MONTHLY || 'PLN_0a0fy91qz8jff3g',
+//   },
+//   quarterly: {
+//     amountInNaira: 40500,
+//     code: process.env.PAYSTACK_PLAN_QUARTERLY || 'PLN_f2c6kpj0yr50ww9',
+//   },
+// };
+
+ // Live Plan Codes (for reference, not used in this file)
 const PLAN_CONFIG: Record<PlanType, { amountInNaira: number; code: string }> = {
   monthly: {
     amountInNaira: 15000,

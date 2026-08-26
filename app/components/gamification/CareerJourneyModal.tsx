@@ -59,16 +59,21 @@ export default function CareerJourneyModal({
   const isStandardUnlocked = currentWeek >= 12;
   const isVisaUnlocked = currentWeek >= 24;
 
-  // Track Logic
-  const safeTrackKey = (activeTrackKey as keyof typeof TRACK_BADGES) || "cyber_security";
-  const trackBadges = TRACK_BADGES[safeTrackKey] || TRACK_BADGES.cyber_security;
+  // Track Logic - 🔥 Strongly resolve the track key
+  const safeTrackKey = activeTrackKey as keyof typeof TRACK_BADGES;
+  const trackBadges = TRACK_BADGES[safeTrackKey] || TRACK_BADGES.data_analytics; // Safe fallback
 
   // Progression Logic
   const currentIndex = roadmap.findIndex(r => r.title === currentIdentity);
   const nextStage = currentIndex !== -1 && currentIndex < roadmap.length - 1 ? roadmap[currentIndex + 1] : null;
   const nextLevelTitle = nextStage ? nextStage.title : "Mastery Achieved";
-  const tasksRequired = nextStage ? nextStage.week - 1 : 24; // e.g., if next stage unlocks at week 5, you need 4 tasks
+  const tasksRequired = nextStage ? nextStage.week - 1 : 24; 
   const progressPercent = Math.min(100, Math.round((currentWeek / tasksRequired) * 100));
+
+  // Determine Title based on Track
+  const trackDisplayTitle = 
+    safeTrackKey === 'digital_marketing' ? 'Digital Marketing' :
+    safeTrackKey === 'cyber_security' ? 'Cyber Security' : 'Data Analytics';
 
   return createPortal(
     <AnimatePresence>
@@ -97,7 +102,7 @@ export default function CareerJourneyModal({
                   <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-400 font-bold">WDC Labs Progression</p>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Career Journey</h2>
-                <p className="text-slate-400 mt-1 text-sm">Track your promotions, badges, and milestone unlocks.</p>
+                <p className="text-slate-400 mt-1 text-sm">Track your promotions, badges, and milestone unlocks for <strong className="text-white">{trackDisplayTitle}</strong>.</p>
               </div>
               <button onClick={onClose} className="w-10 h-10 rounded-xl border border-slate-700 bg-slate-800/50 hover:bg-slate-700 transition-colors flex items-center justify-center group cursor-pointer">
                 <X size={18} className="text-slate-400 group-hover:text-white transition-colors" />

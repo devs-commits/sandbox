@@ -23,7 +23,7 @@ import {
   Users, 
 } from "lucide-react";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
 import LogoutButton from "../shared/LogoutButton";
 import { cn } from "../../../lib/utils";
@@ -49,7 +49,7 @@ const tourTargetByPath: Record<string, string> = {
 };
 
 const GAMIFICATION_TRACKS = {
-  "data-analytics": {
+  "data_analytics": {
     icon: BarChart3,
     progression: [
       { minWeek: 1, maxWeek: 4, title: "Data Intern" },
@@ -60,7 +60,7 @@ const GAMIFICATION_TRACKS = {
       { minWeek: 21, maxWeek: 24, title: "Director of Analytics" },
     ]
   },
-  "digital-marketing": {
+  "digital_marketing": {
     icon: Megaphone,
     progression: [
       { minWeek: 1, maxWeek: 4, title: "Marketing Intern" },
@@ -71,7 +71,7 @@ const GAMIFICATION_TRACKS = {
       { minWeek: 21, maxWeek: 24, title: "Marketing Director" },
     ]
   },
-  "cyber-security": {
+  "cyber_security": {
     icon: Shield,
     progression: [
       { minWeek: 1, maxWeek: 4, title: "Security Intern" },
@@ -93,11 +93,12 @@ export const StudentSidebar = () => {
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
   const [isOfficeLocked, setIsOfficeLocked] = useState(false);
   
-  // 🔥 THE AUTOMATION FIX: Direct state variables reading the True Database values
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [currentIdentity, setCurrentIdentity] = useState<string>("Intern");
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
-  const [currentTrack, setCurrentTrack] = useState<"data-analytics" | "digital-marketing" | "cyber-security">("data-analytics");
+  
+  // 🔥 Default state strictly matches dictionary keys now
+  const [currentTrack, setCurrentTrack] = useState<"data_analytics" | "digital_marketing" | "cyber_security">("data_analytics");
   
   const lastFetchedId = useRef<string | null>(null);
 
@@ -122,21 +123,18 @@ export const StudentSidebar = () => {
 
     const fetchSidebarData = async () => {
       try {
-        // 1. Fetch User Record (for track setup and UI notifications)
         const { data: userRes } = await supabase
           .from("users")
           .select("track, tasks_completed")
           .eq("auth_id", currentId)
           .maybeSingle();
 
-        // 2. 🔥 FETCH TRUE RANK FROM PROGRESSION (Fix for Sidebar Automation)
         const { data: progRes } = await supabase
           .from("user_progression")
           .select("current_week, current_identity")
           .eq("user_id", currentId)
           .maybeSingle();
 
-        // 3. Fetch Badges
         const { data: badgeRes } = await supabase
           .from("user_badges")
           .select("badge_name")
@@ -157,14 +155,13 @@ export const StudentSidebar = () => {
 
           const rawTrack = (userRes.track || "").trim().toLowerCase();
 
-          if (rawTrack.includes("data") || rawTrack.includes("analytics")) {
-            setCurrentTrack("data-analytics");
-          } else if (rawTrack.includes("marketing") || rawTrack.includes("digital")) {
-            setCurrentTrack("digital-marketing");
+          // 🔥 Strict Track Matching using dictionary keys
+          if (rawTrack.includes("market") || rawTrack.includes("digital")) {
+            setCurrentTrack("digital_marketing");
           } else if (rawTrack.includes("cyber") || rawTrack.includes("security")) {
-            setCurrentTrack("cyber-security");
+            setCurrentTrack("cyber_security");
           } else {
-            setCurrentTrack("data-analytics");
+            setCurrentTrack("data_analytics");
           }
         }
       } catch (err) {
@@ -174,7 +171,6 @@ export const StudentSidebar = () => {
 
     fetchSidebarData();
 
-    // 🔥 AUTOMATION LISTENERS: Now actively listening to user_progression table!
     const progChannel = supabase.channel(`sidebar-prog-${currentId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_progression", filter: `user_id=eq.${currentId}` }, fetchSidebarData).subscribe();
       
@@ -192,11 +188,10 @@ export const StudentSidebar = () => {
     };
   }, [user?.id]);
 
-  const currentTrackData = GAMIFICATION_TRACKS[currentTrack] || GAMIFICATION_TRACKS["data-analytics"];
+  const currentTrackData = GAMIFICATION_TRACKS[currentTrack] || GAMIFICATION_TRACKS["data_analytics"];
   const progressPercentage = Math.min((currentWeek / 24) * 100, 100);
 
   const CurrentTrackIcon = currentTrackData.icon || Trophy;
-  const mappedTrackKeyForModal = currentTrack.replace("-", "_");
 
   const renderNavContent = () => (
     <>
@@ -273,7 +268,6 @@ export const StudentSidebar = () => {
                   <CurrentTrackIcon size={20} className="text-violet-400" />
                 </div>
                 <div>
-                  {/* 🔥 Renders True Identity from DB */}
                   <p className="text-base font-bold text-white">{currentIdentity}</p>
                   <p className="text-xs text-slate-400 mt-1">Week {currentWeek} of 24</p>
                 </div>
@@ -326,7 +320,7 @@ export const StudentSidebar = () => {
         currentWeek={currentWeek}
         currentIdentity={currentIdentity}
         unlockedBadges={earnedBadges.map((badge) => ({ badge_name: badge }))}
-        activeTrackKey={mappedTrackKeyForModal}
+        activeTrackKey={currentTrack} // Passed cleanly as digital_marketing
       />
     </>
   );
