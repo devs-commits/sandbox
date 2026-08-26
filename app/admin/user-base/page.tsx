@@ -28,6 +28,7 @@ type EnrollmentSource = {
   subscription_plan?: string | null;
   subscription_status?: string | null;
   subscription_expires_at?: string | null;
+  has_ever_paid?: boolean | null;
 };
 
 type RawStudentRecord = EnrollmentSource & {
@@ -40,6 +41,13 @@ type RawStudentRecord = EnrollmentSource & {
   created_at?: string | null;
   country?: string | null;
   phone?: string | null;
+  address?: string | null;
+  date_of_birth?: string | null;
+  occupation?: string | null;
+  nationality?: string | null;
+  referral_code?: string | null;
+  last_activity_date?: string | null;
+  last_activity_at?: string | null;
   tasks_completed?: number | string | null;
   average_score?: number | string | null;
   wallet_balance?: number | string | null;
@@ -138,16 +146,29 @@ const isExpired = (date?: string | null) => {
 const isActiveSubscription = (student: EnrollmentSource) =>
   String(student.subscription_status || "").toLowerCase() === "active" && !isExpired(student.subscription_expires_at);
 
+const ACTIVITY_WINDOW_DAYS = 30;
+
+const isRecentlyActive = (value?: string | null) => {
+  if (!value) return false;
+  const lastActivity = new Date(value);
+  if (Number.isNaN(lastActivity.getTime())) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - ACTIVITY_WINDOW_DAYS);
+  return lastActivity >= cutoff;
+};
+
+const isPaidPlan = (plan?: string | null) => {
+  const normalizedPlan = String(plan || "").trim().toLowerCase();
+  return normalizedPlan === "monthly" || normalizedPlan === "quarterly";
+};
+
 const deriveEnrollmentStatus = (student: EnrollmentSource) => {
   const plan = String(student.subscription_plan || "").toLowerCase();
-  const status = String(student.subscription_status || "").toLowerCase();
 
-  if (plan.startsWith("trial")) return "Free trial";
-  if (isExpired(student.subscription_expires_at)) return "Expired";
-  if (plan && plan !== "free") return "Paid";
-  if (!status) return "Not started";
-  if (status === "active") return "Not started";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  if (plan.startsWith("trial") && !student.has_ever_paid) return "Free trial";
+  if (isPaidPlan(plan) && isActiveSubscription(student)) return "Paid";
+  if (isPaidPlan(plan)) return "Expired";
+  return "Not started";
 };
 
 const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
@@ -163,12 +184,19 @@ const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
     courseLabel: formatCourseName(s.track),
     enrollmentStatus: deriveEnrollmentStatus(s),
     status: s.subscription_status || "inactive",
-    accountStatus: isActiveSubscription(s) ? "Active" : "Inactive",
+    accountStatus: isRecentlyActive(s.last_activity_at) ? "Active" : "Inactive",
+    lastActivityDate: s.last_activity_at || null,
+    hasEverPaid: Boolean(s.has_ever_paid) || isPaidPlan(s.subscription_plan),
     plan: s.subscription_plan || "N/A",
     subscriptionExpiresAt: s.subscription_expires_at || null,
     startDate: s.start_date || s.created_at || null,
     country: s.country || "N/A",
     phone: s.phone || "",
+    address: s.address || "",
+    dateOfBirth: s.date_of_birth || null,
+    occupation: s.occupation || "",
+    nationality: s.nationality || "",
+    referralCode: s.referral_code || "",
     tasksCompleted,
     progress,
     averageScore: Number(s.average_score || 0),
@@ -275,11 +303,11 @@ export default function UserBase() {
         const matchesSearch = !query || searchable.includes(query);
         const matchesDate = isWithinDateRange(student.startDate, startDate, endDate);
         const matchesCourse = courseFilter === "all" || student.course === courseFilter;
-        const normalizedPlan = String(student.plan || "").toLowerCase();
         const matchesEnrollment =
           enrollmentFilter === "all" ||
-          (enrollmentFilter === "trial" && normalizedPlan.startsWith("trial")) ||
-          (enrollmentFilter === "paid" && Boolean(normalizedPlan) && normalizedPlan !== "trial" && !normalizedPlan.startsWith("trial") && normalizedPlan !== "free");
+          (enrollmentFilter === "trial" && student.enrollmentStatus === "Free trial") ||
+          (enrollmentFilter === "paid" && student.enrollmentStatus === "Paid") ||
+          (enrollmentFilter === "expired" && student.enrollmentStatus === "Expired");
         const matchesAccountStatus =
           accountStatusFilter === "all" ||
           student.accountStatus.toLowerCase() === accountStatusFilter;
@@ -329,8 +357,8 @@ export default function UserBase() {
 
   const studentSummary = useMemo(() => {
     const scopedStudents = activeTab === "students" ? (filteredData as StudentListItem[]) : students;
-    const active = scopedStudents.filter((student) => String(student.status).toLowerCase() === "active" && !isExpired(student.subscriptionExpiresAt)).length;
-    const trial = scopedStudents.filter((student) => String(student.plan).toLowerCase() === "trial").length;
+    const active = scopedStudents.filter((student) => student.accountStatus === "Active").length;
+    const trial = scopedStudents.filter((student) => student.enrollmentStatus === "Free trial").length;
     const ready = scopedStudents.filter((student) => student.tasksCompleted >= 12).length;
     return { active, trial, ready };
   }, [activeTab, filteredData, students]);
@@ -362,15 +390,27 @@ export default function UserBase() {
   };
 
   const handleExport = () => {
-    const escapeCsvField = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const escapeCsvField = (value: unknown) => {
+      const stringValue = String(value ?? "");
+      const csvSafeValue = /^[=+\-@]/.test(stringValue) ? `'${stringValue}` : stringValue;
+      return `"${csvSafeValue.replace(/"/g, '""')}"`;
+    };
     const rows = (filteredData as UserBaseRow[]).filter((row): row is StudentListItem => activeTab === "students" && "enrollmentStatus" in row);
-    const headers = ["Student", "Email", "Course", "Enrollment Status", "Account Status", "Plan", "Start Date", "Subscription Expires", "ID Verification", "Tasks Completed", "Progress", "Average Score"];
+    const headers = ["Student", "Email", "Phone", "Country", "Nationality", "Date of Birth", "Occupation", "Address", "Referral Code", "Course", "Enrollment Status", "Account Status", "Last Active", "Plan", "Start Date", "Subscription Expires", "ID Verification", "Tasks Completed", "Progress", "Average Score"];
     const csvRows = rows.map((student) => [
       student.name,
       student.email,
+      student.phone,
+      student.country,
+      student.nationality,
+      student.dateOfBirth,
+      student.occupation,
+      student.address,
+      student.referralCode,
       student.courseLabel || student.course,
       student.enrollmentStatus,
       student.accountStatus,
+      student.lastActivityDate,
       student.plan,
       student.startDate,
       student.subscriptionExpiresAt,
@@ -380,12 +420,15 @@ export default function UserBase() {
       `${student.averageScore}%`,
     ]);
     const csvContent = [headers, ...csvRows].map((row) => row.map(escapeCsvField).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`);
+    link.setAttribute("href", url);
     link.setAttribute("download", `admin_userbase_export_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleTabChange = (value: string) => {
@@ -424,16 +467,19 @@ export default function UserBase() {
                 subscription_plan: profile.subscriptionPlan,
                 subscription_status: profile.subscriptionStatus,
                 subscription_expires_at: profile.subscriptionExpiresAt,
+                has_ever_paid: student.hasEverPaid,
               }),
               status: profile.subscriptionStatus || student.status,
-              accountStatus: isActiveSubscription({
-                subscription_status: profile.subscriptionStatus || student.status,
-                subscription_expires_at: profile.subscriptionExpiresAt || student.subscriptionExpiresAt,
-              }) ? "Active" : "Inactive",
+              accountStatus: isRecentlyActive(student.lastActivityDate) ? "Active" : "Inactive",
               plan: profile.subscriptionPlan || student.plan,
               subscriptionExpiresAt: profile.subscriptionExpiresAt || student.subscriptionExpiresAt,
               country: profile.country || student.country,
               phone: profile.phone || student.phone,
+              address: profile.address || student.address,
+              dateOfBirth: profile.dateOfBirth || student.dateOfBirth,
+              occupation: profile.occupation || student.occupation,
+              nationality: profile.nationality || student.nationality,
+              referralCode: profile.referralCode || student.referralCode,
               tasksCompleted: Number(profile.tasksCompleted ?? student.tasksCompleted),
               progress: Math.min(Math.round((Number(profile.tasksCompleted ?? student.tasksCompleted) / 24) * 100), 100),
               averageScore: Number(profile.averageScore ?? student.averageScore),
@@ -678,6 +724,7 @@ export default function UserBase() {
                       <SelectItem value="all">All statuses</SelectItem>
                       <SelectItem value="trial">Free trial</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="expired">Expired</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

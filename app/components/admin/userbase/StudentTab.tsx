@@ -40,11 +40,18 @@ export interface StudentListItem {
   enrollmentStatus: string;
   status: string;
   accountStatus: "Active" | "Inactive";
+  lastActivityDate: string | null;
+  hasEverPaid: boolean;
   plan: string;
   subscriptionExpiresAt: string | null;
   startDate: string | null;
   country: string;
   phone: string;
+  address: string;
+  dateOfBirth: string | null;
+  occupation: string;
+  nationality: string;
+  referralCode: string;
   tasksCompleted: number;
   progress: number;
   averageScore: number;

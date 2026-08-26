@@ -47,6 +47,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const recordStudentActivity = async (accessToken?: string) => {
+      if (!accessToken) return;
+
+      // Activity reporting must never block authentication or session recovery.
+      try {
+        await fetch('/api/users/activity', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+      } catch (error) {
+        console.warn('Unable to record user activity', error);
+      }
+    };
+
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -71,6 +85,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               referralLink: user_metadata.referralLink,
               created_at: session.user.created_at,
             });
+            void recordStudentActivity(session.access_token);
           }
         }
       } catch (error) {
@@ -102,6 +117,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             created_at: session.user.created_at,
           };
         });
+        void recordStudentActivity(session.access_token);
       } else {
         setUser(null);
       }
