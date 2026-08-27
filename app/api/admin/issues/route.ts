@@ -5,19 +5,14 @@ import { sendIssueUpdateEmail } from "@/lib/zeptomail";
 export const dynamic = "force-dynamic";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl) {
-  throw new Error(
-    "NEXT_PUBLIC_SUPABASE_URL is not configured."
-  );
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
 }
 
 if (!supabaseServiceRoleKey) {
-  throw new Error(
-    "SUPABASE_SERVICE_ROLE_KEY is not configured."
-  );
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
 }
 
 const supabaseAdmin = createClient(
@@ -41,29 +36,28 @@ type UserRecord = {
 async function findUserByReference(
   userId: string
 ): Promise<UserRecord | null> {
-  const { data: userById, error: idError } =
-    await supabaseAdmin
+  const isNumeric = /^\d+$/.test(userId);
+
+  if (isNumeric) {
+    const { data: userById, error: idError } = await supabaseAdmin
       .from("users")
       .select("id, auth_id, full_name, email")
       .eq("id", userId)
       .maybeSingle();
 
-  if (!idError && userById) {
-    return userById;
+    if (!idError && userById) {
+      return userById;
+    }
   }
 
-  const { data: userByAuthId, error: authIdError } =
-    await supabaseAdmin
-      .from("users")
-      .select("id, auth_id, full_name, email")
-      .eq("auth_id", userId)
-      .maybeSingle();
+  const { data: userByAuthId, error: authIdError } = await supabaseAdmin
+    .from("users")
+    .select("id, auth_id, full_name, email")
+    .eq("auth_id", userId)
+    .maybeSingle();
 
   if (authIdError) {
-    console.error(
-      "Failed to find user for task issue:",
-      authIdError
-    );
+    console.error("Failed to find user for task issue:", authIdError);
   }
 
   return userByAuthId || null;
@@ -75,44 +69,30 @@ async function findUserByReference(
 
 export async function GET() {
   try {
-    const { data: issues, error: issuesError } =
-      await supabaseAdmin
-        .from("task_issues")
-        .select(`
-          id,
-          user_id,
-          task_id,
-          track,
-          category,
-          issue_detail,
-          optional_note,
-          status,
-          created_at,
-          assigned_engineer,
-          resolution_notes
-        `)
-        .order("created_at", { ascending: false });
+    const { data: issues, error: issuesError } = await supabaseAdmin
+      .from("task_issues")
+      .select(`
+        id,
+        user_id,
+        task_id,
+        track,
+        category,
+        issue_detail,
+        optional_note,
+        status,
+        created_at,
+        assigned_engineer,
+        resolution_notes
+      `)
+      .order("created_at", { ascending: false });
 
     if (issuesError) {
-      console.error(
-        "Failed to fetch task issues:",
-        issuesError
-      );
-
-      return NextResponse.json(
-        {
-          error: issuesError.message,
-        },
-        {
-          status: 500,
-        }
-      );
+      console.error("Failed to fetch task issues:", issuesError);
+      return NextResponse.json({ error: issuesError.message }, { status: 500 });
     }
 
     if (!issues || issues.length === 0) {
-      return NextResponse.json({
-        issues: [],
-      });
+      return NextResponse.json({ issues: [] });
     }
 
     const userIds = Array.from(
@@ -121,8 +101,7 @@ export async function GET() {
           .map((issue) => issue.user_id)
           .filter(
             (userId): userId is string =>
-              typeof userId === "string" &&
-              userId.length > 0
+              typeof userId === "string" && userId.length > 0
           )
       )
     );
@@ -136,41 +115,36 @@ export async function GET() {
       });
     }
 
-    /*
-     * Check both users.id and users.auth_id because task_issues
-     * does not currently have a recognised Supabase relationship.
-     */
-    const [usersByIdResult, usersByAuthIdResult] =
-      await Promise.all([
-        supabaseAdmin
-          .from("users")
-          .select("id, auth_id, full_name, email")
-          .in("id", userIds),
+    const numericIds = userIds.filter((id) => /^\d+$/.test(id));
+    const uuidIds = userIds.filter((id) => !/^\d+$/.test(id));
 
-        supabaseAdmin
-          .from("users")
-          .select("id, auth_id, full_name, email")
-          .in("auth_id", userIds),
-      ]);
+    const matchedUsers: UserRecord[] = [];
 
-    if (usersByIdResult.error) {
-      console.warn(
-        "Could not match task issues through users.id:",
-        usersByIdResult.error
-      );
+    if (numericIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .select("id, auth_id, full_name, email")
+        .in("id", numericIds);
+
+      if (error) {
+        console.warn("Could not match task issues through users.id:", error);
+      } else if (data) {
+        matchedUsers.push(...data);
+      }
     }
 
-    if (usersByAuthIdResult.error) {
-      console.warn(
-        "Could not match task issues through users.auth_id:",
-        usersByAuthIdResult.error
-      );
-    }
+    if (uuidIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .select("id, auth_id, full_name, email")
+        .in("auth_id", uuidIds);
 
-    const matchedUsers: UserRecord[] = [
-      ...(usersByIdResult.data || []),
-      ...(usersByAuthIdResult.data || []),
-    ];
+      if (error) {
+        console.warn("Could not match task issues through users.auth_id:", error);
+      } else if (data) {
+        matchedUsers.push(...data);
+      }
+    }
 
     const userMap = new Map<string, UserRecord>();
 
@@ -186,7 +160,6 @@ export async function GET() {
 
     const hydratedIssues = issues.map((issue) => ({
       ...issue,
-
       users: issue.user_id
         ? userMap.get(String(issue.user_id)) || null
         : null,
@@ -196,11 +169,7 @@ export async function GET() {
       issues: hydratedIssues,
     });
   } catch (error) {
-    console.error(
-      "Unexpected admin issues GET error:",
-      error
-    );
-
+    console.error("Unexpected admin issues GET error:", error);
     return NextResponse.json(
       {
         error:
@@ -208,9 +177,7 @@ export async function GET() {
             ? error.message
             : "An unexpected error occurred while loading issues.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
@@ -236,134 +203,73 @@ export async function PATCH(request: Request) {
     } = body;
 
     if (!issueId) {
-      return NextResponse.json(
-        {
-          error: "Issue ID is required.",
-        },
-        {
-          status: 400,
-        }
-      );
+      return NextResponse.json({ error: "Issue ID is required." }, { status: 400 });
     }
 
-    if (
-      typeof status !== "string" ||
-      !status.trim()
-    ) {
-      return NextResponse.json(
-        {
-          error: "Issue status is required.",
-        },
-        {
-          status: 400,
-        }
-      );
+    if (typeof status !== "string" || !status.trim()) {
+      return NextResponse.json({ error: "Issue status is required." }, { status: 400 });
     }
 
-    const normalizedStatus = status
-      .trim()
-      .toLowerCase();
-
-    const allowedStatuses = [
-      "open",
-      "investigating",
-      "resolved",
-    ];
+    const normalizedStatus = status.trim().toLowerCase();
+    const allowedStatuses = ["open", "investigating", "resolved"];
 
     if (!allowedStatuses.includes(normalizedStatus)) {
       return NextResponse.json(
-        {
-          error:
-            "Status must be open, investigating or resolved.",
-        },
-        {
-          status: 400,
-        }
+        { error: "Status must be open, investigating or resolved." },
+        { status: 400 }
       );
     }
 
     const normalizedEngineer =
-      typeof assignedEngineer === "string" &&
-      assignedEngineer.trim()
+      typeof assignedEngineer === "string" && assignedEngineer.trim()
         ? assignedEngineer.trim()
         : "Unassigned";
 
     const normalizedNotes =
-      typeof resolutionNotes === "string" &&
-      resolutionNotes.trim()
+      typeof resolutionNotes === "string" && resolutionNotes.trim()
         ? resolutionNotes.trim()
         : null;
 
-    const { data: updatedIssue, error: updateError } =
-      await supabaseAdmin
-        .from("task_issues")
-        .update({
-          status: normalizedStatus,
-          assigned_engineer: normalizedEngineer,
-          resolution_notes: normalizedNotes,
-        })
-        .eq("id", issueId)
-        .select(`
-          id,
-          user_id,
-          task_id,
-          track,
-          category,
-          issue_detail,
-          optional_note,
-          status,
-          created_at,
-          assigned_engineer,
-          resolution_notes
-        `)
-        .single();
+    const { data: updatedIssue, error: updateError } = await supabaseAdmin
+      .from("task_issues")
+      .update({
+        status: normalizedStatus,
+        assigned_engineer: normalizedEngineer,
+        resolution_notes: normalizedNotes,
+      })
+      .eq("id", issueId)
+      .select(`
+        id,
+        user_id,
+        task_id,
+        track,
+        category,
+        issue_detail,
+        optional_note,
+        status,
+        created_at,
+        assigned_engineer,
+        resolution_notes
+      `)
+      .single();
 
     if (updateError) {
-      console.error(
-        "Failed to update task issue:",
-        updateError
-      );
-
-      return NextResponse.json(
-        {
-          error: updateError.message,
-        },
-        {
-          status: 500,
-        }
-      );
+      console.error("Failed to update task issue:", updateError);
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    let resolvedEmail =
-      typeof userEmail === "string"
-        ? userEmail.trim()
-        : "";
-
-    let resolvedName =
-      typeof userName === "string"
-        ? userName.trim()
-        : "";
+    let resolvedEmail = typeof userEmail === "string" ? userEmail.trim() : "";
+    let resolvedName = typeof userName === "string" ? userName.trim() : "";
 
     const resolvedUserId =
-      typeof userId === "string" && userId
-        ? userId
-        : updatedIssue.user_id;
+      typeof userId === "string" && userId ? userId : updatedIssue.user_id;
 
-    if (
-      resolvedUserId &&
-      (!resolvedEmail || !resolvedName)
-    ) {
-      const matchedUser =
-        await findUserByReference(resolvedUserId);
+    if (resolvedUserId && (!resolvedEmail || !resolvedName)) {
+      const matchedUser = await findUserByReference(resolvedUserId);
 
       if (matchedUser) {
-        resolvedEmail =
-          resolvedEmail || matchedUser.email || "";
-
-        resolvedName =
-          resolvedName ||
-          matchedUser.full_name ||
-          "WDC Labs User";
+        resolvedEmail = resolvedEmail || matchedUser.email || "";
+        resolvedName = resolvedName || matchedUser.full_name || "WDC Labs User";
       }
     }
 
@@ -379,21 +285,14 @@ export async function PATCH(request: Request) {
           await sendIssueUpdateEmail(
             resolvedEmail,
             resolvedName || "WDC Labs User",
-            category ||
-              updatedIssue.category ||
-              "Support Request",
+            category || updatedIssue.category || "Support Request",
             normalizedStatus,
-            normalizedNotes ||
-              "Your support request has been updated."
+            normalizedNotes || "Your support request has been updated."
           );
 
           emailAttempted = true;
         } catch (emailError) {
-          console.error(
-            "Ticket updated, but email notification failed:",
-            emailError
-          );
-
+          console.error("Ticket updated, but email notification failed:", emailError);
           warning =
             "The ticket was updated, but the notification email could not be sent.";
         }
@@ -408,11 +307,7 @@ export async function PATCH(request: Request) {
       warning,
     });
   } catch (error) {
-    console.error(
-      "Unexpected admin issues PATCH error:",
-      error
-    );
-
+    console.error("Unexpected admin issues PATCH error:", error);
     return NextResponse.json(
       {
         error:
@@ -420,9 +315,7 @@ export async function PATCH(request: Request) {
             ? error.message
             : "An unexpected error occurred while updating the issue.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
