@@ -1,12 +1,11 @@
 import { motion } from 'framer-motion';
-import { Building2 } from 'lucide-react';
+import { Building2, ArrowRight } from 'lucide-react';
 import { useOffice } from '../../../contexts/OfficeContext';
-import { CVUploadModal } from '../../../components/students/office/modals/CvUploadModal';
+import { Button } from '../../../components/ui/button';
 import { ToluWelcomePopup } from '../../../components/students/office/modals/ToluWelcomePopup';
 
 export function LobbyScreen() {
-  const { phase, showToluWelcome, setShowToluWelcome, completeOnboarding, userName, chatMessages, isBioProcessing } = useOffice();
-  const showCVModal = phase === 'lobby' && !showToluWelcome;
+  const { showToluWelcome, setShowToluWelcome, completeOnboarding, userName, chatMessages, isBioProcessing } = useOffice();
 
   // Get the first Tolu message (AI response from bio assessment)
   const toluMessage = chatMessages.find(msg => msg.agentName === 'Tolu');
@@ -38,12 +37,25 @@ export function LobbyScreen() {
         <p className="text-lg text-muted-foreground mb-2">
           The lobby is quiet. Everyone is working.
         </p>
-        <p className="text-muted-foreground">
-          Before you can enter the office, we need to know who you are.
-        </p>
+        
+        {/* 🔥 Replaced the mandatory modal trigger with a clean button to enter the office */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="mt-8"
+        >
+          <Button 
+            onClick={() => completeOnboarding()}
+            className="rounded-xl px-8 py-6 text-base font-bold bg-primary hover:bg-primary/90 flex items-center gap-2 mx-auto"
+          >
+            Enter the Office <ArrowRight size={20} />
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4">
+            You will be asked to set up your career profile at your desk.
+          </p>
+        </motion.div>
       </motion.div>
-
-      <CVUploadModal isOpen={showCVModal} />
 
       <ToluWelcomePopup
         isOpen={showToluWelcome}

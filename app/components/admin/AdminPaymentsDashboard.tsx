@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, Fragment } from "react";
 import { 
   Search, 
   CreditCard, 
@@ -21,7 +21,10 @@ import {
   CalendarDays,
   Layers,
   TrendingDown,
-  XCircle
+  XCircle,
+  ChevronRight,
+  ChevronDown,
+  CornerDownRight
 } from "lucide-react";
 import { supabase } from '@/lib/supabase';
 
@@ -37,12 +40,13 @@ export function AdminPaymentsDashboard() {
   const [registeredUsers, setRegisteredUsers] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState<boolean>(true);
   
-  // Filter States
+  // Filter & UI States
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TxStatus>("all");
   const [amountFilter, setAmountFilter] = useState<AmountFilter>("all");
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<DrawerTab>("analytics");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Sorting States
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
@@ -143,10 +147,11 @@ export function AdminPaymentsDashboard() {
   }, [goldData]);
   // ----------------------------------------------
 
-  // Apply UI Filters & Sorting
-  const filteredData = useMemo(() => {
+  // Apply UI Filters & Group by Email
+  const groupedData = useMemo(() => {
     let result = [...goldData];
 
+    // 1. Standard Filtering
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -169,8 +174,33 @@ export function AdminPaymentsDashboard() {
       });
     }
 
+    // 2. Group by email
+    const groupsMap = new Map<string, any[]>();
+    result.forEach(tx => {
+      const email = tx.customer?.email?.toLowerCase().trim() || "unknown";
+      if (!groupsMap.has(email)) groupsMap.set(email, []);
+      groupsMap.get(email)!.push(tx);
+    });
+
+    // 3. Resolve the Parent row representing the group
+    const groupsArray = Array.from(groupsMap.entries()).map(([email, txs]) => {
+      // Sort internal txs newest to oldest
+      txs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // If there is a successful tx in this bundle, it becomes the face of the group. 
+      // Otherwise, just show the most recent attempt.
+      const successTx = txs.find(t => t.status === "success");
+      const primaryTx = successTx || txs[0];
+      const latestTx = txs[0]; // Used strictly for chronological sorting
+
+      return { email, txs, primaryTx, latestTx };
+    });
+
+    // 4. Sort the parent groups
     if (sortConfig.key) {
-      result.sort((a, b) => {
+      groupsArray.sort((aGroup, bGroup) => {
+        const a = aGroup.primaryTx;
+        const b = bGroup.primaryTx;
         let aValue: any;
         let bValue: any;
 
@@ -184,8 +214,9 @@ export function AdminPaymentsDashboard() {
             bValue = registeredUsers.get(b.customer?.email?.toLowerCase())?.subStatus || "";
             break;
           case "date":
-            aValue = new Date(a.createdAt).getTime();
-            bValue = new Date(b.createdAt).getTime();
+            // Always sort chronologically by the absolute newest action in the group
+            aValue = new Date(aGroup.latestTx.createdAt).getTime();
+            bValue = new Date(bGroup.latestTx.createdAt).getTime();
             break;
           case "plan":
             aValue = a.plan?.name || a.reference || "";
@@ -209,14 +240,28 @@ export function AdminPaymentsDashboard() {
       });
     }
 
-    return result;
+    return groupsArray;
   }, [goldData, searchQuery, amountFilter, sortConfig, registeredUsers]);
+
+  // Calculate the raw number of transactions matching current filters across all groups
+  const totalFilteredTxs = useMemo(() => {
+    return groupedData.reduce((acc, group) => acc + group.txs.length, 0);
+  }, [groupedData]);
 
   const handleSort = (key: SortKey) => {
     setSortConfig(current => ({
       key,
       direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
     }));
+  };
+
+  const toggleGroup = (email: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(email)) newSet.delete(email);
+      else newSet.add(email);
+      return newSet;
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -244,7 +289,6 @@ export function AdminPaymentsDashboard() {
     }).format(date);
   };
 
-  // Helper for formatting large currency amounts
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -323,7 +367,7 @@ export function AdminPaymentsDashboard() {
         </div>
       </div>
 
-      {/* NEW: Financial Summary Scorecards (Dami's Request) */}
+      {/* Financial Summary Scorecards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-[#131b2b] border border-emerald-900/50 rounded-xl p-5">
           <div className="flex justify-between items-start mb-4">
@@ -418,7 +462,7 @@ export function AdminPaymentsDashboard() {
         <div className="p-5 border-b border-slate-800 flex justify-between items-center">
           <div>
             <h3 className="font-semibold text-white">Payment Records</h3>
-            <p className="text-xs text-slate-400 mt-1">Showing {filteredData.length} records</p>
+            <p className="text-xs text-slate-400 mt-1">Showing {totalFilteredTxs} total attempts across {groupedData.length} customers</p>
           </div>
         </div>
 
@@ -450,61 +494,118 @@ export function AdminPaymentsDashboard() {
             <tbody className="divide-y divide-slate-800/50">
               {loading && data.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-10 text-slate-500">Loading records...</td></tr>
-              ) : filteredData.length === 0 ? (
+              ) : groupedData.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-10 text-slate-500">No matching records found.</td></tr>
-              ) : filteredData.map((tx) => {
-                const uInfo = registeredUsers.get(tx.customer?.email?.toLowerCase().trim());
+              ) : groupedData.map((group) => {
+                const { email, txs, primaryTx } = group;
+                const isExpanded = expandedGroups.has(email);
+                const hasMultiple = txs.length > 1;
+                const uInfo = registeredUsers.get(email);
                 
+                // Exclude the primary transaction from the dropdown so we don't show it twice
+                const nestedTxs = txs.filter(t => t.reference !== primaryTx.reference);
+
                 return (
-                  <tr key={tx.id || tx.reference} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded bg-cyan-900/30 text-cyan-400 flex items-center justify-center font-bold text-xs uppercase border border-cyan-800/50">
-                          {tx.customer?.email?.[0] || "?"}
+                  <Fragment key={email}>
+                    {/* Parent Row */}
+                    <tr className={`hover:bg-slate-800/30 transition-colors ${isExpanded ? "bg-slate-800/10" : ""}`}>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-5">
+                            {hasMultiple ? (
+                              <button 
+                                onClick={() => toggleGroup(email)} 
+                                className="p-1 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                              >
+                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                            ) : (
+                              <span className="w-5 h-5"></span> /* Empty placeholder for alignment */
+                            )}
+                          </div>
+                          
+                          <div className="h-8 w-8 rounded bg-cyan-900/30 text-cyan-400 flex items-center justify-center font-bold text-xs uppercase border border-cyan-800/50">
+                            {email[0] || "?"}
+                          </div>
+                          <div>
+                            <div className="font-medium text-white">{primaryTx.customer?.name !== '-' ? primaryTx.customer?.name : primaryTx.customer?.email}</div>
+                            {primaryTx.customer?.name !== '-' && (
+                              <div className="text-xs text-slate-400">{email}</div>
+                            )}
+                            {hasMultiple && !isExpanded && (
+                              <div className="text-[10px] text-cyan-500/70 font-semibold mt-0.5">+{txs.length - 1} OTHER ATTEMPTS</div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-medium text-white">{tx.customer?.name !== '-' ? tx.customer?.name : tx.customer?.email}</div>
-                          {tx.customer?.name !== '-' && (
-                            <div className="text-xs text-slate-400">{tx.customer?.email}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {!uInfo ? (
+                          <span className="text-slate-500 text-xs font-medium flex items-center gap-1.5"><UserX size={13}/> Unregistered</span>
+                        ) : uInfo.subStatus === 'active' ? (
+                          <span className="text-emerald-400 text-xs font-medium flex items-center gap-1.5"><UserCheck size={13}/> Active</span>
+                        ) : uInfo.subStatus === 'trial' ? (
+                          <span className="text-blue-400 text-xs font-medium flex items-center gap-1.5"><Clock size={13}/> Trial</span>
+                        ) : (
+                          <span className="text-amber-400 text-xs font-medium flex items-center gap-1.5 capitalize"><ShieldAlert size={13}/> {uInfo.subStatus}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-slate-300">
+                        {formatDate(primaryTx.createdAt)}
+                      </td>
+                      <td className="px-5 py-4">
+                        {primaryTx.plan?.name ? (
+                          <span className="text-cyan-400 text-xs font-semibold uppercase">{primaryTx.plan.name}</span>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-mono">{primaryTx.reference}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 font-semibold text-white">
+                        {primaryTx.currency} {parseAmount(primaryTx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-5 py-4">{getStatusBadge(primaryTx.status)}</td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => setSelectedTx(primaryTx)}
+                          className="px-4 py-1.5 border border-slate-600 rounded-full text-xs font-medium text-white hover:bg-slate-700 hover:border-slate-500 transition-colors"
+                        >
+                          Manage
+                        </button>
+                      </td>
+                    </tr>
+
+                    {/* Sub-rows for retries */}
+                    {isExpanded && hasMultiple && nestedTxs.map((subTx) => (
+                      <tr key={subTx.reference} className="bg-[#0a0f18]/60 hover:bg-slate-800/40 transition-colors border-t border-slate-800/30">
+                        <td className="px-5 py-3 pl-[60px]">
+                          <div className="flex items-center gap-2">
+                            <CornerDownRight size={14} className="text-slate-600" />
+                            <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">Retry Log</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3"><span className="text-slate-600 text-xs">—</span></td>
+                        <td className="px-5 py-3 text-slate-400 text-xs">{formatDate(subTx.createdAt)}</td>
+                        <td className="px-5 py-3">
+                          {subTx.plan?.name ? (
+                            <span className="text-cyan-600 text-xs font-semibold uppercase">{subTx.plan.name}</span>
+                          ) : (
+                            <span className="text-slate-500 text-xs font-mono">{subTx.reference}</span>
                           )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      {/* 🔥 Pure DB Truth: Pulled strictly from your 'users' table */}
-                      {!uInfo ? (
-                        <span className="text-slate-500 text-xs font-medium flex items-center gap-1.5"><UserX size={13}/> Unregistered</span>
-                      ) : uInfo.subStatus === 'active' ? (
-                        <span className="text-emerald-400 text-xs font-medium flex items-center gap-1.5"><UserCheck size={13}/> Active</span>
-                      ) : uInfo.subStatus === 'trial' ? (
-                        <span className="text-blue-400 text-xs font-medium flex items-center gap-1.5"><Clock size={13}/> Trial</span>
-                      ) : (
-                        <span className="text-amber-400 text-xs font-medium flex items-center gap-1.5 capitalize"><ShieldAlert size={13}/> {uInfo.subStatus}</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">
-                      {formatDate(tx.createdAt)}
-                    </td>
-                    <td className="px-5 py-4">
-                      {tx.plan?.name ? (
-                        <span className="text-cyan-400 text-xs font-semibold uppercase">{tx.plan.name}</span>
-                      ) : (
-                        <span className="text-slate-400 text-xs font-mono">{tx.reference}</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 font-semibold text-white">
-                      {tx.currency} {parseAmount(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-5 py-4">{getStatusBadge(tx.status)}</td>
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => setSelectedTx(tx)}
-                        className="px-4 py-1.5 border border-slate-600 rounded-full text-xs font-medium text-white hover:bg-slate-700 hover:border-slate-500 transition-colors"
-                      >
-                        Manage
-                      </button>
-                    </td>
-                  </tr>
+                        </td>
+                        <td className="px-5 py-3 font-medium text-slate-400 text-xs">
+                          {subTx.currency} {parseAmount(subTx.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-5 py-3 opacity-80">{getStatusBadge(subTx.status)}</td>
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            onClick={() => setSelectedTx(subTx)}
+                            className="px-3 py-1 border border-slate-700 rounded-full text-[10px] font-medium text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+                          >
+                            View Log
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 );
               })}
             </tbody>

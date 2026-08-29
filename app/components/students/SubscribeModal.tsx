@@ -38,8 +38,9 @@ export function SubscribeModal({ open, onClose, userId, userEmail }: SubscribeMo
         body: JSON.stringify({
           userId,
           email: userEmail,
+          // Sending plan uniformly to ensure the backend builds the metadata correctly
           plan: selectedPlan,
-          planType: selectedPlan,
+          subscriptionPlan: selectedPlan, 
         }),
       });
 

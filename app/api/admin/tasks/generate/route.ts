@@ -8,23 +8,29 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Helper function to resolve IP address to a physical location
+// Helper function to resolve IP address to a physical location with timeout fallback
 async function resolveLocation(ip: string): Promise<string> {
   if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
     return 'Local Development (Lagos, NG)';
   }
 
-  try {
-    // Clean up proxy IP chains if multiple IPs are passed in x-forwarded-for
-    const cleanIp = ip.split(',')[0].trim();
-    const res = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,city,regionName,country`);
-    const data = await res.json();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
 
+  try {
+    const cleanIp = ip.split(',')[0].trim();
+    const res = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,city,regionName,country`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    const data = await res.json();
     if (data && data.status === 'success') {
       return `${data.city}, ${data.regionName}, ${data.country}`;
     }
   } catch (err) {
-    console.error('Location lookup failed:', err);
+    clearTimeout(timeoutId);
+    console.error('Location lookup failed or timed out:', err);
   }
 
   return 'Unknown Location';
@@ -38,44 +44,45 @@ export async function POST(request: Request) {
     const rawIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || 'Unknown Browser';
 
-    // Resolve IP to a human-readable city/state/country
-    const location = await resolveLocation(rawIp);
+    const locationName = await resolveLocation(rawIp);
 
     if (!targetUserId || !track || !targetWeek) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Sanitize UUID string format for DB log insertion
     let safeAdminId = null;
     if (adminId && adminId.length === 36) safeAdminId = adminId;
 
-    // 1. STASH STATE: Fetch ALL tasks including TITLE for aggressive duplicate hunting
+    // 1. STASH STATE: Fetch existing tasks using 'task_number'
     const { data: allTasks } = await supabaseAdmin
       .from('tasks')
-      .select('id, status, completed, task_number, week, title')
+      .select('id, status, completed, task_number, title')
       .eq('user', targetUserId);
 
     const { data: oldProgression } = await supabaseAdmin
       .from('user_progression')
       .select('*')
       .eq('user_id', targetUserId)
-      .single();
+      .maybeSingle();
 
     const numTargetWeek = Number(targetWeek);
     
-    // Hyper-aggressive duplicate catching
+    // Identify existing target week tasks for archival
     const targetWeekTasks = allTasks?.filter(t => {
-      const matchNum = Number(t.task_number) === numTargetWeek || Number(t.week) === numTargetWeek;
+      const matchNum = Number(t.task_number) === numTargetWeek;
       const matchTitle = t.title && t.title.toLowerCase().includes(`week ${numTargetWeek}`);
       return matchNum || matchTitle;
     }) || [];
     
     const targetWeekTaskIds = targetWeekTasks.map(t => t.id);
 
+    // Identify incomplete tasks blocking the AI engine
     const blockingTasks = allTasks?.filter(t => 
       t.completed === false || !['approved', 'passed'].includes(t.status)
     ) || [];
 
-    // 2. PHANTOM APPROVAL
+    // 2. PHANTOM APPROVAL: Temporarily clear active tasks
     if (blockingTasks.length > 0) {
       await supabaseAdmin
         .from('tasks')
@@ -83,7 +90,7 @@ export async function POST(request: Request) {
         .in('id', blockingTasks.map(t => t.id));
     }
 
-    // 3. TIME-LOCK BYPASS
+    // 3. TIME-LOCK BYPASS: Unlock Monday restriction
     await supabaseAdmin
       .from('user_progression')
       .update({ week_status: 'pending', current_week: numTargetWeek })
@@ -95,7 +102,11 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        user_id: targetUserId, user_name: fullName || "Intern", track: track, task_number: numTargetWeek, is_admin_override: true 
+        user_id: targetUserId, 
+        user_name: fullName || "Intern", 
+        track: track, 
+        task_number: numTargetWeek, 
+        is_admin_override: true 
       })
     });
 
@@ -103,7 +114,7 @@ export async function POST(request: Request) {
     let parsedData: any = {};
     try { parsedData = JSON.parse(responseText); } catch (e) {}
 
-    // 5. ROLLBACK ON FAILURE
+    // 5. ROLLBACK ON FAILURE: Revert changes if AI rejects generation
     if (!pythonResponse.ok || parsedData.success === false || parsedData.error) {
       const errorMessage = parsedData.detail || parsedData.error || responseText || "AI Engine failed to generate task";
       
@@ -113,24 +124,31 @@ export async function POST(request: Request) {
       
       if (oldProgression) {
         await supabaseAdmin.from('user_progression').update({ 
-          current_week: oldProgression.current_week, week_status: oldProgression.week_status 
+          current_week: oldProgression.current_week, 
+          week_status: oldProgression.week_status 
         }).eq('user_id', targetUserId);
       }
 
       await supabaseAdmin.from('task_generation_logs').insert({
-        target_user_id: targetUserId, admin_id: safeAdminId, trigger_source: 'admin_override', assigned_week: numTargetWeek, status: 'FAILED',
-        details: `Backend rejected: ${errorMessage} | Reason: ${reason} | Location: ${location} | Browser: ${userAgent}`
+        target_user_id: targetUserId, 
+        admin_id: safeAdminId, 
+        trigger_source: 'admin_override', 
+        assigned_week: numTargetWeek, 
+        status: 'FAILED',
+        details: `Backend rejected: ${errorMessage} | Reason: ${reason} | Location: ${locationName} | Browser: ${userAgent}`
       });
 
       return NextResponse.json({ success: false, error: errorMessage }, { status: pythonResponse.ok ? 400 : pythonResponse.status });
     }
 
     // 6. SUCCESS: SECURE THE DESK
+    // Restore non-target blocking tasks
     const tasksToRestore = blockingTasks.filter(bt => !targetWeekTaskIds.includes(bt.id));
     for (const task of tasksToRestore) {
       await supabaseAdmin.from('tasks').update({ status: task.status, completed: task.completed }).eq('id', task.id);
     }
 
+    // Archive old target week tasks to eliminate duplicates
     if (targetWeekTaskIds.length > 0) {
       await supabaseAdmin
         .from('tasks')
@@ -138,29 +156,54 @@ export async function POST(request: Request) {
         .in('id', targetWeekTaskIds);
     }
 
+    // Lock progression state to newly assigned week
     await supabaseAdmin
       .from('user_progression')
       .update({ week_status: 'in_progress', current_week: numTargetWeek })
       .eq('user_id', targetUserId);
 
-    // Save with readable Location tag
+    // Record audit log
     await supabaseAdmin.from('task_generation_logs').insert({
-      target_user_id: targetUserId, admin_id: safeAdminId, trigger_source: 'admin_override', assigned_week: numTargetWeek, status: 'SUCCESS',
-      details: `Admin Override: ${reason} | Location: ${location} | Browser: ${userAgent}`
+      target_user_id: targetUserId, 
+      admin_id: safeAdminId, 
+      trigger_source: 'admin_override', 
+      assigned_week: numTargetWeek, 
+      status: 'SUCCESS',
+      details: `Admin Override: ${reason} | Location: ${locationName} | Browser: ${userAgent}`
     });
 
-    // 7. CLEANUP DATE PLACEHOLDERS
+    // 7. CLEANUP DATE PLACEHOLDERS WITH WILDCARD REGEX
     try {
-      const { data: latestTask } = await supabaseAdmin.from('tasks').select('id, brief_content').eq('user', targetUserId).order('created_at', { ascending: false }).limit(1).single();
-      if (latestTask && latestTask.brief_content) {
-        const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        const deadlineDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        const fixedContent = latestTask.brief_content.replace(/\[Date of Assignment\]/gi, currentDate).replace(/\[Deadline Date & Time\]/gi, `${deadlineDate} at 11:59 PM`).replace(/\[Insert Date\]/gi, currentDate);
-        if (fixedContent !== latestTask.brief_content) {
-          await supabaseAdmin.from('tasks').update({ brief_content: fixedContent }).eq('id', latestTask.id);
+      const { data: latestTask } = await supabaseAdmin
+        .from('tasks')
+        .select('id, brief_content, description, created_at')
+        .eq('user', targetUserId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestTask) {
+        const baseDate = latestTask.created_at ? new Date(latestTask.created_at) : new Date();
+        const currentDateStr = baseDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const deadlineDateStr = `${new Date(baseDate.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} at 11:59 PM`;
+
+        const sanitize = (text: string) => {
+          if (!text) return text;
+          return text
+            .replace(/\[[^\]]*deadline[^\]]*\]/gi, deadlineDateStr)
+            .replace(/\[[^\]]*date[^\]]*\]/gi, currentDateStr);
+        };
+
+        const fixedBrief = sanitize(latestTask.brief_content || '');
+        const fixedDesc = sanitize(latestTask.description || '');
+
+        if (fixedBrief !== latestTask.brief_content || fixedDesc !== latestTask.description) {
+          await supabaseAdmin.from('tasks').update({ brief_content: fixedBrief, description: fixedDesc }).eq('id', latestTask.id);
         }
       }
-    } catch (cleanupError) {}
+    } catch (cleanupError) {
+      console.error('Date placeholder cleanup error:', cleanupError);
+    }
 
     return NextResponse.json({ success: true, message: `Week ${numTargetWeek} assigned successfully.` });
 

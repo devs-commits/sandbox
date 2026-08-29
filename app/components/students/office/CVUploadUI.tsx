@@ -1,6 +1,6 @@
 "use client";
-import { useState, useRef } from 'react';
-import { Upload, FileText, X, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, FileText, X, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Textarea } from '@/app/components/ui/textarea';
 import { toast } from 'sonner';
@@ -18,7 +18,21 @@ export function CVUploadUI({ userId, onSuccess, compact = false }: CVUploadUIPro
   const [file, setFile] = useState<File | null>(null);
   const [bioText, setBioText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(90); // 🔥 90-second AI processing timer
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 🔥 Timer Effect: Counts down only while submitting
+  useEffect(() => {
+    let timerId: NodeJS.Timeout;
+    if (isSubmitting && timeLeft > 0) {
+      timerId = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (!isSubmitting) {
+      setTimeLeft(90); // Reset timer if submission finishes or fails
+    }
+    return () => clearInterval(timerId);
+  }, [isSubmitting, timeLeft]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -43,7 +57,7 @@ export function CVUploadUI({ userId, onSuccess, compact = false }: CVUploadUIPro
       // 1. Send to AI Engine & Upload File (via OfficeContext)
       await submitBio(finalBio, file || undefined);
 
-      // 2. 🔥 Explicitly write to the users DB so the system confirms it's uploaded!
+      // 2. Explicitly write to the users DB so the system confirms it's uploaded!
       const { error } = await supabase.from('users').update({
         bio: finalBio
         // cv_url is updated automatically inside submitBio if a file exists
@@ -59,14 +73,14 @@ export function CVUploadUI({ userId, onSuccess, compact = false }: CVUploadUIPro
       console.error("Profile update failed:", error);
       toast.error(error.message || "Failed to update profile. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // This stops the timer and resets it
     }
   };
 
   const hasInput = file !== null || bioText.trim().length > 0;
 
   return (
-    <div className={`w-full ${compact ? '' : 'p-6 bg-white/5 border border-white/10 rounded-2xl'}`}>
+    <div className={`w-full ${compact ? '' : 'p-6 bg-white/5 border border-white/10 rounded-2xl transition-all'}`}>
       {!compact && (
         <div className="mb-4">
           <h4 className="text-sm font-bold text-white">Career Profile</h4>
@@ -77,7 +91,7 @@ export function CVUploadUI({ userId, onSuccess, compact = false }: CVUploadUIPro
       <div
         onClick={() => !isSubmitting && fileInputRef.current?.click()}
         className={`border-2 border-dashed border-border/50 rounded-xl text-center cursor-pointer transition-all ${
-          isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50 hover:bg-primary/5'
+          isSubmitting ? 'opacity-50 cursor-not-allowed border-primary/20 bg-primary/5' : 'hover:border-primary/50 hover:bg-primary/5'
         } ${compact ? 'p-4 mb-4' : 'p-6 mb-4'}`}
       >
         {file ? (
@@ -86,16 +100,18 @@ export function CVUploadUI({ userId, onSuccess, compact = false }: CVUploadUIPro
               <FileText className="text-primary" size={16} />
             </div>
             <span className="text-foreground text-sm font-medium truncate max-w-[200px]">{file.name}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setFile(null);
-              }}
-              className="p-1.5 hover:bg-secondary rounded-md transition-colors"
-              disabled={isSubmitting}
-            >
-              <X size={14} />
-            </button>
+            {!isSubmitting && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFile(null);
+                }}
+                className="p-1.5 hover:bg-secondary rounded-md transition-colors"
+                disabled={isSubmitting}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-2">
@@ -124,13 +140,38 @@ export function CVUploadUI({ userId, onSuccess, compact = false }: CVUploadUIPro
         className="min-h-[100px] resize-none rounded-xl bg-secondary/30 border-border/50 focus:border-primary/50 text-sm mb-4"
       />
 
+      {/* 🔥 Updated Button to show the AI progress and timer */}
       <Button
         onClick={handleUpload}
         disabled={!hasInput || isSubmitting}
-        className="w-full h-10 text-sm rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+        className={`w-full h-11 text-sm rounded-xl transition-all ${
+          isSubmitting 
+            ? 'bg-primary/20 text-primary border border-primary/30 cursor-not-allowed' 
+            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+        }`}
       >
-        {isSubmitting ? <><Loader2 className="animate-spin mr-2" size={16} /> Saving...</> : 'Save Profile'}
+        {isSubmitting ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="animate-spin" size={16} />
+            <span>AI Analysing Profile...</span>
+            <span className="font-mono bg-background/50 px-1.5 py-0.5 rounded text-xs ml-1">
+              {timeLeft}s
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} />
+            <span>Save Profile</span>
+          </div>
+        )}
       </Button>
+
+      {/* Helper text while loading */}
+      {isSubmitting && (
+        <p className="text-center text-[10px] text-muted-foreground mt-3 animate-pulse">
+          Please wait while our AI tailors your daily tasks...
+        </p>
+      )}
     </div>
   );
 }

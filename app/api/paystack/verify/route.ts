@@ -9,7 +9,8 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { reference, userId } = await req.json();
+    const body = await req.json();
+    const { reference } = body;
     console.log("💳 Verifying Paystack Ref for Direct Subscription:", reference);
 
     // 1. Verify with Paystack
@@ -23,15 +24,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, message: "Paystack verification failed" }, { status: 400 });
     }
 
-    // Extract the metadata passed during initialization
+    // Extract the metadata passed during initialization or inline setup
     const metadata = paystackData.data.metadata || {};
 
-    // ====================================================
-    // 🌟 ONLY ROUTE: DIRECT SUBSCRIPTION PAYMENT
-    // ====================================================
-    // We now strictly use Paystack for Direct Subscriptions, NOT Wallet Funding.
-    
-    // Default to 'monthly' if for some reason it wasn't passed, though it always should be now
+    // 🔥 Bulletproof User ID check: Use body.userId, fallback to metadata.user_id
+    const finalUserId = body.userId || metadata.user_id;
+
+    if (!finalUserId) {
+      console.error("❌ Paystack Verify Error: No User ID found in request or metadata.");
+      return NextResponse.json({ success: false, message: "User ID missing from payment data" }, { status: 400 });
+    }
+
+    // Default to 'monthly' if missing
     const plan = metadata.subscriptionPlan || 'monthly';
     const daysToAdd = plan === 'quarterly' ? 90 : 30;
     
@@ -51,28 +55,51 @@ export async function POST(req: NextRequest) {
         renewal_status: 'pending',
         subscription_plan: plan
       })
-      .eq('auth_id', userId)
-      .select('id') // 🔥 Retrieve the numeric ID needed for the commission engine
+      .eq('auth_id', finalUserId) // Use the bulletproof ID
+      .select('id') 
       .single();
 
     if (userError) throw userError;
 
-    // 3. Mark the 'payments' table record as successful
-    await supabaseAdmin!
+    // 3. Handle the 'payments' table safely for BOTH flows
+    const amountPaid = paystackData.data.amount / 100; // Exact Naira value
+    
+    // Check if a pending payment was created by the Initialize route
+    const { data: existingPayment } = await supabaseAdmin
       .from('payments')
-      .update({ payment_status: 'success' })
-      .eq('reference', reference);
+      .select('id')
+      .eq('reference', reference)
+      .maybeSingle();
+
+    if (existingPayment) {
+      // Flow A (SubscribeModal): Update existing pending record
+      await supabaseAdmin!
+        .from('payments')
+        .update({ payment_status: 'success' })
+        .eq('reference', reference);
+    } else {
+      // Flow B (Office Inline): Insert the new payment record directly
+      await supabaseAdmin!
+        .from('payments')
+        .insert({
+          email: paystackData.data.customer.email,
+          role: "student",
+          amount: amountPaid,
+          subscription_plan: plan,
+          payment_method: "paystack",
+          payment_status: "success",
+          reference: reference,
+          user_id: finalUserId
+        });
+    }
 
     console.log(`✅ Paystack Subscription (${plan}) fully completed and logged. Office Unlocked.`);
     
-    // 🔥 4. TRIGGER COMMISSION ENGINE
-    // Paystack returns amount in kobo, so we divide by 100 to get the exact Naira value
-    const amountPaid = paystackData.data.amount / 100;
+    // 4. TRIGGER COMMISSION ENGINE
     if (userData?.id) {
       await processReferralCommission(userData.id, amountPaid);
     }
 
-    // Notice we DO NOT touch the wallet_transactions table here anymore.
     return NextResponse.json({ success: true, message: "Subscription activated" });
 
   } catch (err: any) {

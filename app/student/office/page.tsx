@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { OfficeProvider, useOffice } from '@/app/contexts/OfficeContext';
 import { LobbyScreen } from '@/app/components/students/office/LobbyScreen';
 import { OfficeDashboard } from '@/app/components/students/office/OfficeDashboard';
@@ -15,12 +16,66 @@ function OfficeContent() {
   const { phase, isLoadingOnboarding, subscription, refreshSubscription } = useOffice();
   const { user } = useAuth();
   
+  const searchParams = useSearchParams();
+  const router = useRouter();             
+
   const [hasCv, setHasCv] = useState(true); 
   const [showCvWidget, setShowCvWidget] = useState(false);
 
-  // State for Inline Payment
+  // State for Payments
   const [renewalPlan, setRenewalPlan] = useState<"monthly" | "quarterly">("monthly");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isVerifyingRedirect, setIsVerifyingRedirect] = useState(false); 
+
+  // =========================================================================
+  // 🔥 URL Redirect Interceptor (Handles SubscribeModal Redirect Flow)
+  // =========================================================================
+  useEffect(() => {
+    const reference = searchParams.get('reference') || searchParams.get('trxref');
+    
+    if (reference && user?.id && !isVerifyingRedirect) {
+      verifyRedirectPayment(reference);
+    }
+  }, [searchParams, user?.id]);
+
+  const verifyRedirectPayment = async (reference: string) => {
+    setIsVerifyingRedirect(true);
+    const toastId = toast.loading("Confirming your payment...", { duration: 10000 });
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      const response = await fetch('/api/paystack/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          reference,
+          userId: user?.id,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || result?.message || 'Payment verification failed.');
+      }
+
+      await refreshSubscription();
+      toast.success("Payment successful! Office unlocked.", { id: toastId });
+
+    } catch (error: any) {
+      console.error('Redirect verification failed:', error);
+      toast.error(error.message || "Failed to confirm payment.", { id: toastId });
+    } finally {
+      setIsVerifyingRedirect(false);
+      router.replace('/student/office', { scroll: false });
+    }
+  };
+  // =========================================================================
 
   // Load Paystack InlineJS v2 dynamically.
   useEffect(() => {
@@ -89,13 +144,11 @@ function OfficeContent() {
     }
   }, [user, phase]);
 
-  // Exact Live Paystack Plan Codes
   const PAYSTACK_PLAN_CODES = {
     monthly: "PLN_46z8gz0p4foduy8",
     quarterly: "PLN_ddzhasixy441mju"
   };
 
-  // Inline Paystack handler
   const handleInstantRenewal = () => {
     const PaystackPop = (window as any).PaystackPop;
     const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
@@ -106,15 +159,8 @@ function OfficeContent() {
       return;
     }
 
-    if (!publicKey) {
-      console.error('NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY is not configured.');
-      toast.error('Payment is not configured. Please contact support.');
-      return;
-    }
-
-    if (!email) {
-      console.error('Cannot start payment without the signed-in user email.');
-      toast.error('Your account email could not be found. Please sign in again.');
+    if (!publicKey || !email || !user?.id) {
+      toast.error('Payment is not configured properly or account details are missing.');
       return;
     }
 
@@ -129,65 +175,44 @@ function OfficeContent() {
       paystack.newTransaction({
         key: publicKey,
         email,
-        amount: amount * 100, // Paystack expects kobo
+        amount: amount * 100, 
         currency: 'NGN',
         channels: ['card'],
-        plan: planCode,       // 🔥 FIXED: Map the extracted variable to the 'plan' property
+        plan: planCode,       
+        metadata: {
+          subscriptionPlan: renewalPlan,
+        },
         onSuccess: async (transaction: any) => {
           try {
-            if (!transaction?.reference) {
-              throw new Error('Paystack did not return a transaction reference.');
-            }
-
+            if (!transaction?.reference) throw new Error('Paystack did not return a transaction reference.');
+            
             toast.success("Payment completed! Confirming your subscription...");
 
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            const { data: sessionData } = await supabase.auth.getSession();
             const accessToken = sessionData.session?.access_token;
-
-            if (sessionError || !accessToken) {
-              throw new Error('Your session has expired. Please sign in again to verify the payment.');
-            }
 
             const response = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${accessToken}`,
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
               },
               body: JSON.stringify({
                 reference: transaction.reference,
                 planType: renewalPlan,
+                userId: user.id, 
               }),
             });
 
             const result = await response.json().catch(() => null);
 
-            if (!response.ok) {
-              throw new Error(result?.error || 'Payment verification failed.');
-            }
+            if (!response.ok) throw new Error(result?.error || 'Payment verification failed.');
 
-            const refreshedSubscription = await refreshSubscription();
-            const refreshedExpiry = refreshedSubscription?.expiresAt
-              ? new Date(refreshedSubscription.expiresAt)
-              : null;
-
-            if (
-              refreshedSubscription?.status !== 'active' ||
-              !refreshedExpiry ||
-              Number.isNaN(refreshedExpiry.getTime()) ||
-              refreshedExpiry <= new Date()
-            ) {
-              throw new Error('Payment was verified, but the subscription could not be refreshed.');
-            }
-
+            await refreshSubscription();
             toast.success("Subscription renewed. Your office is now unlocked.");
           } catch (error) {
             console.error('Post-payment verification failed:', error);
-            toast.error(
-              error instanceof Error
-                ? error.message
-                : 'Payment verification failed. Please contact support with your reference.'
-            );
+            toast.error(error instanceof Error ? error.message : 'Payment verification failed.');
           } finally {
             setIsProcessingPayment(false);
           }
@@ -205,20 +230,18 @@ function OfficeContent() {
     } catch (error) {
       console.error('Unable to initialize Paystack:', error);
       setIsProcessingPayment(false);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Unable to start payment. Please try again.'
-      );
+      toast.error(error instanceof Error ? error.message : 'Unable to start payment.');
     }
   };
 
-  if (isLoadingOnboarding) {
+  if (isLoadingOnboarding || isVerifyingRedirect) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-muted-foreground animate-pulse">Checking Access...</p>
+          <p className="text-muted-foreground animate-pulse">
+            {isVerifyingRedirect ? "Confirming payment with Paystack..." : "Checking Access..."}
+          </p>
         </div>
       </div>
     );
@@ -358,7 +381,13 @@ function OfficeContent() {
 export default function OfficePage() {
   return (
     <OfficeProvider>
-      <OfficeContent />
+      <Suspense fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-background">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        </div>
+      }>
+        <OfficeContent />
+      </Suspense>
     </OfficeProvider>
   );
 }

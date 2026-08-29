@@ -24,7 +24,6 @@ async function sendZeptoMail(toEmail: string, toName: string, subject: string, h
         "Authorization": `Zoho-enczapikey ${ZEPTO_API_KEY}`,
       },
       body: JSON.stringify({
-        bounce_address: `bounce@wdc.ng`, 
         from: { address: SENDER_ADDRESS, name: SENDER_NAME },
         to: [{ email_address: { address: toEmail, name: toName } }],
         reply_to: [{ address: "support@wdc.ng", name: "WDC Support" }],

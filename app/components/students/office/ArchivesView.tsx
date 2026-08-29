@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, BookOpen, ExternalLink, FolderOpen, Sparkles, X, FileText, FileSpreadsheet, Globe, Layers, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Search, BookOpen, ExternalLink, FolderOpen, X, FileText, FileSpreadsheet, Globe, Layers, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { ArchiveItem } from './types';
@@ -43,46 +43,70 @@ const getEmbedUrl = (url: string | undefined, type: string | undefined) => {
   }
 };
 
+// Helper to reliably extract week number from task or title
+const getTaskWeekNum = (task: any): number => {
+  if (task.task_number) return Number(task.task_number);
+  if (task.week) return Number(task.week);
+  const match = task.title?.match(/(?:Task|Week)\s*(\d+)/i);
+  return match ? Number(match[1]) : 1;
+};
+
 export function ArchivesView() {
   const { tasks } = useOffice();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'resources' | 'submissions'>('resources'); // 🔥 ADDED TAB STATE
+  const [activeTab, setActiveTab] = useState<'resources' | 'submissions'>('resources');
   const [selectedResource, setSelectedResource] = useState<ArchiveItem & { type: string, taskTitle?: string } | null>(null);
 
-  // Group all resources from all tasks, sorted newest to oldest, with intelligent naming
-  const allResources = useMemo(() => {
+  // 1. Deduplicate tasks strictly by Week Number, keeping only the single newest active task per week
+  const activeDeduplicatedTasks = useMemo(() => {
     if (!tasks || tasks.length === 0) return [];
+
+    const nonArchived = tasks.filter((t: any) => 
+      t.status !== 'archived_by_admin' && t.status !== 'archived'
+    );
+
+    const weekMap = new Map<number, any>();
     
-    const extractedResources: any[] = [];
-    
-    // Sort ascending first to figure out the true chronological Task Number
-    const chronologicalTasks = [...tasks].sort((a: any, b: any) => {
-      const weekA = a.week || 0;
-      const weekB = b.week || 0;
-      return weekA - weekB;
+    // Sort ascending by created_at so newest task overwrites older ones for the same week
+    const sorted = [...nonArchived].sort((a: any, b: any) => 
+      new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    );
+
+    sorted.forEach((task: any) => {
+      const weekNum = getTaskWeekNum(task);
+      weekMap.set(weekNum, task);
     });
 
-    // Reverse for the display so the newest Task is at the top of the Archives
+    return Array.from(weekMap.values());
+  }, [tasks]);
+
+  // 2. Extract resources exclusively from the single latest task for each week
+  const allResources = useMemo(() => {
+    if (activeDeduplicatedTasks.length === 0) return [];
+
+    const extractedResources: any[] = [];
+    
+    const chronologicalTasks = [...activeDeduplicatedTasks].sort((a: any, b: any) => {
+      return getTaskWeekNum(a) - getTaskWeekNum(b);
+    });
+
     const displayTasks = [...chronologicalTasks].reverse();
     
     displayTasks.forEach((task: any) => {
-      // Create the "Task 1: Topic" naming convention
-      const taskNumber = task.week || (chronologicalTasks.indexOf(task) + 1);
-      const formattedTaskTitle = `Task ${taskNumber}: ${task.title || 'Assignment'}`;
+      const taskNumber = getTaskWeekNum(task);
+      const formattedTaskTitle = `Week ${taskNumber}: ${task.title || 'Assignment'}`;
       
       const raw = task.resources || [];
       
       raw.forEach((item: any, index: number) => {
         let intelligentTitle = item.title;
 
-        // Intelligent Naming Override if the title is generic or missing
         if (!intelligentTitle || intelligentTitle.toLowerCase().includes('learning resource') || intelligentTitle.toLowerCase().startsWith('resource')) {
           const isPdf = item.type === 'pdf' || item.url?.toLowerCase().endsWith('.pdf');
           const isVid = item.type === 'video' || item.url?.includes('youtube') || item.url?.includes('youtu.be');
 
           if (isPdf && item.url) {
             try {
-              // Try to extract the actual file name from the URL
               const decodedUrl = decodeURIComponent(item.url.split('/').pop()?.split('?')[0] || '');
               intelligentTitle = decodedUrl.length > 5 ? decodedUrl.replace(/[-_]/g, ' ') : `${task.title} - PDF Guide`;
             } catch (e) {
@@ -109,31 +133,19 @@ export function ArchivesView() {
     });
     
     return extractedResources;
-  }, [tasks]);
+  }, [activeDeduplicatedTasks]);
 
   const filteredArchives = allResources.filter(item =>
     item.title?.toLowerCase().includes(search.toLowerCase()) ||
     item.taskTitle?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Group by Task Title (Insertion order is preserved from our sorted extraction)
   const taskGroups = [...new Set(filteredArchives.map(a => a.taskTitle))];
   const isSearching = search.trim().length > 0;
   
-  console.log("ALL TASKS", tasks);
-
-console.log(
-  "TASK STATUSES",
-  tasks.map(t => ({
-    title: t.title,
-    status: t.status,
-    week: t.week
-  }))
-);
-  // 🔥 FETCH PASSED TASKS
-  const passedTasks = tasks.filter(t =>
-  ['passed', 'approved', 'submitted'].includes(t.status)
-);
+  const passedTasks = activeDeduplicatedTasks.filter((t: any) =>
+    ['passed', 'approved', 'submitted'].includes(t.status)
+  );
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-transparent to-secondary/10 relative">
@@ -152,7 +164,6 @@ console.log(
           </div>
         </div>
 
-        {/* 🔥 NEW TAB SWITCHER */}
         <div className="flex bg-secondary/30 p-1 rounded-xl w-fit mb-6 border border-border/50">
           <button
             onClick={() => setActiveTab('resources')}
@@ -176,7 +187,6 @@ console.log(
           </button>
         </div>
 
-        {/* 🔥 SEARCH BAR (Only visible on Resources tab) */}
         {activeTab === 'resources' && (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
@@ -191,10 +201,6 @@ console.log(
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-        
-        {/* ========================================= */}
-        {/* TAB 1: LEARNING RESOURCES                 */}
-        {/* ========================================= */}
         {activeTab === 'resources' && (
           <>
             {filteredArchives.length === 0 ? (
@@ -203,7 +209,6 @@ console.log(
                 <p className="text-muted-foreground">No resources match your search.</p>
               </div>
             ) : isSearching ? (
-              /* SEARCH VIEW: Flat Grid so results aren't hidden inside Accordions */
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-primary mb-4 border-b border-border/50 pb-2">
                   Search Results ({filteredArchives.length})
@@ -240,7 +245,6 @@ console.log(
                 </div>
               </div>
             ) : (
-              /* NORMAL VIEW: Organized Accordions */
               <div className="space-y-4">
                 {taskGroups.map((taskTitle, groupIndex) => {
                   const groupItems = filteredArchives.filter(a => a.taskTitle === taskTitle);
@@ -295,9 +299,6 @@ console.log(
           </>
         )}
 
-        {/* ========================================= */}
-        {/* TAB 2: SUBMITTED WORK / PORTFOLIO         */}
-        {/* ========================================= */}
         {activeTab === 'submissions' && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }} 
@@ -312,12 +313,12 @@ console.log(
                   <p className="text-xs text-muted-foreground/70 mt-1">Finish your first task to start building your portfolio!</p>
                 </div>
               ) : (
-                passedTasks.map((task, idx) => (
+                passedTasks.map((task: any, idx: number) => (
                   <div key={task.id} className="bg-card/50 border border-border/50 p-6 rounded-2xl flex flex-col justify-between hover:border-emerald-500/30 hover:shadow-lg transition-all group">
                     <div>
                       <div className="flex justify-between items-start mb-3">
                         <span className="text-[10px] text-emerald-400 font-black uppercase tracking-widest bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
-                          Week {task.week || idx + 1}
+                          Week {getTaskWeekNum(task)}
                         </span>
                         {task.score && (
                           <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/5 px-2 py-1 rounded-md">
@@ -326,16 +327,16 @@ console.log(
                         )}
                       </div>
                       <h4 className="text-foreground font-bold text-sm leading-tight line-clamp-2">{task.title}</h4>
-<p className="text-xs text-muted-foreground mt-3 line-clamp-3 leading-relaxed">
-  {task.description.replace(/[#*`]/g, '').slice(0, 180)}
-</p>                  </div>
+                      <p className="text-xs text-muted-foreground mt-3 line-clamp-3 leading-relaxed">
+                        {(task.description || '').replace(/[#*`]/g, '').slice(0, 180)}
+                      </p>
+                    </div>
                     
                     <div className="mt-6 pt-4 border-t border-border/50 flex justify-between items-center">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold flex items-center gap-1.5">
                         <CheckCircle2 size={12} className="text-emerald-500" /> Passed
                       </span>
                       
-                      {/* Link out to the submitted file if the backend saves it */}
                       {task.file_url ? (
                         <a 
                           href={task.file_url} 
@@ -357,7 +358,6 @@ console.log(
         )}
       </div>
 
-      {/* IN-APP PLAYER MODAL (For Learning Resources) */}
       <AnimatePresence>
         {selectedResource && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm p-4 md:p-8">

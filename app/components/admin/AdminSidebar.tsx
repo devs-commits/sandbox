@@ -1,4 +1,5 @@
 "use client";
+
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import wdcNewLogo from "../../../public/wdc_labs_logo.png";
@@ -12,7 +13,8 @@ import {
   Landmark, 
   ListChecks, 
   Flag,
-  CreditCard // 🔥 Added CreditCard for Payments
+  CreditCard,
+  ShieldAlert // 🔥 Added ShieldAlert for the Task Generator
 } from "lucide-react"; 
 import { cn } from "../../../lib/utils";
 import { useState } from "react";
@@ -22,11 +24,12 @@ const navItems = [
   { label: "Admin Dashboard", path: "/admin/dashboard", icon: LayoutGrid },
   { label: "User Base", path: "/admin/user-base", icon: Wallet },
   { label: "Bounty Management", path: "/admin/bounty", icon: Wallet },
+  { label: "Task Generator", path: "/admin/task-generator", icon: ShieldAlert }, // 🔥 NEW: Task Override/Generator Route
   { label: "Withdrawal Requests", path: "/admin/withdrawals", icon: Landmark }, 
   { label: "Task Activity", path: "/admin/task-activity", icon: ListChecks },
   { label: "Revenue", path: "/admin/revenue", icon: Target },
   { label: "Support & Bugs", path: "/admin/issues", icon: Flag }, 
-  { label: "Payments & Subs", path: "/admin/payments", icon: CreditCard }, // 🔥 NEW: Payments Dashboard Route
+  { label: "Payments & Subs", path: "/admin/payments", icon: CreditCard }, 
 ];
 
 export default function AdminSidebar() {
