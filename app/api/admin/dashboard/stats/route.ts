@@ -108,6 +108,13 @@ const getDateWindow = (searchParams: URLSearchParams) => {
 
 const normalize = (value?: string | null) => (value || '').trim().toLowerCase();
 
+const isTrialPlan = (plan?: string | null) => normalize(plan).startsWith('trial');
+
+const isPaidPlan = (plan?: string | null) => {
+  const normalizedPlan = normalize(plan);
+  return normalizedPlan === 'monthly' || normalizedPlan === 'quarterly';
+};
+
 const isActiveStudent = (student: StudentRow) => {
   const status = normalize(student.subscription_status);
   if (status !== 'active') return false;
@@ -122,11 +129,7 @@ const isActiveStudent = (student: StudentRow) => {
 const isPaidStudent = (student?: StudentRow | null) => {
   if (!student) return false;
 
-  const plan = normalize(student.subscription_plan);
-  const status = normalize(student.subscription_status);
-  const isPaidPlan = Boolean(plan) && plan !== 'trial' && plan !== 'free';
-
-  return isPaidPlan && (status === 'paid' || isActiveStudent(student));
+  return isPaidPlan(student.subscription_plan) && isActiveStudent(student);
 };
 
 const isWithinDateWindow = (value: string | null | undefined, dateWindow: ReturnType<typeof getDateWindow>) => {
@@ -153,8 +156,8 @@ const matchesStudentFilters = (
     filters.status === 'all' ||
     (filters.status === 'active' && isActiveStudent(student)) ||
     (filters.status === 'inactive' && !isActiveStudent(student)) ||
-    (filters.status === 'trial' && plan === 'trial') ||
-    (filters.status === 'paid' && plan !== 'trial') ||
+    (filters.status === 'trial' && isTrialPlan(plan)) ||
+    (filters.status === 'paid' && isPaidStudent(student)) ||
     status === normalize(filters.status);
 
   return matchesTrack && matchesPlan && matchesStatus;
@@ -294,6 +297,40 @@ export async function GET(request: Request) {
       console.warn('Admin stats payments query failed:', paymentError.message);
     }
 
+    const studentAuthIds = studentsInRange.map((student) => student.auth_id).filter(Boolean);
+    const studentEmails = studentsInRange.map((student) => student.email).filter(Boolean);
+    const [paidHistoryByUser, paidHistoryByEmail] = await Promise.all([
+      studentAuthIds.length
+        ? supabase
+            .from('payments')
+            .select('user_id, email, subscription_plan')
+            .in('user_id', studentAuthIds)
+            .in('payment_status', Array.from(successStatuses))
+        : Promise.resolve({ data: [], error: null }),
+      studentEmails.length
+        ? supabase
+            .from('payments')
+            .select('user_id, email, subscription_plan')
+            .in('email', studentEmails)
+            .in('payment_status', Array.from(successStatuses))
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (paidHistoryByUser.error) throw paidHistoryByUser.error;
+    if (paidHistoryByEmail.error) throw paidHistoryByEmail.error;
+
+    const paidStudentIds = new Set<string>();
+    const paidStudentEmails = new Set<string>();
+    for (const payment of [...(paidHistoryByUser.data || []), ...(paidHistoryByEmail.data || [])]) {
+      if (!isPaidPlan(payment.subscription_plan)) continue;
+      if (payment.user_id) paidStudentIds.add(String(payment.user_id));
+      if (payment.email) paidStudentEmails.add(String(payment.email).toLowerCase());
+    }
+
+    const hasEverPaid = (student: StudentRow) =>
+      paidStudentIds.has(String(student.auth_id || '')) ||
+      paidStudentEmails.has(String(student.email || '').toLowerCase());
+
     const { data: referrals, error: referralError } = await supabase
       .from('referrals')
       .select('*');
@@ -330,8 +367,11 @@ export async function GET(request: Request) {
 
     const totalRegisteredStudents = studentsInRange.length;
     const activeStudents = studentsInRange.filter(isActiveStudent).length;
-    const totalFreeTrialStudents = studentsInRange.filter((student) => normalize(student.subscription_plan) === 'trial').length;
-    const paidStudents = studentsInRange.filter((student) => normalize(student.subscription_plan) !== 'trial').length;
+    const freeTrialStudents = studentsInRange.filter(
+      (student) => isTrialPlan(student.subscription_plan) && !hasEverPaid(student),
+    );
+    const totalFreeTrialStudents = freeTrialStudents.length;
+    const paidStudents = studentsInRange.filter(isPaidStudent).length;
     const letterEligibleStudents = studentsInRange.filter((student) => Number(student.tasks_completed || 0) >= 12).length;
     const courseCompletionRate = totalRegisteredStudents
       ? Number(((letterEligibleStudents / totalRegisteredStudents) * 100).toFixed(1))
@@ -533,7 +573,7 @@ export async function GET(request: Request) {
       chartData: {
         signups: buildSeries(dateWindow, studentsInRange),
         active: buildSeries(dateWindow, studentsInRange.filter(isActiveStudent)),
-        freeTrial: buildSeries(dateWindow, studentsInRange.filter((student) => normalize(student.subscription_plan) === 'trial')),
+        freeTrial: buildSeries(dateWindow, freeTrialStudents),
         revenue: buildSeries(dateWindow, filteredPayments, 'amount'),
         completions: buildSeries(dateWindow, studentsInRange.filter((student) => Number(student.tasks_completed || 0) >= 12)),
       },

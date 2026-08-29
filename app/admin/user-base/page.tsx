@@ -189,7 +189,9 @@ const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
     hasEverPaid: Boolean(s.has_ever_paid) || isPaidPlan(s.subscription_plan),
     plan: s.subscription_plan || "N/A",
     subscriptionExpiresAt: s.subscription_expires_at || null,
-    startDate: s.start_date || s.created_at || null,
+    // The Userbase date filter/export is about when the account joined, not
+    // when a subscription was activated. created_at is the canonical join date.
+    startDate: s.created_at || s.start_date || null,
     country: s.country || "N/A",
     phone: s.phone || "",
     address: s.address || "",
@@ -396,7 +398,7 @@ export default function UserBase() {
       return `"${csvSafeValue.replace(/"/g, '""')}"`;
     };
     const rows = (filteredData as UserBaseRow[]).filter((row): row is StudentListItem => activeTab === "students" && "enrollmentStatus" in row);
-    const headers = ["Student", "Email", "Phone", "Country", "Nationality", "Date of Birth", "Occupation", "Address", "Referral Code", "Course", "Enrollment Status", "Account Status", "Last Active", "Plan", "Start Date", "Subscription Expires", "ID Verification", "Tasks Completed", "Progress", "Average Score"];
+    const headers = ["Student", "Email", "Phone", "Country", "Nationality", "Date of Birth", "Occupation", "Address", "Referral Code", "Course", "Enrollment Status", "Account Status", "Last Active", "Plan", "Joined Date", "Subscription Expires", "ID Verification", "Tasks Completed", "Progress", "Average Score"];
     const csvRows = rows.map((student) => [
       student.name,
       student.email,
@@ -615,7 +617,7 @@ export default function UserBase() {
                 <div className="rounded-lg border border-cyan-400/10 bg-white/[0.03] p-3">
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
-                      {activeTab === "students" ? "Enrollment date" : activeTab === "recruiters" ? "Created date" : "Expiry date"}
+                      {activeTab === "students" ? "Joined date" : activeTab === "recruiters" ? "Created date" : "Expiry date"}
                     </p>
                     <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap">
                       {[
