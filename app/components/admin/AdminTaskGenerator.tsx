@@ -166,7 +166,8 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
 
   const selectUser = (user: any) => {
     setVerifiedUser(user);
-    setSelectedWeek(user.current_week + 1 || 1);
+    const nextWeek = (Number(user.current_week) || 0) + 1;
+    setSelectedWeek(Math.min(Math.max(nextWeek, 1), 24));
     setSearchResults([]);
     setSearchQuery("");
     fetchUserTaskHistory(user.auth_id);

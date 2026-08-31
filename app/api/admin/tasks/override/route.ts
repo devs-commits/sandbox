@@ -34,42 +34,65 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    let { targetUserId, adminId, targetWeek, track, fullName, reason } = body;
+    const { targetUserId, targetWeek, reason } = body;
+
+    const authHeader = request.headers.get('authorization');
+    const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+    if (authError || !requestingUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: adminUser, error: adminLookupError } = await supabaseAdmin
+      .from('users')
+      .select('auth_id, role')
+      .eq('auth_id', requestingUser.id)
+      .maybeSingle();
+
+    if (adminLookupError || adminUser?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const numTargetWeek = Number(targetWeek);
+    if (!targetUserId || !Number.isInteger(numTargetWeek) || numTargetWeek < 1 || numTargetWeek > 24) {
+      return NextResponse.json({ error: 'A target student and a week from 1 to 24 are required' }, { status: 400 });
+    }
+
+    const { data: targetUser, error: targetUserError } = await supabaseAdmin
+      .from('users')
+      .select('auth_id, full_name, track, role')
+      .eq('auth_id', targetUserId)
+      .maybeSingle();
+
+    if (targetUserError || !targetUser || targetUser.role !== 'student') {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
 
     const rawIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || 'Unknown Browser';
     const location = await resolveLocation(rawIp);
 
-    if (!targetUserId || !targetWeek) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    if (!track || track.trim() === '') {
-      const { data: userData } = await supabaseAdmin
-        .from('users')
-        .select('track')
-        .eq('auth_id', targetUserId)
-        .maybeSingle();
-        
-      track = userData?.track || "general";
-    }
-
-    let safeAdminId = null;
-    if (adminId && adminId.length === 36) safeAdminId = adminId;
+    const track = targetUser.track || 'general';
+    const fullName = targetUser.full_name || 'Intern';
+    const safeAdminId = adminUser.auth_id;
 
     const { data: allTasks } = await supabaseAdmin
       .from('tasks')
       .select('id, status, completed, task_number, week, title')
       .eq('user', targetUserId);
 
-    const { data: oldProgression } = await supabaseAdmin
+    const { data: oldProgression, error: oldProgressionError } = await supabaseAdmin
       .from('user_progression')
       .select('*')
       .eq('user_id', targetUserId)
-      .single();
+      .maybeSingle();
 
-    const numTargetWeek = Number(targetWeek);
-    
+    if (oldProgressionError) throw oldProgressionError;
+
     const targetWeekTasks = allTasks?.filter(t => {
       const matchNum = Number(t.task_number) === numTargetWeek || Number(t.week) === numTargetWeek;
       const matchTitle = t.title && t.title.toLowerCase().includes(`week ${numTargetWeek}`);
@@ -89,10 +112,11 @@ export async function POST(request: Request) {
         .in('id', blockingTasks.map(t => t.id));
     }
 
-    await supabaseAdmin
+    const { error: preparingProgressionError } = await supabaseAdmin
       .from('user_progression')
-      .update({ week_status: 'pending', current_week: numTargetWeek })
-      .eq('user_id', targetUserId);
+      .upsert({ user_id: targetUserId, week_status: 'pending', current_week: numTargetWeek }, { onConflict: 'user_id' });
+
+    if (preparingProgressionError) throw preparingProgressionError;
 
     // 4. CALL THE AI ENGINE (With synchronized unified Friday deadline)
     const now = new Date();
@@ -107,7 +131,7 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: targetUserId, 
-        user_name: fullName || "Intern", 
+        user_name: fullName,
         track: track, 
         task_number: numTargetWeek,
         deadline_display: formattedDeadline,
@@ -130,6 +154,8 @@ export async function POST(request: Request) {
         await supabaseAdmin.from('user_progression').update({ 
           current_week: oldProgression.current_week, week_status: oldProgression.week_status 
         }).eq('user_id', targetUserId);
+      } else {
+        await supabaseAdmin.from('user_progression').delete().eq('user_id', targetUserId);
       }
 
       await supabaseAdmin.from('task_generation_logs').insert({
@@ -152,10 +178,22 @@ export async function POST(request: Request) {
         .in('id', targetWeekTaskIds);
     }
 
-    await supabaseAdmin
+    const { error: finalProgressionError } = await supabaseAdmin
       .from('user_progression')
-      .update({ week_status: 'in_progress', current_week: numTargetWeek })
-      .eq('user_id', targetUserId);
+      .upsert({ user_id: targetUserId, week_status: 'in_progress', current_week: numTargetWeek }, { onConflict: 'user_id' });
+
+    if (finalProgressionError) throw finalProgressionError;
+
+    // The Office treats this column as the source of truth for first-task
+    // behaviour. Only a successful Week 1 admin assignment changes it.
+    if (numTargetWeek === 1) {
+      const { error: firstTaskStateError } = await supabaseAdmin
+        .from('users')
+        .update({ is_first_task: false })
+        .eq('auth_id', targetUserId);
+
+      if (firstTaskStateError) throw firstTaskStateError;
+    }
 
     await supabaseAdmin.from('task_generation_logs').insert({
       target_user_id: targetUserId, admin_id: safeAdminId, trigger_source: 'admin_override', assigned_week: numTargetWeek, status: 'SUCCESS',
