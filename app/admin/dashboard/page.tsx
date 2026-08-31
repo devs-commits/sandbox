@@ -542,7 +542,7 @@ export default function AdminDashboard() {
             <StatCard
               title="Paid Students"
               value={stats.paidStudents.toLocaleString()}
-              helper="Students on paid plans in the selected scope."
+              helper="Students with an active monthly or quarterly subscription."
               icon={UserCheck}
               data={stats.chartData.active}
               theme="emerald"
@@ -550,7 +550,7 @@ export default function AdminDashboard() {
             <StatCard
               title="Free Trial Students"
               value={stats.totalFreeTrialStudents.toLocaleString()}
-              helper={`${stats.paidStudents.toLocaleString()} students are currently on paid plans.`}
+              helper="Students on a trial who have never upgraded to a paid plan."
               icon={Gift}
               data={stats.chartData.freeTrial}
               theme="violet"
