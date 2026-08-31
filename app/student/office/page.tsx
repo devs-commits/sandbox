@@ -5,11 +5,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { OfficeProvider, useOffice } from '@/app/contexts/OfficeContext';
 import { LobbyScreen } from '@/app/components/students/office/LobbyScreen';
 import { OfficeDashboard } from '@/app/components/students/office/OfficeDashboard';
-import { CVUploadUI } from '@/app/components/students/office/CVUploadUI';
+import { CVUploadModal } from '@/app/components/students/office/modals/CvUploadModal';
 import { useAuth } from '@/app/contexts/AuthContexts';
 import { supabase } from '@/lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 function OfficeContent() {
@@ -129,10 +128,10 @@ function OfficeContent() {
           setHasCv(true);
           setShowCvWidget(false);
         } else {
+          // 🔥 STRICT ENFORCEMENT: No sessionStorage skip allowed. 
+          // If they don't have a CV/Bio, they MUST see the modal.
           setHasCv(false);
-          if (!sessionStorage.getItem(`dismissed_cv_${user.id}`)) {
-            setShowCvWidget(true);
-          }
+          setShowCvWidget(true);
         }
       } catch (err) {
         console.error("Error checking career profile status:", err);
@@ -321,59 +320,15 @@ function OfficeContent() {
     <>
       <OfficeDashboard />
 
-      <AnimatePresence>
-        {!hasCv && showCvWidget && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-[#0f172a] border border-emerald-500/20 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden relative flex flex-col"
-            >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-              
-              <div className="p-5 md:p-6 border-b border-white/5 bg-white/[0.02] flex gap-4 items-start relative z-10">
-                <div className="w-12 h-12 shrink-0 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
-                  <Sparkles className="text-emerald-400 w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white tracking-tight">AI Career Personalisation</h3>
-                  <p className="text-xs text-white/50 mt-1 leading-relaxed pr-2">
-                    Upload your CV or a short bio. The AI uses this to tailor your daily tasks and feedback exactly to your skill level.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-5 md:p-6 relative z-10 max-h-[60vh] overflow-y-auto custom-scrollbar [&_textarea]:min-h-[100px]">
-                <CVUploadUI 
-                  userId={user?.id || ''} 
-                  onSuccess={() => {
-                    setHasCv(true);
-                    setShowCvWidget(false);
-                  }} 
-                />
-              </div>
-
-              <div className="p-3 border-t border-white/5 bg-black/20 flex justify-center relative z-10">
-                <button 
-                  onClick={() => {
-                    setShowCvWidget(false);
-                    sessionStorage.setItem(`dismissed_cv_${user?.id}`, 'true');
-                  }}
-                  className="text-xs font-medium text-white/40 hover:text-white transition-colors py-2 px-4 rounded-lg hover:bg-white/5"
-                >
-                  Skip for now, remind me next time
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* 🔥 The Strict Modal Enforcement */}
+      <CVUploadModal 
+        isOpen={!hasCv && showCvWidget} 
+        userId={user?.id || ''} 
+        onSuccess={() => {
+          setHasCv(true);
+          setShowCvWidget(false);
+        }}
+      />
     </>
   );
 }

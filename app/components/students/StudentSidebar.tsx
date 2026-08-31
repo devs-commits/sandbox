@@ -84,21 +84,29 @@ const GAMIFICATION_TRACKS = {
   },
 };
 
+// 🔥 Helper to resolve track exactly like the Header
+const resolveTrackKey = (raw?: string | null): "data_analytics" | "digital_marketing" | "cyber_security" => {
+  const track = (raw || "").trim().toLowerCase();
+  if (track.includes("market") || track.includes("digital")) return "digital_marketing";
+  if (track.includes("cyber") || track.includes("security")) return "cyber_security";
+  return "data_analytics";
+};
+
 export const StudentSidebar = () => {
   const pathname = usePathname();
   const { user } = useAuth();
   
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showCareerModal, setShowCareerModal] = useState(false);
+  
   const [completedTasksCount, setCompletedTasksCount] = useState(0);
   const [isOfficeLocked, setIsOfficeLocked] = useState(false);
-  
   const [currentWeek, setCurrentWeek] = useState<number>(1);
-  const [currentIdentity, setCurrentIdentity] = useState<string>("Intern");
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   
-  // 🔥 Default state strictly matches dictionary keys now
-  const [currentTrack, setCurrentTrack] = useState<"data_analytics" | "digital_marketing" | "cyber_security">("data_analytics");
+  // 🔥 Only store raw strings in state to avoid React race conditions
+  const [dbTrack, setDbTrack] = useState<string | null>(null);
+  const [dbIdentity, setDbIdentity] = useState<string | null>(null);
   
   const lastFetchedId = useRef<string | null>(null);
 
@@ -140,32 +148,33 @@ export const StudentSidebar = () => {
           .select("badge_name")
           .eq("user_id", currentId);
 
+        const { data: taskRes } = await supabase
+          .from("tasks")
+          .select("task_track")
+          .eq("user", currentId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
         if (!isMounted) return;
 
         if (badgeRes) setEarnedBadges(badgeRes.map(b => b.badge_name));
         
+        setIsOfficeLocked(false);
+        setCompletedTasksCount(userRes?.tasks_completed || 0);
+
+        // Save raw data directly to state without evaluating it yet
+        if (userRes?.track || taskRes?.task_track) {
+          setDbTrack(userRes?.track || taskRes?.task_track || null);
+        }
+        
         if (progRes) {
-           setCurrentWeek(progRes.current_week || 1);
-           setCurrentIdentity(progRes.current_identity || "Intern");
+          setCurrentWeek(progRes.current_week || 1);
+          setDbIdentity(progRes.current_identity || null);
         }
 
-        if (userRes) {
-          setIsOfficeLocked(false);
-          setCompletedTasksCount(userRes.tasks_completed || 0);
-
-          const rawTrack = (userRes.track || "").trim().toLowerCase();
-
-          // 🔥 Strict Track Matching using dictionary keys
-          if (rawTrack.includes("market") || rawTrack.includes("digital")) {
-            setCurrentTrack("digital_marketing");
-          } else if (rawTrack.includes("cyber") || rawTrack.includes("security")) {
-            setCurrentTrack("cyber_security");
-          } else {
-            setCurrentTrack("data_analytics");
-          }
-        }
       } catch (err) {
-        console.error("Sidebar: Critical failure connecting to DB:", err);
+        console.error("Sidebar DB Fetch Error:", err);
       }
     };
 
@@ -186,12 +195,21 @@ export const StudentSidebar = () => {
       supabase.removeChannel(userChannel);
       supabase.removeChannel(badgeChannel);
     };
-  }, [user?.id]);
+  }, [user]);
 
-  const currentTrackData = GAMIFICATION_TRACKS[currentTrack] || GAMIFICATION_TRACKS["data_analytics"];
+  // 🔥 DERIVED STATE: Calculate these on the fly during render (Just like StudentHeader)
+  const activeTrackRaw = dbTrack || (user as any)?.track || (user as any)?.user_metadata?.track;
+  const finalTrackKey = resolveTrackKey(activeTrackRaw);
+  
+  const currentTrackData = GAMIFICATION_TRACKS[finalTrackKey];
+  const CurrentTrackIcon = currentTrackData.icon || Trophy;
   const progressPercentage = Math.min((currentWeek / 24) * 100, 100);
 
-  const CurrentTrackIcon = currentTrackData.icon || Trophy;
+  // Derive dynamic identity if the DB says "Intern" or is null
+  let displayIdentity = dbIdentity || "Intern";
+  if (displayIdentity === "Intern") {
+    displayIdentity = currentTrackData.progression[0].title;
+  }
 
   const renderNavContent = () => (
     <>
@@ -268,7 +286,7 @@ export const StudentSidebar = () => {
                   <CurrentTrackIcon size={20} className="text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-base font-bold text-white">{currentIdentity}</p>
+                  <p className="text-base font-bold text-white">{displayIdentity}</p>
                   <p className="text-xs text-slate-400 mt-1">Week {currentWeek} of 24</p>
                 </div>
               </div>
@@ -318,9 +336,9 @@ export const StudentSidebar = () => {
         onClose={() => setShowCareerModal(false)}
         roadmap={currentTrackData.progression.map((stage) => ({ week: stage.minWeek, title: stage.title }))}
         currentWeek={currentWeek}
-        currentIdentity={currentIdentity}
+        currentIdentity={displayIdentity}
         unlockedBadges={earnedBadges.map((badge) => ({ badge_name: badge }))}
-        activeTrackKey={currentTrack} // Passed cleanly as digital_marketing
+        activeTrackKey={finalTrackKey} 
       />
     </>
   );

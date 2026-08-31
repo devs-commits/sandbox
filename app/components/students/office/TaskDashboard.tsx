@@ -59,7 +59,7 @@ const getUrgencyDisplay = (task: any) => {
     const daysLeft = Math.abs(diffDays);
     if (daysLeft === 0) return <span className="text-yellow-400 font-bold bg-yellow-500/20 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={12}/> Due Today!</span>;
     if (daysLeft <= 2) return <span className="text-yellow-400/80 font-medium bg-yellow-500/10 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={12}/> Due in {daysLeft} days</span>;
-    return <span className="text-cyan-400/80 font-medium bg-cyan-500/10 px-2 py-0.5 rounded-md flex items-center gap-1"><Clock size={12}/> Due this Friday</span>;
+    return <span className="text-cyan-400/80 font-medium bg-cyan-500/10 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={12}/> Due this Friday</span>;
   }
 };
 
@@ -207,7 +207,6 @@ export function TaskDashboard() {
     }
   };
 
-  // 🔥 Only show ACTIVE regular tasks (hides archived tasks and completed past tasks)
   const sortedRegularTasks = [...tasks]
     .filter(t => 
       t.difficulty !== 'Bounty' && 
@@ -220,7 +219,20 @@ export function TaskDashboard() {
       const weekB = (b as any).week || (b as any).task_number || 0;
       return weekB - weekA; 
     });
+
   const sortedBounties = [...tasks].filter(t => t.difficulty === 'Bounty');
+
+  // Clean description helper to scrub AI date placeholders
+  const getCleanDescription = (task: Task) => {
+    const formattedDate = new Date(task.created_at || Date.now()).toLocaleDateString('en-GB', { 
+      day: 'numeric', month: 'long', year: 'numeric' 
+    });
+    return (task.description || '')
+      .replace(/\[Current Date\]/gi, formattedDate)
+      .replace(/\[Insert Current Date\]/gi, formattedDate)
+      .replace(/\[Insert Date\]/gi, formattedDate)
+      .replace(/\[Date\]/gi, formattedDate);
+  };
 
   if (weekStatus === 'passed_waiting') {
     const score = performanceMetrics?.technicalAccuracy || 92;
@@ -319,6 +331,7 @@ export function TaskDashboard() {
                 <div className="grid gap-4">
                   {sortedRegularTasks.map((task, index) => {
                     const isCompleted = task.status === 'approved' || (task.status as string) === 'passed';
+                    const cleanDesc = getCleanDescription(task);
 
                     return (
                       <motion.div
@@ -346,7 +359,7 @@ export function TaskDashboard() {
                         </h3>
 
                         <div className="text-sm text-muted-foreground line-clamp-2 mb-4 [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:text-primary [&_a]:text-primary">
-                          <ReactMarkdown>{task.description || ''}</ReactMarkdown>
+                          <ReactMarkdown>{cleanDesc}</ReactMarkdown>
                         </div>
 
                         {task.resources && task.resources.length > 0 && (
@@ -408,29 +421,32 @@ export function TaskDashboard() {
                   <Target size={16} /> Accepted Bounties
                 </h3>
                 <div className="grid gap-4">
-                  {sortedBounties.map((task, index) => (
-                    <motion.div key={task.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
-                      className={`bg-yellow-500/5 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-yellow-500/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-yellow-500 ring-2 ring-yellow-500/20' : 'border-yellow-500/20'}`}
-                      onClick={() => handleTaskClick(task)}>
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="text-xs font-medium bg-yellow-500/20 text-yellow-600 px-3 py-1 rounded-full">BOUNTY</span>
-                        <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
-                          {getStatusIcon(task.status)} {getStatusLabel(task.status)}
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
-                      <div className="text-sm text-muted-foreground line-clamp-2 mb-4"><ReactMarkdown>{task.description || ''}</ReactMarkdown></div>
-                      
-                      <div className="flex justify-end pt-2 border-t border-yellow-500/20 mt-2">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setReportIssueTask(task); }}
-                          className="text-muted-foreground hover:text-red-400 flex items-center gap-1 transition-colors text-xs font-medium"
-                        >
-                          <Flag size={12} /> Report
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
+                  {sortedBounties.map((task, index) => {
+                    const cleanDesc = getCleanDescription(task);
+                    return (
+                      <motion.div key={task.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
+                        className={`bg-yellow-500/5 backdrop-blur-sm border rounded-2xl p-5 cursor-pointer transition-all hover:border-yellow-500/50 hover:shadow-lg ${currentTask?.id === task.id ? 'border-yellow-500 ring-2 ring-yellow-500/20' : 'border-yellow-500/20'}`}
+                        onClick={() => handleTaskClick(task)}>
+                        <div className="flex items-start justify-between mb-3">
+                          <span className="text-xs font-medium bg-yellow-500/20 text-yellow-600 px-3 py-1 rounded-full">BOUNTY</span>
+                          <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1.5 border ${getStatusColor(task.status)}`}>
+                            {getStatusIcon(task.status)} {getStatusLabel(task.status)}
+                          </span>
+                        </div>
+                        <h3 className="font-semibold text-foreground mb-2">{task.title}</h3>
+                        <div className="text-sm text-muted-foreground line-clamp-2 mb-4"><ReactMarkdown>{cleanDesc}</ReactMarkdown></div>
+                        
+                        <div className="flex justify-end pt-2 border-t border-yellow-500/20 mt-2">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setReportIssueTask(task); }}
+                            className="text-muted-foreground hover:text-red-400 flex items-center gap-1 transition-colors text-xs font-medium"
+                          >
+                            <Flag size={12} /> Report
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -462,7 +478,7 @@ export function TaskDashboard() {
                     </div>
                   </div>
                   <h3 className="font-semibold text-foreground text-lg mb-2">{(previewTask as any).week ? `Week ${(previewTask as any).week}: ` : ''}{previewTask.title}</h3>
-                  <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{(previewTask.description || '').replace(/[#*\`_~\[\]]/g, '').substring(0, 150)}...</p>
+                  <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{getCleanDescription(previewTask).replace(/[#*\`_~\[\]]/g, '').substring(0, 150)}...</p>
                 </div>
               )}
             </div>

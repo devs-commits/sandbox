@@ -146,6 +146,18 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
   const videoResources = task.resources?.filter(r => getYouTubeEmbedUrl(r.url)) || [];
   const articleResources = task.resources?.filter(r => !getYouTubeEmbedUrl(r.url)) || [];
 
+  // 1. Generate a clean, readable date based on when the task was actually created
+  const formattedDate = new Date(task.created_at || Date.now()).toLocaleDateString('en-GB', { 
+    day: 'numeric', month: 'long', year: 'numeric' 
+  });
+
+  // 2. Bruteforce replace all common AI template placeholders with the real date
+  const cleanDescription = (task.description || '')
+    .replace(/\[Current Date\]/gi, formattedDate)
+    .replace(/\[Insert Current Date\]/gi, formattedDate)
+    .replace(/\[Insert Date\]/gi, formattedDate)
+    .replace(/\[Date\]/gi, formattedDate);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -183,23 +195,22 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
               {/* Meta Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
-  <div className="flex items-center gap-2 text-muted-foreground mb-2">
-    <Clock size={14} />
-    <span className="text-xs font-medium uppercase tracking-wider">
-      Deadline
-    </span>
-  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                    <Clock size={14} />
+                    <span className="text-xs font-medium uppercase tracking-wider">
+                      Deadline
+                    </span>
+                  </div>
 
-  <div className="text-sm font-bold">
-    {getUrgencyDisplay(task)}
-  </div>
-</div>
+                  <div className="text-sm font-bold">
+                    {getUrgencyDisplay(task)}
+                  </div>
+                </div>
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <FileText size={14} />
                     <span className="text-xs font-medium uppercase tracking-wider">Resources</span>
                   </div>
-                  {/* FIX: Count the actual resources returned by the AI Engine */}
                   <p className="text-sm font-bold text-foreground">{task.resources?.length || 0} attached files</p>
                 </div>
               </div>
@@ -208,7 +219,8 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
               <div>
                 <h3 className="text-sm font-bold text-foreground mb-3 uppercase tracking-wider border-b border-border/50 pb-2">Task Brief</h3>
                 <div className="text-sm text-foreground leading-relaxed [&>*]:text-muted-foreground [&_strong]:text-foreground [&_code]:bg-primary/10 [&_code]:text-primary [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_a]:text-primary [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-muted-foreground space-y-4">
-                  <ReactMarkdown>{task.description}</ReactMarkdown>
+                  {/* 3. Render the cleaned description instead of raw task.description */}
+                  <ReactMarkdown>{cleanDescription}</ReactMarkdown>
                 </div>
               </div>
 
@@ -302,7 +314,6 @@ export function TaskDetailModal({ isOpen, onClose, task }: TaskDetailModalProps)
                           <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
                             <Download className="text-primary" size={18} />
                           </div>
-                          {/* FIX: Cast to any to bypass strict TypeScript checking for .name */}
                           <span className="text-sm font-medium text-foreground">
                             {typeof file === 'string' ? file : (file as any).name || 'Document'}
                           </span>

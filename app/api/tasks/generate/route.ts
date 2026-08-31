@@ -1,170 +1,124 @@
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 export const maxDuration = 60;
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// Helper function to resolve IP address to a physical location
-async function resolveLocation(ip: string): Promise<string> {
-  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
-    return 'Local Development (Lagos, NG)';
-  }
-
-  try {
-    // Clean up proxy IP chains if multiple IPs are passed in x-forwarded-for
-    const cleanIp = ip.split(',')[0].trim();
-    const res = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,city,regionName,country`);
-    const data = await res.json();
-
-    if (data && data.status === 'success') {
-      return `${data.city}, ${data.regionName}, ${data.country}`;
-    }
-  } catch (err) {
-    console.error('Location lookup failed:', err);
-  }
-
-  return 'Unknown Location';
-}
+// 🔥 1. IN-MEMORY LOCK: Instantly blocks React Strict Mode double-fires & rapid clicks
+const activeGenerationLocks = new Set();
 
 export async function POST(request: Request) {
+let requestUserId: string | null = null;
+
   try {
     const body = await request.json();
-    const { targetUserId, adminId, targetWeek, track, fullName, reason } = body;
+    let { 
+      user_id, user_name, track, deadline_display, experience_level, 
+      difficulty, task_number, user_city, include_ethical_trap, model, include_video_brief 
+    } = body;
 
-    const rawIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
-    const userAgent = request.headers.get('user-agent') || 'Unknown Browser';
+    requestUserId = user_id;
 
-    // Resolve IP to a human-readable city/state/country
-    const location = await resolveLocation(rawIp);
-
-    if (!targetUserId || !track || !targetWeek) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!user_id) {
+      return NextResponse.json({ success: false, error: 'Missing required fields: user_id' }, { status: 400 });
     }
 
-    let safeAdminId = null;
-    if (adminId && adminId.length === 36) safeAdminId = adminId;
+    // CHECK MEMORY LOCK
+    if (activeGenerationLocks.has(user_id)) {
+      return NextResponse.json({ success: false, error: 'Task generation is already processing.' }, { status: 429 });
+    }
+    activeGenerationLocks.add(user_id);
 
-    // 1. STASH STATE: Fetch ALL tasks including TITLE for aggressive duplicate hunting
-    const { data: allTasks } = await supabaseAdmin
+    const dbClient = supabaseAdmin || supabase;
+
+    // 🔥 2. DB COOLDOWN LOCK: 15-second mandatory wait between task generations
+    const { data: recentTasks } = await dbClient
       .from('tasks')
-      .select('id, status, completed, task_number, week, title')
-      .eq('user', targetUserId);
+      .select('created_at')
+      .eq('user', user_id)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    const { data: oldProgression } = await supabaseAdmin
-      .from('user_progression')
-      .select('*')
-      .eq('user_id', targetUserId)
-      .single();
-
-    const numTargetWeek = Number(targetWeek);
-    
-    // Hyper-aggressive duplicate catching
-    const targetWeekTasks = allTasks?.filter(t => {
-      const matchNum = Number(t.task_number) === numTargetWeek || Number(t.week) === numTargetWeek;
-      const matchTitle = t.title && t.title.toLowerCase().includes(`week ${numTargetWeek}`);
-      return matchNum || matchTitle;
-    }) || [];
-    
-    const targetWeekTaskIds = targetWeekTasks.map(t => t.id);
-
-    const blockingTasks = allTasks?.filter(t => 
-      t.completed === false || !['approved', 'passed'].includes(t.status)
-    ) || [];
-
-    // 2. PHANTOM APPROVAL
-    if (blockingTasks.length > 0) {
-      await supabaseAdmin
-        .from('tasks')
-        .update({ status: 'approved', completed: true }) 
-        .in('id', blockingTasks.map(t => t.id));
+    if (recentTasks && recentTasks.length > 0) {
+      const timeSinceLastTask = new Date().getTime() - new Date(recentTasks[0].created_at).getTime();
+      if (timeSinceLastTask < 15000) { 
+        return NextResponse.json({ success: false, error: 'Please wait a few seconds before generating another task.' }, { status: 429 });
+      }
     }
 
-    // 3. TIME-LOCK BYPASS
-    await supabaseAdmin
-      .from('user_progression')
-      .update({ week_status: 'pending', current_week: numTargetWeek })
-      .eq('user_id', targetUserId);
+    // Intelligent Track Fallback
+    if (!track || track.trim() === '') {
+      const { data: userData } = await dbClient.from('users').select('track').eq('auth_id', user_id).maybeSingle();
+      track = userData?.track || "general";
+    }
 
-    // 4. CALL THE AI ENGINE
-    const AI_BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com';
-    const pythonResponse = await fetch(`${AI_BACKEND_URL}/generate-tasks`, {
+    // Correctly Calculate Task Number
+    const { count, error: countError } = await dbClient.from('tasks').select('*', { count: 'exact', head: true }).eq('user', user_id);
+    if (countError) console.error("Count Error:", countError);
+    const calculatedTaskNumber = (count || 0) + 1;
+
+    // Existing Active Task Lock
+    const { data: existingActiveTask } = await dbClient
+      .from('tasks')
+      .select('id, status, task_number')
+      .eq('user', user_id)
+      .eq('task_number', calculatedTaskNumber)
+      .maybeSingle();
+
+    if (existingActiveTask) {
+      return NextResponse.json({ success: false, error: `Access Denied: Active task already exists.` }, { status: 403 });
+    }
+
+    // Insert generating placeholder
+    await dbClient.from('tasks').insert({
+      user: user_id,
+      task_number: calculatedTaskNumber,
+      status: 'generating',
+      title: 'Generating Assignment...',
+      task_track: track
+    });
+
+    // Calculate Unified Friday Deadline
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const daysUntilFriday = (5 - dayOfWeek + 7) % 7;
+    const fridayDate = new Date(now);
+    fridayDate.setDate(now.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
+    const formattedDeadline = `Friday, ${fridayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} at 11:59 PM`;
+
+    // Fetch Previous Performance
+    let previousPerformance = "N/A";
+    const { data: lastTask } = await dbClient.from('tasks').select('id').eq('user', user_id).eq('completed', true).order('id', { ascending: false }).limit(1).maybeSingle(); 
+    if (lastTask) {
+      const { data: lastMsg } = await dbClient.from('chat_history').select('content').eq('task_id', lastTask.id).eq('role', 'assistant').order('created_at', { ascending: false }).limit(1).maybeSingle(); 
+      if (lastMsg) previousPerformance = lastMsg.content;
+    }
+
+    const BACKEND_URL = process.env.NEXT_PUBLIC_AI_BACKEND_URL || 'https://wdc-labs-ai.onrender.com';
+
+    // Trigger Python Background Queue
+    const backendResponse = await fetch(`${BACKEND_URL}/generate-tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        user_id: targetUserId, user_name: fullName || "Intern", track: track, task_number: numTargetWeek, is_admin_override: true 
+        ...body, track: track, user_name: user_name || "Intern", task_number: calculatedTaskNumber,
+        deadline_display: formattedDeadline, previous_performance: previousPerformance
       })
     });
 
-    const responseText = await pythonResponse.text();
-    let parsedData: any = {};
-    try { parsedData = JSON.parse(responseText); } catch (e) {}
-
-    // 5. ROLLBACK ON FAILURE
-    if (!pythonResponse.ok || parsedData.success === false || parsedData.error) {
-      const errorMessage = parsedData.detail || parsedData.error || responseText || "AI Engine failed to generate task";
-      
-      for (const task of blockingTasks) {
-        await supabaseAdmin.from('tasks').update({ status: task.status, completed: task.completed }).eq('id', task.id);
-      }
-      
-      if (oldProgression) {
-        await supabaseAdmin.from('user_progression').update({ 
-          current_week: oldProgression.current_week, week_status: oldProgression.week_status 
-        }).eq('user_id', targetUserId);
-      }
-
-      await supabaseAdmin.from('task_generation_logs').insert({
-        target_user_id: targetUserId, admin_id: safeAdminId, trigger_source: 'admin_override', assigned_week: numTargetWeek, status: 'FAILED',
-        details: `Backend rejected: ${errorMessage} | Reason: ${reason} | Location: ${location} | Browser: ${userAgent}`
-      });
-
-      return NextResponse.json({ success: false, error: errorMessage }, { status: pythonResponse.ok ? 400 : pythonResponse.status });
+    if (!backendResponse.ok) {
+      await dbClient.from('tasks').delete().eq('user', user_id).eq('status', 'generating');
+      return NextResponse.json({ success: false, error: "The system couldn't reach the queue." }, { status: backendResponse.status });
     }
 
-    // 6. SUCCESS: SECURE THE DESK
-    const tasksToRestore = blockingTasks.filter(bt => !targetWeekTaskIds.includes(bt.id));
-    for (const task of tasksToRestore) {
-      await supabaseAdmin.from('tasks').update({ status: task.status, completed: task.completed }).eq('id', task.id);
-    }
-
-    if (targetWeekTaskIds.length > 0) {
-      await supabaseAdmin
-        .from('tasks')
-        .update({ status: 'archived_by_admin', completed: true })
-        .in('id', targetWeekTaskIds);
-    }
-
-    await supabaseAdmin
-      .from('user_progression')
-      .update({ week_status: 'in_progress', current_week: numTargetWeek })
-      .eq('user_id', targetUserId);
-
-    // Save with readable Location tag
-    await supabaseAdmin.from('task_generation_logs').insert({
-      target_user_id: targetUserId, admin_id: safeAdminId, trigger_source: 'admin_override', assigned_week: numTargetWeek, status: 'SUCCESS',
-      details: `Admin Override: ${reason} | Location: ${location} | Browser: ${userAgent}`
-    });
-
-    // 7. CLEANUP DATE PLACEHOLDERS
-    try {
-      const { data: latestTask } = await supabaseAdmin.from('tasks').select('id, brief_content').eq('user', targetUserId).order('created_at', { ascending: false }).limit(1).single();
-      if (latestTask && latestTask.brief_content) {
-        const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        const deadlineDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        const fixedContent = latestTask.brief_content.replace(/\[Date of Assignment\]/gi, currentDate).replace(/\[Deadline Date & Time\]/gi, `${deadlineDate} at 11:59 PM`).replace(/\[Insert Date\]/gi, currentDate);
-        if (fixedContent !== latestTask.brief_content) {
-          await supabaseAdmin.from('tasks').update({ brief_content: fixedContent }).eq('id', latestTask.id);
-        }
-      }
-    } catch (cleanupError) {}
-
-    return NextResponse.json({ success: true, message: `Week ${numTargetWeek} assigned successfully.` });
+    return NextResponse.json({ success: true, message: "Task generation queued successfully." });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
+  } finally {
+    // 🔥 ALWAYS release the memory lock after 10 seconds to ensure the user isn't permanently locked out if a crash occurs
+    if (requestUserId) {
+      setTimeout(() => activeGenerationLocks.delete(requestUserId), 10000);
+    }
   }
 }

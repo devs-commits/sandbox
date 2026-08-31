@@ -59,18 +59,21 @@ export default function CareerJourneyModal({
   const isStandardUnlocked = currentWeek >= 12;
   const isVisaUnlocked = currentWeek >= 24;
 
-  // Track Logic - 🔥 Strongly resolve the track key
   const safeTrackKey = activeTrackKey as keyof typeof TRACK_BADGES;
-  const trackBadges = TRACK_BADGES[safeTrackKey] || TRACK_BADGES.data_analytics; // Safe fallback
+  const trackBadges = TRACK_BADGES[safeTrackKey] || TRACK_BADGES.data_analytics; 
 
-  // Progression Logic
-  const currentIndex = roadmap.findIndex(r => r.title === currentIdentity);
-  const nextStage = currentIndex !== -1 && currentIndex < roadmap.length - 1 ? roadmap[currentIndex + 1] : null;
+  // 🔥 Foolproof Progression Logic using currentWeek instead of string matching
+  let currentIndex = roadmap.findIndex((r, idx) => {
+    const nextWeek = roadmap[idx + 1]?.week || 999;
+    return currentWeek >= r.week && currentWeek < nextWeek;
+  });
+  if (currentIndex === -1) currentIndex = 0;
+
+  const nextStage = currentIndex < roadmap.length - 1 ? roadmap[currentIndex + 1] : null;
   const nextLevelTitle = nextStage ? nextStage.title : "Mastery Achieved";
   const tasksRequired = nextStage ? nextStage.week - 1 : 24; 
   const progressPercent = Math.min(100, Math.round((currentWeek / tasksRequired) * 100));
 
-  // Determine Title based on Track
   const trackDisplayTitle = 
     safeTrackKey === 'digital_marketing' ? 'Digital Marketing' :
     safeTrackKey === 'cyber_security' ? 'Cyber Security' : 'Data Analytics';
@@ -94,7 +97,6 @@ export default function CareerJourneyModal({
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="relative z-[1000000] w-full max-w-6xl max-h-[90vh] flex flex-col rounded-[2rem] border border-slate-700/60 bg-[#0B1120] shadow-2xl overflow-hidden"
           >
-            {/* HEADER */}
             <div className="shrink-0 z-20 border-b border-slate-800/80 bg-[#0B1120] px-6 py-5 sm:px-8 sm:py-6 flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
@@ -109,14 +111,10 @@ export default function CareerJourneyModal({
               </button>
             </div>
 
-            {/* SCROLLABLE BODY */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-8 custom-scrollbar">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 
-                {/* LEFT SIDE: PROGRESSION & ROADMAP */}
                 <div className="lg:col-span-5 flex flex-col gap-10">
-                  
-                  {/* CLEAN CAREER PROGRESSION UI */}
                   <div className="bg-slate-900/60 border border-slate-700/80 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-6">
                       <Milestone className="w-5 h-5 text-cyan-400" />
@@ -124,18 +122,15 @@ export default function CareerJourneyModal({
                     </div>
 
                     <div className="flex items-center justify-between relative mb-8">
-                      {/* Connecting Line */}
                       <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-800 -translate-y-1/2 rounded-full overflow-hidden">
                         <div className="h-full bg-cyan-400 transition-all duration-1000" style={{ width: `${progressPercent}%` }} />
                       </div>
 
-                      {/* Current Level */}
                       <div className="relative z-10 flex flex-col items-center bg-[#0B1120] p-1.5 rounded-xl border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]">
                         <span className="text-[10px] text-cyan-400 font-bold uppercase mb-0.5">Current</span>
                         <span className="text-xs font-black text-white px-2 py-1 bg-slate-800 rounded-lg whitespace-nowrap">{currentIdentity}</span>
                       </div>
 
-                      {/* Next Level */}
                       <div className="relative z-10 flex flex-col items-center bg-[#0B1120] p-1.5 rounded-xl border-2 border-slate-600 opacity-80">
                         <span className="text-[10px] text-slate-400 font-bold uppercase mb-0.5 flex items-center gap-1">
                           <Lock className="w-3 h-3" /> Next Tier
@@ -153,7 +148,6 @@ export default function CareerJourneyModal({
                     </div>
                   </div>
 
-                  {/* VERTICAL ROADMAP */}
                   <div>
                     <h3 className="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-6">Complete Roadmap</h3>
                     <div className="relative pl-3">
@@ -161,7 +155,7 @@ export default function CareerJourneyModal({
                       <div className="space-y-8 relative">
                         {roadmap.map((stage, i) => {
                           const isPassed = currentWeek >= stage.week;
-                          const isCurrent = currentIdentity === stage.title;
+                          const isCurrent = i === currentIndex;
                           return (
                             <div key={i} className="relative flex gap-5 group">
                               <div className="relative z-10 flex flex-col items-center justify-start mt-1">
@@ -179,9 +173,7 @@ export default function CareerJourneyModal({
                   </div>
                 </div>
 
-                {/* RIGHT SIDE: BADGES & MILESTONES */}
                 <div className="lg:col-span-7 flex flex-col gap-10">
-                  {/* BADGES */}
                   <div>
                     <div className="flex items-center justify-between mb-5 border-b border-slate-800 pb-3">
                       <h3 className="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-bold flex items-center gap-2"><Trophy size={14} className="text-slate-400" /> Badge Collection</h3>
@@ -218,11 +210,9 @@ export default function CareerJourneyModal({
                     </div>
                   </div>
 
-                  {/* MILESTONES */}
                   <div>
                     <h3 className="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-5 border-b border-slate-800 pb-3 flex items-center gap-2"><FileText size={14} className="text-slate-400" /> Reference Documents</h3>
                     <div className="space-y-3">
-                      {/* WEEK 12 */}
                       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex sm:flex-row flex-col sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 shrink-0 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
@@ -240,7 +230,6 @@ export default function CareerJourneyModal({
                         )}
                       </div>
 
-                      {/* WEEK 24 */}
                       <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex sm:flex-row flex-col sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 shrink-0 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">

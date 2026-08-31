@@ -32,7 +32,6 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
   const [logSearchQuery, setLogSearchQuery] = useState("");
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
 
-  // Pagination state for Security Audit Logs
   const [logsPerPage, setLogsPerPage] = useState<number | 'all'>(10);
   const [currentLogPage, setCurrentLogPage] = useState<number>(1);
 
@@ -53,7 +52,6 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
     fetchLogs();
   }, []);
 
-  // Filtered logs search logic
   const filteredLogs = useMemo(() => {
     return dbLogs.filter(log => {
       const search = logSearchQuery.toLowerCase().trim();
@@ -65,12 +63,10 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
     });
   }, [dbLogs, logSearchQuery]);
 
-  // Reset page to 1 on search or limit change
   useEffect(() => {
     setCurrentLogPage(1);
   }, [logSearchQuery, logsPerPage]);
 
-  // Paginated slice of logs
   const totalLogPages = logsPerPage === 'all' ? 1 : Math.ceil(filteredLogs.length / Number(logsPerPage));
   const paginatedLogs = useMemo(() => {
     if (logsPerPage === 'all') return filteredLogs;
@@ -79,7 +75,6 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
     return filteredLogs.slice(start, start + pageSize);
   }, [filteredLogs, currentLogPage, logsPerPage]);
 
-  // Group user tasks by Week for the Task History Audit table
   const groupedTasksByWeek = useMemo(() => {
     if (!userTasks || userTasks.length === 0) return [];
 
@@ -91,12 +86,10 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
       groups[weekNum].push(task);
     });
 
-    // Sort week numbers descending (latest week first, e.g. Week 2, Week 1)
     const sortedWeeks = Object.keys(groups).map(Number).sort((a, b) => b - a);
 
     return sortedWeeks.map(weekNum => {
       const tasksInWeek = groups[weekNum];
-      // Sort tasks within week created_at descending (latest attempt first)
       const sortedInWeek = [...tasksInWeek].sort((a, b) => 
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
@@ -198,7 +191,8 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
 
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/admin/tasks/generate', {
+      // 🔥 CRITICAL FIX: Updated endpoint to match the override route we established
+      const res = await fetch('/api/admin/tasks/override', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -581,7 +575,6 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            {/* Rows Per Page Selector */}
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span>Show:</span>
               <select
@@ -596,7 +589,6 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
               </select>
             </div>
 
-            {/* Search Input */}
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
               <input 
@@ -689,7 +681,6 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
           </table>
         </div>
 
-        {/* PAGINATION FOOTER */}
         {!isLoadingLogs && filteredLogs.length > 0 && logsPerPage !== 'all' && (
           <div className="p-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 bg-[#0d1420]">
             <div>
