@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendNewIssueAdminAlert } from "@/lib/zeptomail";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,15 +31,30 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
-    // 2. Alert Trigger (You can replace this console.log with a ZeptoMail email later)
-    if (category === "Technical Bug") {
-      console.log(`🚨 CRITICAL BUG REPORTED [${track}]: ${issueDetail}`);
-      // await sendZeptoMailAlert(...)
+    // 2. Fetch User Name for the Email Template
+    const { data: userRecord } = await supabaseAdmin
+      .from('users')
+      .select('full_name')
+      .eq('auth_id', userId)
+      .maybeSingle();
+      
+    const studentName = userRecord?.full_name || "WDC Intern";
+
+    // 3. Fire ZeptoMail Admin Alerts Concurrently
+    const adminEmailsEnv = process.env.ADMIN_EMAILS || "";
+
+    if (adminEmailsEnv) {
+      const adminEmails = adminEmailsEnv.split(",").map(email => email.trim()).filter(Boolean);
+      
+      Promise.all(
+        adminEmails.map(adminEmail => 
+          sendNewIssueAdminAlert(adminEmail, studentName, category, issueDetail)
+        )
+      ).catch(() => {});
     }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Report Issue API Error:", error.message);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

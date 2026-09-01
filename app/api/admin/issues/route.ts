@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendIssueUpdateEmail } from "@/lib/zeptomail";
+import { sendIssueUpdateEmail, sendNewIssueAdminAlert } from "@/lib/zeptomail";
 
 export const dynamic = "force-dynamic";
 
@@ -315,6 +315,77 @@ export async function PATCH(request: Request) {
             ? error.message
             : "An unexpected error occurred while updating the issue.",
       },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================================================
+// CREATE A NEW SUPPORT ISSUE (USER SUBMISSION)
+// ============================================================================
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { userId, taskId, track, category, issueDetail, optionalNote } = body;
+
+    if (!userId || !category || !issueDetail) {
+      return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+    }
+
+    // 1. Insert into database
+    const { data: newIssue, error: insertError } = await supabaseAdmin
+      .from("task_issues")
+      .insert({
+        user_id: userId,
+        task_id: taskId || null,
+        track: track || "General",
+        category,
+        issue_detail: issueDetail,
+        optional_note: optionalNote || null,
+        status: "open",
+        assigned_engineer: "Unassigned"
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // 2. Fetch the student's name to pass to the email template
+    const matchedUser = await findUserByReference(userId);
+    const studentName = matchedUser?.full_name || "WDC Intern";
+
+    // 3. Fire Admin Alerts Concurrently
+    const adminEmailsEnv = process.env.ADMIN_EMAILS || "";
+    console.log("🚨 [DEBUG] Loaded Admin Emails from ENV:", adminEmailsEnv);
+
+    if (adminEmailsEnv) {
+      const adminEmails = adminEmailsEnv.split(",").map(email => email.trim()).filter(Boolean);
+      console.log("🚨 [DEBUG] Parsed Admin Email Array:", adminEmails);
+      
+      // Fire and forget
+      Promise.all(
+        adminEmails.map(adminEmail => {
+          console.log(`🚨 [DEBUG] Attempting to fire ZeptoMail to: ${adminEmail}`);
+          return sendNewIssueAdminAlert(adminEmail, studentName, category, issueDetail);
+        })
+      )
+      .then(() => console.log("🚨 [DEBUG] ZeptoMail dispatch complete!"))
+      .catch(err => console.error("🚨 [DEBUG] Failed to send admin alerts:", err));
+    } else {
+      console.log("🚨 [DEBUG] WARNING: ADMIN_EMAILS is completely empty or undefined.");
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Issue submitted successfully.", 
+      issue: newIssue 
+    });
+
+  } catch (error) {
+    console.error("Unexpected issues POST error:", error);
+    return NextResponse.json(
+      { error: "An unexpected error occurred while submitting your issue." },
       { status: 500 }
     );
   }
