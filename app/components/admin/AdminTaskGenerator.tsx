@@ -110,8 +110,10 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
     setExpandedWeeks(prev => ({ ...prev, [weekNum]: !prev[weekNum] }));
   };
 
-  const getFormattedStatusLabel = (status: string) => {
+  const getFormattedStatusLabel = (status: string, isCompletedBool?: boolean) => {
+    if (isCompletedBool) return 'COMPLETED';
     if (!status) return 'N/A';
+    if (status === 'approved' || status === 'passed') return 'COMPLETED';
     if (status === 'archived_by_admin') return 'OVERRIDDEN';
     return status.replace(/_/g, ' ');
   };
@@ -405,7 +407,8 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
                     </tr>
                   ) : (
                     groupedTasksByWeek.map(({ weekNum, primaryTask, archivedHistory, totalAttempts }) => {
-                      const isCompleted = primaryTask.status === 'approved' || primaryTask.status === 'passed';
+                      // Check for the completed boolean in addition to string statuses
+                      const isCompleted = primaryTask.completed === true || primaryTask.status === 'approved' || primaryTask.status === 'passed';
                       const isArchived = primaryTask.status === 'archived_by_admin';
                       const isExpanded = !!expandedWeeks[weekNum];
                       
@@ -438,8 +441,9 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
                               {new Date(primaryTask.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
+                              {/* Pass both status and completed boolean */}
                               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${statusBadge}`}>
-                                {getFormattedStatusLabel(primaryTask.status)}
+                                {getFormattedStatusLabel(primaryTask.status, primaryTask.completed)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-slate-400">
@@ -462,7 +466,8 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
 
                           {/* EXPANDABLE ARCHIVED REVISIONS SUB-ROWS */}
                           {isExpanded && archivedHistory.map((archivedTask) => {
-                            const isArchivedDone = archivedTask.status === 'approved' || archivedTask.status === 'passed';
+                            // Check archived records for the completed boolean as well
+                            const isArchivedDone = archivedTask.completed === true || archivedTask.status === 'approved' || archivedTask.status === 'passed';
                             return (
                               <tr key={archivedTask.id} className="bg-slate-900/60 border-l-4 border-slate-700 hover:bg-slate-900/80 transition-colors text-xs">
                                 <td className="px-6 py-3 text-slate-500 pl-10 font-mono">
@@ -475,8 +480,9 @@ export function AdminTaskGenerator({ adminId }: AdminTaskGeneratorProps) {
                                   {new Date(archivedTask.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </td>
                                 <td className="px-6 py-3 whitespace-nowrap">
+                                  {/* Pass both status and completed boolean */}
                                   <span className="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider whitespace-nowrap bg-slate-800/80 text-slate-400 border border-slate-700/80">
-                                    {getFormattedStatusLabel(archivedTask.status)}
+                                    {getFormattedStatusLabel(archivedTask.status, archivedTask.completed)}
                                   </span>
                                 </td>
                                 <td className="px-6 py-3 text-slate-500">

@@ -1,8 +1,7 @@
-// app/api/cron/monday/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getIdentityForWeek, getCurriculumStep } from '@/lib/curriculum';
-import { sendMondayActivationPassedEmail, sendMondayActivationPendingEmail } from '@/lib/emailUtils'; // Adjust path to where you saved the email functions
+import { sendMondayActivationPassedEmail, sendMondayActivationPendingEmail } from '@/lib/zeptomail';
 
 // MUST use the service_role key to bypass RLS in a background cron job
 const supabaseAdmin = createClient(
@@ -18,16 +17,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Fetch all students and their progression
-    // Changed `first_name` to `full_name` to match your database schema
+    // 2. Fetch all student progressions (No inline join)
     const { data: progressions, error } = await supabaseAdmin
       .from('user_progression')
-      .select('*, users!inner(email, full_name, track)');
+      .select('*');
 
     if (error) throw error;
 
     for (const prog of progressions || []) {
-      const user = prog.users;
+      // 3. Securely fetch the user data directly to avoid relationship cache errors
+      let { data: user } = await supabaseAdmin
+        .from('users')
+        .select('email, full_name, track')
+        .eq('auth_id', prog.user_id)
+        .maybeSingle();
+
+      if (!user && /^\d+$/.test(prog.user_id)) {
+        const { data: userById } = await supabaseAdmin
+          .from('users')
+          .select('email, full_name, track')
+          .eq('id', prog.user_id)
+          .maybeSingle();
+        user = userById;
+      }
+
+      if (!user || !user.email) {
+        continue;
+      }
+
       const currentWeek = prog.current_week;
       const status = prog.week_status;
       
@@ -58,7 +75,7 @@ export async function POST(request: Request) {
         // 2. Send the "Passed / Next Task Ready" Email
         await sendMondayActivationPassedEmail(
           user.email,
-          firstName, // Using the extracted first name
+          firstName, 
           nextWeek,
           user.track,
           stepData.topic,
@@ -72,7 +89,7 @@ export async function POST(request: Request) {
         // Send the "Pending / Catch Up" Email
         await sendMondayActivationPendingEmail(
           user.email,
-          firstName, // Using the extracted first name
+          firstName, 
           currentWeek
         );
         console.log(`⏸️ Held ${firstName} at Week ${currentWeek}`);

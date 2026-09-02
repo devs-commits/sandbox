@@ -511,7 +511,6 @@ export async function sendIssueUpdateEmail(
 
   const htmlBody = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
-      
       <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
         <img
           src="${LOGO_URL}"
@@ -519,21 +518,17 @@ export async function sendIssueUpdateEmail(
           style="height: 40px; margin: 0 auto; display: block;"
         />
       </div>
-
       <div style="padding: 30px 20px;">
         <h2 style="color: #0f172a; font-size: 20px; margin-top: 0;">
           Support Ticket Update
         </h2>
-
         <p style="font-size: 15px; color: #475569;">
           Hi ${firstName},
         </p>
-
         <p style="font-size: 15px; color: #475569;">
           There has been an update regarding the issue you reported:
           <strong>${category}</strong>.
         </p>
-
         <div style="background-color: #f8fafc; border-left: 4px solid ${statusColor}; border-radius: 8px; padding: 15px 20px; margin: 25px 0;">
           <p style="margin: 0 0 10px; font-size: 14px; color: #475569;">
             <strong>Current Status:</strong>
@@ -541,18 +536,15 @@ export async function sendIssueUpdateEmail(
               ${status}
             </span>
           </p>
-
           <p style="margin: 0; font-size: 14px; color: #475569;">
             <strong>Admin Notes:</strong><br />
             ${notes || "We are looking into this for you."}
           </p>
         </div>
-
         <p style="font-size: 15px; color: #475569;">
           If you have any further questions or the issue persists, please reply
           to this email or submit a new report.
         </p>
-
         <a
           href="https://labs.wdc.ng/login"
           style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;"
@@ -560,7 +552,6 @@ export async function sendIssueUpdateEmail(
           Return to Dashboard
         </a>
       </div>
-
       <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
         <p style="margin: 0; font-size: 12px; color: #64748b;">
           © ${new Date().getFullYear()} WDC Labs.
@@ -570,4 +561,43 @@ export async function sendIssueUpdateEmail(
   `;
 
   return sendZeptoMail(email, name, subject, htmlBody);
+}
+
+// ============================================================================
+// 🚨 ADMIN ALERT: NEW ISSUE REPORTED
+// ============================================================================
+
+export async function sendNewIssueAdminAlert(adminEmail: string, studentName: string, category: string, issueDetail: string) {
+  const subject = `🚨 New Support Ticket: ${category}`;
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-w: 500px; margin: 0 auto; background-color: #ffffff; color: #1e293b; line-height: 1.6;">
+      <div style="text-align: center; padding: 30px 0 20px; border-bottom: 1px solid #f1f5f9;">
+        <img src="${LOGO_URL}" alt="WDC Labs" style="height: 40px; margin: 0 auto; display: block;" />
+      </div>
+      <div style="padding: 30px 20px;">
+        <h2 style="color: #ef4444; font-size: 20px; margin-top: 0;">New Issue Reported</h2>
+        <p style="font-size: 15px; color: #475569;">An intern has just submitted a new support ticket that requires attention.</p>
+        
+        <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px; padding: 15px 20px; margin: 25px 0;">
+          <p style="margin: 0 0 10px 0; font-size: 14px; color: #475569;">
+            <strong>Intern:</strong> ${studentName}
+          </p>
+          <p style="margin: 0 0 10px 0; font-size: 14px; color: #475569;">
+            <strong>Category:</strong> ${category}
+          </p>
+          <p style="margin: 0; font-size: 14px; color: #475569;">
+            <strong>Details:</strong><br/> 
+            ${issueDetail}
+          </p>
+        </div>
+
+        <a href="https://labs.wdc.ng/admin/issues" style="display: block; background-color: #0f172a; color: #ffffff; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin-top: 25px;">View in Admin Portal</a>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0; font-size: 12px; color: #64748b;">Automated Admin Alert • © ${new Date().getFullYear()} WDC Labs.</p>
+      </div>
+    </div>
+  `;
+
+  await sendZeptoMail(adminEmail, "WDC Admin", subject, htmlBody);
 }
