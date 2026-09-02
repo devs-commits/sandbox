@@ -1,4 +1,4 @@
-import { Eye, Loader2, MoreHorizontal, Pencil, ShieldCheck, ShieldX } from "lucide-react";
+import { Eye, Loader2, MoreHorizontal, Pencil } from "lucide-react";
 import { TabsContent } from "../../ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 import { AdminStudentProfileModal } from "./AdminStudentProfileModal";
@@ -16,7 +16,7 @@ import {
 
 const statusClass = (status?: string) => {
   const normalized = String(status || "").toLowerCase();
-  if (normalized.includes("active")) return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+  if (normalized.includes("active") || normalized.includes("paid")) return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
   if (normalized.includes("trial")) return "bg-violet-500/15 text-violet-300 border-violet-500/30";
   if (normalized.includes("expired")) return "bg-red-500/15 text-red-300 border-red-500/30";
   return "bg-slate-500/15 text-slate-300 border-slate-500/30";
@@ -41,7 +41,6 @@ export interface StudentListItem {
   status: string;
   accountStatus: "Active" | "Inactive";
   lastActivityDate: string | null;
-  hasEverPaid: boolean;
   plan: string;
   subscriptionExpiresAt: string | null;
   startDate: string | null;
@@ -109,7 +108,7 @@ export default function StudentTab({
     <div>
       <TabsContent value="students" className="mt-0">
         <div className="overflow-x-auto rounded-lg border border-cyan-400/20 bg-[#102033]/70 shadow-sm">
-          <Table className="min-w-[1080px]">
+          <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-cyan-500/20 via-violet-500/15 to-emerald-500/10 hover:from-cyan-500/20 hover:via-violet-500/15 hover:to-emerald-500/10">
                 <TableHead className="text-foreground font-semibold">Student</TableHead>
@@ -117,7 +116,6 @@ export default function StudentTab({
                 <TableHead className="text-foreground font-semibold">Course</TableHead>
                 <TableHead className="text-foreground font-semibold">Enrollment Status</TableHead>
                 <TableHead className="text-foreground font-semibold">Account Status</TableHead>
-                <TableHead className="text-foreground font-semibold">ID Verification</TableHead>
                 <TableHead className="text-foreground font-semibold">Progress</TableHead>
                 <TableHead className="text-foreground font-semibold">First Task</TableHead>
                 <TableHead className="text-foreground font-semibold">Score</TableHead>
@@ -152,19 +150,6 @@ export default function StudentTab({
                         : "border-slate-500/30 bg-slate-500/15 text-slate-300"}
                     >
                       {student.accountStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        student.idVerified
-                          ? "gap-1.5 border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                          : "gap-1.5 border-rose-500/30 bg-rose-500/15 text-rose-200"
-                      }
-                    >
-                      {student.idVerified ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldX className="h-3.5 w-3.5" />}
-                      {student.idVerified ? "Verified" : "Unverified"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -227,7 +212,7 @@ export default function StudentTab({
               ))}
               {paginatedData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                     No students match the current filters.
                   </TableCell>
                 </TableRow>

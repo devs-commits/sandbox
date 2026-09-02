@@ -80,6 +80,7 @@ export interface StudentProfileData {
   currentStreak: number;
   skills: string[];
   cvUrl?: string | null;
+  bio?: string | null;
   referralCode?: string | null;
   bankName?: string | null;
   accountNumber?: string | null;
@@ -166,6 +167,19 @@ const formatDate = (value?: string | null) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 const formatCountryName = (value?: string | null) => {
@@ -559,6 +573,7 @@ export function AdminStudentProfileModal({
                     <InfoItem icon={Briefcase} label="Occupation" value={profile.occupation} theme={infoThemes[5]} />
                     <InfoItem icon={MapPin} label="Address" value={profile.address} theme={infoThemes[0]} />
                     <InfoItem icon={FileText} label="Referral code" value={profile.referralCode} theme={infoThemes[2]} />
+                    <InfoItem icon={User} label="Bio" value={profile.bio} theme={infoThemes[3]} />
                   </div>
                 </div>
 
@@ -570,7 +585,7 @@ export function AdminStudentProfileModal({
                     <InfoItem icon={CreditCard} label="Subscription plan" value={profile.subscriptionPlan} theme={infoThemes[3]} />
                     <InfoItem icon={Calendar} label="Start date" value={formatDate(profile.startDate)} theme={infoThemes[0]} />
                     <InfoItem icon={Calendar} label="Expires at" value={formatDate(profile.subscriptionExpiresAt)} theme={infoThemes[4]} />
-                    <InfoItem icon={TrendingUp} label="Last active" value={profile.lastActive} theme={infoThemes[5]} />
+                    <InfoItem icon={TrendingUp} label="Last active" value={formatDateTime(profile.lastActive)} theme={infoThemes[5]} />
                   </div>
                   {profile.skills?.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-2">

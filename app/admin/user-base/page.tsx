@@ -28,7 +28,6 @@ type EnrollmentSource = {
   subscription_plan?: string | null;
   subscription_status?: string | null;
   subscription_expires_at?: string | null;
-  has_ever_paid?: boolean | null;
 };
 
 type RawStudentRecord = EnrollmentSource & {
@@ -164,11 +163,11 @@ const isPaidPlan = (plan?: string | null) => {
 
 const deriveEnrollmentStatus = (student: EnrollmentSource) => {
   const plan = String(student.subscription_plan || "").toLowerCase();
+  const active = isActiveSubscription(student);
 
-  if (plan.startsWith("trial") && !student.has_ever_paid) return "Free trial";
-  if (isPaidPlan(plan) && isActiveSubscription(student)) return "Paid";
-  if (isPaidPlan(plan)) return "Expired";
-  return "Not started";
+  if (active && plan.startsWith("trial")) return "Free trial";
+  if (active && isPaidPlan(plan)) return "Paid";
+  return "Expired";
 };
 
 const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
@@ -186,7 +185,6 @@ const mapStudentRecord = (s: RawStudentRecord): StudentListItem => {
     status: s.subscription_status || "inactive",
     accountStatus: isRecentlyActive(s.last_activity_at) ? "Active" : "Inactive",
     lastActivityDate: s.last_activity_at || null,
-    hasEverPaid: Boolean(s.has_ever_paid) || isPaidPlan(s.subscription_plan),
     plan: s.subscription_plan || "N/A",
     subscriptionExpiresAt: s.subscription_expires_at || null,
     // The Userbase date filter/export is about when the account joined, not
@@ -398,7 +396,7 @@ export default function UserBase() {
       return `"${csvSafeValue.replace(/"/g, '""')}"`;
     };
     const rows = (filteredData as UserBaseRow[]).filter((row): row is StudentListItem => activeTab === "students" && "enrollmentStatus" in row);
-    const headers = ["Student", "Email", "Phone", "Country", "Nationality", "Date of Birth", "Occupation", "Address", "Referral Code", "Course", "Enrollment Status", "Account Status", "Last Active", "Plan", "Joined Date", "Subscription Expires", "ID Verification", "Tasks Completed", "Progress", "Average Score"];
+    const headers = ["Student", "Email", "Phone", "Country", "Nationality", "Date of Birth", "Occupation", "Address", "Referral Code", "Course", "Enrollment Status", "Account Status", "Last Active", "Plan", "Joined Date", "Subscription Expires", "Tasks Completed", "Progress", "Average Score"];
     const csvRows = rows.map((student) => [
       student.name,
       student.email,
@@ -416,7 +414,6 @@ export default function UserBase() {
       student.plan,
       student.startDate,
       student.subscriptionExpiresAt,
-      student.idVerified ? "Verified" : "Unverified",
       student.tasksCompleted,
       `${student.progress}%`,
       `${student.averageScore}%`,
@@ -469,7 +466,6 @@ export default function UserBase() {
                 subscription_plan: profile.subscriptionPlan,
                 subscription_status: profile.subscriptionStatus,
                 subscription_expires_at: profile.subscriptionExpiresAt,
-                has_ever_paid: student.hasEverPaid,
               }),
               status: profile.subscriptionStatus || student.status,
               accountStatus: isRecentlyActive(student.lastActivityDate) ? "Active" : "Inactive",

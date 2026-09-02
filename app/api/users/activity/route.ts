@@ -13,9 +13,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    const now = new Date();
     const { error } = await supabaseAdmin
       .from('users')
-      .update({ last_activity_date: new Date().toISOString().slice(0, 10) })
+      .update({
+        last_active_at: now.toISOString(),
+        last_activity_date: now.toISOString().slice(0, 10),
+      })
       .eq('auth_id', user.id)
       .eq('role', 'student');
 
