@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         .eq('user_id', prog.user_id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle(); // Changed to maybeSingle to prevent crashing if no submission exists
+        .maybeSingle(); 
 
       if (lastSubmission) {
         // Fallback to the default strings if the DB columns are null
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         user.email,
         firstName, // Passed the dynamically split first name
         week,
-        stepData.topic,
+        stepData?.topic || "your recent task", // 🛡️ Added safety fallback here
         score,
         feedback
       );
