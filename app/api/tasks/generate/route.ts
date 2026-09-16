@@ -70,13 +70,14 @@ let requestUserId: string | null = null;
     }
 
     // Insert generating placeholder
-    await dbClient.from('tasks').insert({
+    const { error: taskInsertError } = await dbClient.from('tasks').insert({
       user: user_id,
       task_number: calculatedTaskNumber,
       status: 'generating',
       title: 'Generating Assignment...',
       task_track: track
     });
+    if (taskInsertError) throw taskInsertError;
 
     // Calculate Unified Friday Deadline
     const now = new Date();
@@ -111,7 +112,26 @@ let requestUserId: string | null = null;
       return NextResponse.json({ success: false, error: "The system couldn't reach the queue." }, { status: backendResponse.status });
     }
 
-    return NextResponse.json({ success: true, message: "Task generation queued successfully." });
+    // This is the authoritative transition for the first-task state. It is
+    // deliberately server-side so it cannot be lost when the browser closes
+    // or its Supabase update fails after the task has been queued.
+    const { error: firstTaskStateError } = await dbClient
+      .from('users')
+      .update({ is_first_task: false })
+      .eq('auth_id', user_id)
+      .eq('is_first_task', true);
+    if (firstTaskStateError) {
+      // The task is already queued. Returning an error here would prompt the
+      // client to retry and risk creating another task, so retain the queue
+      // result and surface the operational failure in server logs.
+      console.error('Unable to clear first-task state:', firstTaskStateError);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Task generation queued successfully.",
+      firstTaskStateUpdated: !firstTaskStateError,
+    });
 
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
