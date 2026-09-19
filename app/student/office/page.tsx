@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 function OfficeContent() {
-  const { phase, isLoadingOnboarding, subscription, refreshSubscription } = useOffice();
+  const { phase, isLoadingOnboarding, subscription, refreshSubscription, setActiveView } = useOffice();
   const { user } = useAuth();
   
   const searchParams = useSearchParams();
@@ -324,10 +324,13 @@ function OfficeContent() {
       <CVUploadModal 
         isOpen={!hasCv && showCvWidget} 
         userId={user?.id || ''} 
-        onSuccess={() => {
-          setHasCv(true);
-          setShowCvWidget(false);
-        }}
+         onSuccess={() => {
+           setHasCv(true);
+           setShowCvWidget(false);
+           if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+             setActiveView('meeting');
+           }
+         }}
       />
     </>
   );

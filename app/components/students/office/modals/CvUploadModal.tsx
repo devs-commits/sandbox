@@ -86,6 +86,7 @@ export function CVUploadModal({ isOpen, userId, onSuccess }: CVUploadModalProps)
     if (!file && bioText.trim().length < 20) return;
     
     setIsSubmitting(true);
+    if (onSuccess) onSuccess();
     try {
       await submitBio(bioText, file || undefined);
 
@@ -101,13 +102,12 @@ export function CVUploadModal({ isOpen, userId, onSuccess }: CVUploadModalProps)
       if (tasks.length > 0) {
         toast.success("Profile synced! AI has prepared your first task.");
         setIsSubmitting(false);
-        if (onSuccess) onSuccess();
       } else {
         // 🔥 THE MISSING LINK: Trigger the AI Engine generation!
-        generateTask();
+        void generateTask();
         
         // Switch to waiting state to hold the user on this screen
-        setIsWaitingForTask(true);
+        setIsSubmitting(false);
       }
     } catch (error: any) {
       console.error("Profile update failed:", error);
