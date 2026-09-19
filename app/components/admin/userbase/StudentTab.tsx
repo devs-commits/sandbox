@@ -1,4 +1,4 @@
-import { Eye, Loader2, MoreHorizontal, Pencil, Wallet } from "lucide-react";
+import { Eye, Loader2, MoreHorizontal, Pencil } from "lucide-react";
 import { TabsContent } from "../../ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 import { AdminStudentProfileModal } from "./AdminStudentProfileModal";
@@ -55,8 +55,6 @@ export interface StudentListItem {
   progress: number;
   averageScore: number;
   walletBalance: number;
-  hasWallet: boolean;
-  hasEverPaid: boolean;
   idVerified: boolean;
   hasReceivedFirstTask: boolean | null;
   fullData?: StudentProfileData;
@@ -110,7 +108,7 @@ export default function StudentTab({
     <div>
       <TabsContent value="students" className="mt-0">
         <div className="overflow-x-auto rounded-lg border border-cyan-400/20 bg-[#102033]/70 shadow-sm">
-          <Table className="min-w-[1040px]">
+          <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-cyan-500/20 via-violet-500/15 to-emerald-500/10 hover:from-cyan-500/20 hover:via-violet-500/15 hover:to-emerald-500/10">
                 <TableHead className="text-foreground font-semibold">Student</TableHead>
@@ -120,7 +118,6 @@ export default function StudentTab({
                 <TableHead className="text-foreground font-semibold">Account Status</TableHead>
                 <TableHead className="text-foreground font-semibold">Progress</TableHead>
                 <TableHead className="text-foreground font-semibold">First Task</TableHead>
-                <TableHead className="text-foreground font-semibold">Wallet</TableHead>
                 <TableHead className="text-foreground font-semibold">Score</TableHead>
                 <TableHead className="text-right text-foreground font-semibold">Action</TableHead>
               </TableRow>
@@ -178,15 +175,6 @@ export default function StudentTab({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={student.hasWallet ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300" : "border-slate-500/30 bg-slate-500/15 text-slate-300"}
-                    >
-                      <Wallet className="mr-1 h-3 w-3" />
-                      {student.hasWallet ? "Created" : "Not created"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
                     <span className="inline-flex rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-xs font-medium text-amber-100">
                       {student.averageScore || 0}%
                     </span>
@@ -224,7 +212,7 @@ export default function StudentTab({
               ))}
               {paginatedData.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                     No students match the current filters.
                   </TableCell>
                 </TableRow>

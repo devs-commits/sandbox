@@ -937,11 +937,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         return; // Prevent execution from continuing to the polling loop
       }
 
-      if (isFirstTask) {
-        setIsFirstTask(false);
-        void persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel });
-      }
-
       let attempts = 0;
       let taskFound = false;
 
@@ -986,6 +981,10 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       });
     }
 
+    if (isFirstTask) {
+      setIsFirstTask(false);
+      persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
+    }
   }, [tasks, addChatMessage, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
 
   useEffect(() => {
