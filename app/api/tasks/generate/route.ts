@@ -74,6 +74,7 @@ let requestUserId: string | null = null;
       user: user_id,
       task_number: calculatedTaskNumber,
       status: 'generating',
+      completed: false,
       title: 'Generating Assignment...',
       task_track: track
     });
