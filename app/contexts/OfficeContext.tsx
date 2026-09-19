@@ -35,7 +35,6 @@ interface OfficeContextType extends OfficeState {
   addPortfolioItem: (item: UserPortfolio) => void;
   generateTask: (source?: 'automatic' | 'manual') => Promise<void>;
   isGeneratingTask: boolean;
-  isProfileReady: boolean;
   generationStatusText: string; 
   isLoadingTasks: boolean;
   isLoadingOnboarding: boolean;
@@ -90,7 +89,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [hasCompletedTour, setHasCompletedTour] = useState(false);
   
   const [isGeneratingTask, setIsGeneratingTask] = useState(false);
-  const [isProfileReady, setIsProfileReady] = useState(false);
   const [generationStatusText, setGenerationStatusText] = useState("Fetch Missing Task");
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
@@ -107,8 +105,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
   const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
   const pendingTaskGenerationSourceRef = useRef<'automatic' | 'manual' | null>(null);
-  const taskGenerationInFlightRef = useRef(false);
-  const announcedTaskIdsRef = useRef(new Set<string>());
 
   const userName = user?.fullName || 'New Intern';
   const userId = user?.id || null;
@@ -376,9 +372,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       if (error) {
         console.error("Error fetching tasks:", error);
       } else if (data) {
-        const mappedTasks: Task[] = data
-          .filter((t: any) => t.status !== 'generating' && t.title !== 'Generating Assignment...')
-          .map((t: any) => ({
+        const mappedTasks: Task[] = data.map((t: any) => ({
           id: t.id.toString(),
           title: t.title,
           description: t.brief_content,
@@ -392,7 +386,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
           resources: mapResources(t.resources),
           difficulty: t.difficulty,
           week: t.task_number || t.week 
-          }));
+        }));
 
         setTasks(mappedTasks);
         if (mappedTasks.length > 0) {
@@ -417,26 +411,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }).catch((error) => console.error('Unable to record generated task activity:', error));
   }, [userId]);
 
-  const announceTaskReady = useCallback((task: {
-    id: string | number;
-    title: string;
-    deadline?: string;
-    deadline_display?: string;
-    ai_persona_config?: { deadline_display?: string };
-  }) => {
-    const taskId = task.id.toString();
-    if (announcedTaskIdsRef.current.has(taskId)) return;
-    announcedTaskIdsRef.current.add(taskId);
-
-    const deadline = task.ai_persona_config?.deadline_display || task.deadline_display || task.deadline || 'Flexible';
-    addChatMessage({
-      id: `task-ready-${taskId}`,
-      agentName: 'Emem',
-      message: `Task: "${task.title}"\nDeadline: ${deadline}\nCheck your desk. The resources have been prepared for you.`,
-      timestamp: new Date()
-    });
-  }, [addChatMessage]);
-
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -457,7 +431,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const t = payload.new;
-            if (t.status === 'generating' || t.title === 'Generating Assignment...') return;
             const newTask: Task = {
               id: t.id.toString(),
               title: t.title,
@@ -487,23 +460,22 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
             setIsGeneratingTask(false);
             setGenerationStatusText("Fetch Missing Task");
-            announceTaskReady(t as Parameters<typeof announceTaskReady>[0]);
-            if (typeof window !== 'undefined' && window.innerWidth < 1024 && taskGenerationInFlightRef.current) {
-              setActiveView('desk');
-            }
+
+            addChatMessage({
+              id: Date.now().toString(),
+              agentName: 'Emem',
+              message: `Task: "${newTask.title}"\nDeadline: ${newTask.deadline}\nCheck your desk. The resources have been prepared for you.`,
+              timestamp: new Date()
+            });
 
           } else if (payload.eventType === 'UPDATE') {
             setTasks(prevTasks => prevTasks.map(task => {
               if (task.id === payload.new.id.toString()) {
                 return {
                   ...task,
-                  title: payload.new.title || task.title,
-                  description: payload.new.brief_content || task.description,
-                  deadline: payload.new.ai_persona_config?.deadline_display || payload.new.deadline_display || payload.new.deadline || task.deadline,
                   resources: mapResources(payload.new.resources), 
-                  attachments: payload.new.attachments || task.attachments,
                   completed: payload.new.completed,
-                  status: payload.new.completed ? 'approved' : payload.new.status || task.status
+                  status: payload.new.completed ? 'approved' : task.status
                 };
               }
               return task;
@@ -516,7 +488,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     return () => {
       supabase.removeChannel(taskSubscription);
     };
-  }, [userId, mapResources, trackName, announceTaskReady, logGeneratedTask]);
+  }, [userId, mapResources, trackName, addChatMessage, logGeneratedTask]);
 
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
@@ -537,7 +509,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at, track, bio, cv_url')
+          .select('has_completed_onboarding, has_completed_tour, user_level, experience_level, is_first_task, subscription_status, subscription_expires_at, track')
           .eq('auth_id', userId)
           .maybeSingle(); 
 
@@ -568,10 +540,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
           setUserLevel(data.experience_level || data.user_level || null);
           setIsFirstTask(data.is_first_task !== false);
           setTrackName(databaseTrack);
-          setIsProfileReady(Boolean(
-            (data.bio && data.bio.trim() && data.bio !== 'null') ||
-            (data.cv_url && data.cv_url.trim() && data.cv_url !== 'null')
-          ));
 
           if (data.has_completed_onboarding && data.has_completed_tour) {
             setPhaseState('working');
@@ -858,7 +826,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsBioProcessing(false);
     }
 
-    setIsProfileReady(true);
     setShowToluWelcome(true);
   }, [normalizedTrack, addChatMessage, userId, persistState]);
 
@@ -880,9 +847,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       });
       return; 
     }
-
-    if (taskGenerationInFlightRef.current) return;
-    taskGenerationInFlightRef.current = true;
 
     const initialTaskIds = new Set(tasks.map(task => task.id));
     pendingTaskGenerationSourceRef.current = source;
@@ -921,6 +885,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         await new Promise(r => setTimeout(r, 400));
       }
 
+      if (isMobileTeamIntroduction) queueReturnToDesk(1000);
       await new Promise(r => setTimeout(r, 2000));
     }
 
@@ -962,7 +927,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         setIsGeneratingTask(false);
         setGenerationStatusText("Fetch Missing Task");
         pendingTaskGenerationSourceRef.current = null;
-        taskGenerationInFlightRef.current = false;
         
         addChatMessage({
           id: Date.now().toString(),
@@ -986,21 +950,13 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         
         const { data: dbData } = await supabase
           .from('tasks')
-          .select('id, status, title, deadline_display, ai_persona_config')
+          .select('id')
           .eq('user', userId);
 
-        const generatedTask = dbData?.find(task =>
-          !initialTaskIds.has(task.id.toString()) &&
-          task.status !== 'generating' &&
-          task.title !== 'Generating Assignment...'
-        );
+        const generatedTask = dbData?.find(task => !initialTaskIds.has(task.id.toString()));
         if (generatedTask) {
           taskFound = true;
           logGeneratedTask(generatedTask.id.toString(), source);
-          announceTaskReady(generatedTask);
-          if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-            setActiveView('desk');
-          }
           pendingTaskGenerationSourceRef.current = null;
           await fetchTasks(); 
         }
@@ -1010,7 +966,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task");
-      taskGenerationInFlightRef.current = false;
 
     } catch (error: any) {
       console.error('Task queue failed:', error);
@@ -1018,7 +973,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
-      taskGenerationInFlightRef.current = false;
       
       const errorMessage = error instanceof Error && error.message !== "API Failure" && error.message !== "Failed to fetch"
         ? error.message 
@@ -1032,14 +986,14 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       });
     }
 
-  }, [tasks, addChatMessage, announceTaskReady, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, logGeneratedTask]);
+  }, [tasks, addChatMessage, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, queueReturnToDesk, logGeneratedTask]);
 
   useEffect(() => {
-    if (shouldTriggerTeamIntro && phase === 'working' && isProfileReady && !isGeneratingTask && tasks.length === 0) {
+    if (shouldTriggerTeamIntro && phase === 'working' && !isGeneratingTask && tasks.length === 0) {
       setShouldTriggerTeamIntro(false);
       generateTask('automatic');
     }
-  }, [shouldTriggerTeamIntro, phase, isProfileReady, isGeneratingTask, tasks.length, generateTask]);
+  }, [shouldTriggerTeamIntro, phase, isGeneratingTask, tasks.length, generateTask]);
 
   const handleToluWelcomeClose = useCallback(() => {
     setShowToluWelcome(false);
@@ -1312,7 +1266,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         addPortfolioItem,
         generateTask,
         isGeneratingTask,
-        isProfileReady,
         generationStatusText, 
         isLoadingTasks,
         isLoadingOnboarding,

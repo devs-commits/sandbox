@@ -98,16 +98,16 @@ export function CVUploadModal({ isOpen, userId, onSuccess }: CVUploadModalProps)
         if (error) throw error;
       }
 
-      if (onSuccess) onSuccess();
-
       if (tasks.length > 0) {
         toast.success("Profile synced! AI has prepared your first task.");
         setIsSubmitting(false);
+        if (onSuccess) onSuccess();
       } else {
         // 🔥 THE MISSING LINK: Trigger the AI Engine generation!
-        void generateTask();
+        generateTask();
         
-        setIsSubmitting(false);
+        // Switch to waiting state to hold the user on this screen
+        setIsWaitingForTask(true);
       }
     } catch (error: any) {
       console.error("Profile update failed:", error);
