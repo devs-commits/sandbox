@@ -5,9 +5,10 @@ import { Send, Loader2, MessageSquare } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
-import { AGENTS, AgentName } from './types';
+import { AGENTS } from './types';
 import { AgentAvatar } from './AgentAvatar';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -28,7 +29,7 @@ export function AgentChatInterface() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [chatMessages]);
+  }, [chatMessages, typingAgent, isSending]);
 
   useEffect(() => {
     markChatRead();
@@ -50,11 +51,6 @@ export function AgentChatInterface() {
       e.preventDefault();
       handleSend();
     }
-  };
-
-  const getAgentStyle = (agentName: AgentName) => {
-    const agent = AGENTS[agentName];
-    return { backgroundColor: agent.color };
   };
 
   const isDisabled = phase === 'lobby' || phase === 'tour';
@@ -123,10 +119,22 @@ export function AgentChatInterface() {
           {msg.agentName}
           </p>
           )}
-              <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-              <p className="text-xs opacity-50 mt-2">
-                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
+              {msg.isTyping ? (
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
+                </div>
+              ) : (
+                <>
+                  <div className="text-sm break-words [&>*]:text-inherit">
+                    <ReactMarkdown>{msg.message}</ReactMarkdown>
+                  </div>
+                  <p className="text-xs opacity-50 mt-2">
+                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </>
+              )}
             </div>
           </motion.div>
         ))}

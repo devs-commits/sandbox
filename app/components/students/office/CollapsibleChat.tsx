@@ -32,7 +32,7 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
     if (isExpanded) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatMessages, isExpanded, typingAgent]);
+  }, [chatMessages, isExpanded, typingAgent, isSending]);
 
   // The desktop panel is the visible chat surface. Opening it acknowledges all
   // agent messages, while the hidden desktop panel must not clear mobile unread items.
@@ -150,9 +150,14 @@ export function CollapsibleChat({ triggerRef }: CollapsibleChatProps) {
                         <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
                       </div>
                     ) : (
-                      <div className="text-sm break-words [&>*]:text-inherit">
-                        <ReactMarkdown>{msg.message}</ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="text-sm break-words [&>*]:text-inherit">
+                          <ReactMarkdown>{msg.message}</ReactMarkdown>
+                        </div>
+                        <p className="text-xs opacity-50 mt-2">
+                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </>
                     )}
                   </div>
                 </motion.div>

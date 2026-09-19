@@ -108,6 +108,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
   const pendingTaskGenerationSourceRef = useRef<'automatic' | 'manual' | null>(null);
   const taskGenerationInFlightRef = useRef(false);
+  const taskGenerationTypingIdRef = useRef<string | null>(null);
 
   const userName = user?.fullName || 'New Intern';
   const userId = user?.id || null;
@@ -416,6 +417,14 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     }).catch((error) => console.error('Unable to record generated task activity:', error));
   }, [userId]);
 
+  const clearTaskGenerationTyping = useCallback(() => {
+    const typingId = taskGenerationTypingIdRef.current;
+    if (!typingId) return;
+
+    setChatMessages(prev => prev.filter(message => message.id !== typingId));
+    taskGenerationTypingIdRef.current = null;
+  }, []);
+
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -466,6 +475,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
             setIsGeneratingTask(false);
             setGenerationStatusText("Fetch Missing Task");
+            clearTaskGenerationTyping();
             if (typeof window !== 'undefined' && window.innerWidth < 1024 && taskGenerationInFlightRef.current) {
               setActiveView('desk');
             }
@@ -497,7 +507,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
     return () => {
       supabase.removeChannel(taskSubscription);
     };
-  }, [userId, mapResources, trackName, addChatMessage, logGeneratedTask]);
+  }, [userId, mapResources, trackName, addChatMessage, clearTaskGenerationTyping, logGeneratedTask]);
 
   useEffect(() => {
     if (!currentTask && tasks.length > 0) {
@@ -903,6 +913,16 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       }
 
       await new Promise(r => setTimeout(r, 2000));
+
+      const taskTypingId = `task-generating-${Date.now()}`;
+      taskGenerationTypingIdRef.current = taskTypingId;
+      addChatMessage({
+        id: taskTypingId,
+        agentName: 'Emem',
+        message: '',
+        timestamp: new Date(),
+        isTyping: true,
+      });
     }
 
     setGenerationStatusText("Pinging Emem...");
@@ -944,6 +964,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         setGenerationStatusText("Fetch Missing Task");
         pendingTaskGenerationSourceRef.current = null;
         taskGenerationInFlightRef.current = false;
+        clearTaskGenerationTyping();
         
         addChatMessage({
           id: Date.now().toString(),
@@ -973,6 +994,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         if (generatedTask) {
           taskFound = true;
           logGeneratedTask(generatedTask.id.toString(), source);
+          clearTaskGenerationTyping();
           if (typeof window !== 'undefined' && window.innerWidth < 1024) {
             setActiveView('desk');
           }
@@ -986,6 +1008,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task");
       taskGenerationInFlightRef.current = false;
+      clearTaskGenerationTyping();
 
     } catch (error: any) {
       console.error('Task queue failed:', error);
@@ -994,6 +1017,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsGeneratingTask(false);
       setGenerationStatusText("Fetch Missing Task"); 
       taskGenerationInFlightRef.current = false;
+      clearTaskGenerationTyping();
       
       const errorMessage = error instanceof Error && error.message !== "API Failure" && error.message !== "Failed to fetch"
         ? error.message 
@@ -1011,7 +1035,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       setIsFirstTask(false);
       persistState({ hasCompletedOnboarding: true, hasCompletedTour: true, userLevel: userLevel, isFirstTask: false });
     }
-  }, [tasks, addChatMessage, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, logGeneratedTask]);
+  }, [tasks, addChatMessage, clearTaskGenerationTyping, isFirstTask, userName, normalizedTrack, trackName, userLevel, userId, persistState, currentWeek, user?.fullName, fetchTasks, logGeneratedTask]);
 
   useEffect(() => {
     if (shouldTriggerTeamIntro && phase === 'working' && isProfileReady && !isGeneratingTask && tasks.length === 0) {

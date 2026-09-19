@@ -86,7 +86,7 @@ export function CVUploadModal({ isOpen, userId, onSuccess }: CVUploadModalProps)
     if (!file && bioText.trim().length < 20) return;
     
     setIsSubmitting(true);
-    if (onSuccess) onSuccess();
+    const submissionStartedAt = Date.now();
     try {
       await submitBio(bioText, file || undefined);
 
@@ -99,15 +99,21 @@ export function CVUploadModal({ isOpen, userId, onSuccess }: CVUploadModalProps)
         if (error) throw error;
       }
 
+      const remainingMinimumTime = Math.max(0, 3000 - (Date.now() - submissionStartedAt));
+      if (remainingMinimumTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingMinimumTime));
+      }
+
+      setIsSubmitting(false);
+      if (onSuccess) onSuccess();
+
       if (tasks.length > 0) {
         toast.success("Profile synced! AI has prepared your first task.");
-        setIsSubmitting(false);
       } else {
         // 🔥 THE MISSING LINK: Trigger the AI Engine generation!
         void generateTask();
         
         // Switch to waiting state to hold the user on this screen
-        setIsSubmitting(false);
       }
     } catch (error: any) {
       console.error("Profile update failed:", error);
@@ -229,7 +235,7 @@ export function CVUploadModal({ isOpen, userId, onSuccess }: CVUploadModalProps)
                 <div className="flex items-center justify-center gap-3 w-full">
                   <Loader2 className="animate-spin shrink-0" size={20} />
                   <div className="flex flex-col items-start text-left">
-                    <span>{isWaitingForTask ? "AI Finalizing Task..." : "AI Analysing Profile..."}</span>
+                    <span>{isWaitingForTask ? "AI Finalizing Task..." : "Uploading & analysing profile..."}</span>
                     <span className="text-[10px] font-mono opacity-70">Estimated wait: {timeLeft}s</span>
                   </div>
                 </div>
