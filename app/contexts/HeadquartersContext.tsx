@@ -41,7 +41,10 @@ export function HeadquartersProvider({ children }: { children: ReactNode }) {
         }
 
         const hasCompleted = data?.has_completed_headquarters_tour || false;
-        setIsTourActive(!hasCompleted);
+        // If this optional lookup is slow or unavailable, it returns false,
+        // which keeps the established Headquarters tour behaviour intact.
+        const suppressFirstShiftTour = await getFirstShiftSuppression();
+        setIsTourActive(!hasCompleted && !suppressFirstShiftTour);
       } catch (err) {
         console.error('Error fetching tour state:', err);
       } finally {
@@ -93,4 +96,27 @@ export function useHeadquarters() {
     throw new Error('useHeadquarters must be used within HeadquartersProvider');
   }
   return context;
+}
+
+async function getFirstShiftSuppression(): Promise<boolean> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 1000);
+
+  try {
+    const response = await fetch('/api/onboarding/first-shift', {
+      cache: 'no-store',
+      headers: sessionData.session?.access_token
+        ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+        : undefined,
+      signal: controller.signal,
+    });
+    if (!response.ok) return false;
+    const state = await response.json();
+    return state?.suppressHeadquartersTour === true;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }

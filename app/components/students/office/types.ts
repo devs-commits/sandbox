@@ -11,7 +11,7 @@ export type UserLevel = 'Level 0' | 'Level 1' | 'Level 2';
 // FIX 1: Added 'passed' to the allowed TaskStatus strings
 export type TaskStatus = 'pending' | 'in-progress' | 'submitted' | 'under-review' | 'approved' | 'rejected' | 'passed';
 
-export type OfficePhase = 'lobby' | 'tour' | 'team-intro' | 'working' | 'review';
+export type OfficePhase = 'lobby' | 'first_shift' | 'tour' | 'team-intro' | 'working' | 'review';
 
 export interface Agent {
   name: AgentName;
