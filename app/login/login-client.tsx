@@ -48,7 +48,9 @@ const LoginContent = () => {
     if (result.success) {
       toast.success("Login successful!");
       
-      if (from) {
+      if (result.requiresFirstShift) {
+        router.replace("/onboarding");
+      } else if (from) {
         router.push(from);
       } else {
         const roleRedirects: Record<string, string> = {

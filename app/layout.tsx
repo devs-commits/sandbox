@@ -5,7 +5,6 @@ import { Suspense } from "react";
 import "./globals.css";
 
 import { AuthProvider } from "./contexts/AuthContexts";
-import { OfficeProvider } from "./contexts/OfficeContext";
 import { ReferralTracker } from "./components/ReferralTracker";
 import { Toaster } from "sonner";
 
@@ -99,13 +98,11 @@ export default function RootLayout({
         </Script>
 
         <AuthProvider>
-          <OfficeProvider>
-            <Suspense fallback={null}>
-              <ReferralTracker />
-            </Suspense>
+          <Suspense fallback={null}>
+            <ReferralTracker />
+          </Suspense>
 
-            {children}
-          </OfficeProvider>
+          {children}
         </AuthProvider>
 
         <Toaster richColors position="top-center" />

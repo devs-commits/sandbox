@@ -19,7 +19,7 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, role: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, role: string) => Promise<{ success: boolean; error?: string; requiresFirstShift?: boolean }>;
   signup: (data: SignupData) => Promise<{ success: boolean; error?: string; user?: any }>;
   logout: () => void;
   forgotPassword: (email: string, role: string) => Promise<{ success: boolean; error?: string }>;
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string; requiresFirstShift?: boolean }> => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/auth/login', {
@@ -147,7 +147,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await supabase.auth.setSession(data.session);
       }
 
-      return { success: true };
+      return { success: true, requiresFirstShift: data.requiresFirstShift === true };
     } catch (err: any) {
       setIsLoading(false);
       return { success: false, error: "Authentication failed" };

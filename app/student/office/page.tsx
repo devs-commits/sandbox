@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { OfficeProvider, useOffice } from '@/app/contexts/OfficeContext';
 import { LobbyScreen } from '@/app/components/students/office/LobbyScreen';
 import { OfficeDashboard } from '@/app/components/students/office/OfficeDashboard';
+import { FirstShift } from '@/app/components/students/office/FirstShift';
 import { CVUploadModal } from '@/app/components/students/office/modals/CvUploadModal';
 import { useAuth } from '@/app/contexts/AuthContexts';
 import { supabase } from '@/lib/supabase';
@@ -12,7 +13,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 function OfficeContent() {
-  const { phase, isLoadingOnboarding, subscription, refreshSubscription, setActiveView } = useOffice();
+  const { phase, isLoadingOnboarding, isLoadingFirstShift, subscription, refreshSubscription, setActiveView } = useOffice();
   const { user } = useAuth();
   
   const searchParams = useSearchParams();
@@ -233,13 +234,13 @@ function OfficeContent() {
     }
   };
 
-  if (isLoadingOnboarding || isVerifyingRedirect) {
+  if (isLoadingOnboarding || isLoadingFirstShift || isVerifyingRedirect) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
           <p className="text-muted-foreground animate-pulse">
-            {isVerifyingRedirect ? "Confirming payment with Paystack..." : "Checking Access..."}
+            {isVerifyingRedirect ? "Confirming payment with Paystack..." : "Preparing your workspace..."}
           </p>
         </div>
       </div>
@@ -314,6 +315,10 @@ function OfficeContent() {
 
   if (phase === 'lobby') {
     return <LobbyScreen />;
+  }
+
+  if (phase === 'first_shift') {
+    return <FirstShift />;
   }
 
   return (

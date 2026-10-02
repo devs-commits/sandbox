@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -2369,6 +2371,41 @@
   .landing-refresh .course-rail span {
     transition: none;
   }
+}
+
+/* Lovable's onboarding design tokens and presentation rules. Scoped so the
+   supplied carousel retains its original visual system without recolouring the app. */
+.onboarding-lovable {
+  --navy: 222 48% 12%;
+  --onboarding-panel: 220 44% 15%;
+  --onboarding-slate: 218 34% 24%;
+  --cyan: 185 86% 51%;
+  --onboarding-soft: 210 30% 97%;
+  --onboarding-emerald: 158 70% 47%;
+  --onboarding-violet: 282 70% 60%;
+  --emerald: hsl(var(--onboarding-emerald));
+  --violet: hsl(var(--onboarding-violet));
+  font-family: "Manrope", sans-serif;
+}
+
+.onboarding-lovable .tolu-sphere {
+  background: linear-gradient(135deg, hsl(220 30% 25%) 0%, hsl(282 55% 42%) 50%, hsl(222 42% 12%) 100%);
+  box-shadow: inset 0 4px 12px hsl(0 0% 100% / .15), inset -10px -14px 30px hsl(280 35% 8% / .8), 0 20px 50px -20px var(--violet);
+}
+
+.onboarding-lovable .speech::before,
+.onboarding-lovable .speech::after { content: ""; position: absolute; border: solid transparent; }
+.onboarding-lovable .speech-up::before { top: -12px; left: 50%; transform: translateX(-50%); border-width: 0 12px 12px; border-bottom-color: hsl(var(--onboarding-slate) / .5); }
+.onboarding-lovable .speech-up::after { top: -10px; left: 50%; transform: translateX(-50%); border-width: 0 11px 11px; border-bottom-color: hsl(var(--onboarding-panel)); }
+
+@media (min-width: 1024px) {
+  .onboarding-lovable .speech-side::before { left: -12px; top: 50%; transform: translateY(-50%); border-width: 12px 12px 12px 0; border-right-color: hsl(var(--onboarding-slate) / .5); }
+  .onboarding-lovable .speech-side::after { left: -10px; top: 50%; transform: translateY(-50%); border-width: 11px 11px 11px 0; border-right-color: hsl(var(--onboarding-panel)); }
+}
+
+@media (max-width: 1023px) {
+  .onboarding-lovable .speech-side::before { top: -12px; left: 50%; transform: translateX(-50%); border-width: 0 12px 12px; border-bottom-color: hsl(var(--onboarding-slate) / .5); }
+  .onboarding-lovable .speech-side::after { top: -10px; left: 50%; transform: translateX(-50%); border-width: 0 11px 11px; border-bottom-color: hsl(var(--onboarding-panel)); }
 }
   .phone-input-global .PhoneInputInput {
     background: transparent;
