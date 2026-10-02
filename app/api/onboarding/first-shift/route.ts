@@ -206,17 +206,47 @@ export async function POST(request: Request) {
       return json({ session: data });
     }
 
-    if (!existingSession) {
-      return json({ error: "First Shift session not found" }, { status: 404 });
-    }
-
     if (action === "replay") {
+      if (existingSession?.status === "in_progress") {
+        return json({ session: existingSession });
+      }
+
+      if (!existingSession) {
+        const session = {
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          version: 1,
+          status: "in_progress" as const,
+          current_step: 0,
+          replay_count: 0,
+        };
+        const { data, error } = await supabaseAdmin
+          .from("first_shift_sessions")
+          .insert(session)
+          .select("id, user_id, version, status, current_step, replay_count, started_at, completed_at, skipped_at, last_exited_at, updated_at")
+          .single();
+        if (error) {
+          if (error.code === "23505") {
+            const concurrentSession = await getSession(user.id);
+            if (concurrentSession?.status === "in_progress") {
+              return json({ session: concurrentSession });
+            }
+          }
+          throw error;
+        }
+
+        await recordEvent({ sessionId: data.id, userId: user.id, eventType: "tour_started", step: 0 });
+        return json({ session: data });
+      }
+
       const { data, error } = await supabaseAdmin
         .from("first_shift_sessions")
         .update({
           status: "in_progress",
           current_step: 0,
           replay_count: existingSession.replay_count + 1,
+          completed_at: null,
+          skipped_at: null,
           last_exited_at: null,
           updated_at: new Date().toISOString(),
         })
@@ -238,6 +268,10 @@ export async function POST(request: Request) {
       await recordEvent({ sessionId: data.id, userId: user.id, eventType: "tour_replayed", step: 0 });
       await recordEvent({ sessionId: data.id, userId: user.id, eventType: "tour_started", step: 0, metadata: { replay: true } });
       return json({ session: data });
+    }
+
+    if (!existingSession) {
+      return json({ error: "First Shift session not found" }, { status: 404 });
     }
 
     if (existingSession.status !== "in_progress") {

@@ -17,7 +17,7 @@ type FirstShiftState = {
   session?: FirstShiftSession | null;
 };
 
-type FirstShiftAction = "start" | "complete" | "skip" | "step_completed";
+type FirstShiftAction = "start" | "replay" | "complete" | "skip" | "step_completed";
 
 async function requestFirstShift(accessToken: string, action?: FirstShiftAction, step?: number) {
   const controller = new AbortController();
@@ -104,9 +104,13 @@ export default function OnboardingPage() {
         }
 
         let session = state.session ?? null;
-        if (!session && state.eligible) {
-          const started = await requestFirstShift(accessToken, "start");
+        if (!session) {
+          const action = state.eligible ? "start" : "replay";
+          const started = await requestFirstShift(accessToken, action);
           session = started.session ?? null;
+        } else if (session.status !== "in_progress") {
+          const replayed = await requestFirstShift(accessToken, "replay");
+          session = replayed.session ?? null;
         }
         if (cancelled) return;
         if (!session || session.status !== "in_progress") {

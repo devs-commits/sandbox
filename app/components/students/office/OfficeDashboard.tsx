@@ -1,7 +1,8 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, BookOpen, User, MessageSquare, Target, RotateCcw } from 'lucide-react';
+import { Briefcase, BookOpen, User, MessageSquare, Target, Compass } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
@@ -50,8 +51,8 @@ export function OfficeDashboard() {
     chatUnreadCount,
     markChatRead,
     firstShift,
-    replayFirstShift,
   } = useOffice();
+  const router = useRouter();
   const [showProfile, setShowProfile] = useState(false);
 
   const deskRef = useRef<HTMLButtonElement | null>(null);
@@ -166,10 +167,10 @@ export function OfficeDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {firstShift.enabled && firstShift.canReplay && phase !== 'first_shift' && (
-            <Button variant="ghost" onClick={() => void replayFirstShift()} className="h-auto py-1.5 px-2 flex flex-col gap-0.5 rounded-xl hover:bg-primary">
-              <RotateCcw size={18} />
-              <span className="text-[10px] font-medium text-foreground">Replay tour</span>
+          {firstShift.enabled && phase !== 'first_shift' && (
+            <Button variant="ghost" onClick={() => router.push('/onboarding')} className="h-auto py-1.5 px-2 flex flex-col gap-0.5 rounded-xl hover:bg-primary" aria-label="Take onboarding tour" title="Take onboarding tour">
+              <Compass size={18} />
+              <span className="text-[10px] font-medium text-foreground">Take tour</span>
             </Button>
           )}
           <Button

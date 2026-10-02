@@ -20,7 +20,7 @@ import {
   Megaphone,
   Award,
   Settings,
-  Users, 
+  Users,
 } from "lucide-react";
 
 import { useState, useEffect, useRef } from "react";
