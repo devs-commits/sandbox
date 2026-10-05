@@ -2383,12 +2383,42 @@
   --onboarding-soft: 210 30% 97%;
   --onboarding-emerald: 158 70% 47%;
   --onboarding-violet: 282 70% 60%;
+  --onboarding-cyan-exact: oklch(0.74 0.14 205);
+  --onboarding-emerald-exact: oklch(0.72 0.18 160);
+  --onboarding-navy-exact: oklch(0.2 0.04 265);
+  --onboarding-slate-exact: oklch(0.26 0.05 255);
   --emerald: hsl(var(--onboarding-emerald));
   --violet: hsl(var(--onboarding-violet));
   --pinkglow: oklch(0.68 0.22 330);
   --tolu-cyan: oklch(0.74 0.14 205);
   --tolu-emerald: oklch(0.72 0.18 160);
   font-family: "Manrope", sans-serif;
+}
+
+.onboarding-lovable .onboarding-next-button {
+  color: var(--onboarding-navy-exact);
+}
+
+.onboarding-lovable .onboarding-cyan-button,
+.onboarding-lovable .onboarding-cyan-indicator {
+  background-color: var(--onboarding-cyan-exact);
+}
+
+.onboarding-lovable .onboarding-cyan-button:hover {
+  background-color: color-mix(in oklab, var(--onboarding-cyan-exact) 90%, transparent);
+}
+
+.onboarding-lovable .onboarding-emerald-button,
+.onboarding-lovable .onboarding-emerald-indicator {
+  background-color: var(--onboarding-emerald-exact);
+}
+
+.onboarding-lovable .onboarding-emerald-button:hover {
+  background-color: color-mix(in oklab, var(--onboarding-emerald-exact) 90%, transparent);
+}
+
+.onboarding-lovable .onboarding-inactive-indicator {
+  background-color: var(--onboarding-slate-exact);
 }
 
 .onboarding-lovable .tolu-sphere {
@@ -2461,7 +2491,7 @@
   flex-shrink: 0;
 }
 
-.onboarding-lovable > main:has(.speech-up) {
+.onboarding-lovable .onboarding-scroll-region > div {
   justify-content: safe center;
 }
 

@@ -1,30 +1,92 @@
-import { Search, Briefcase, Users, Archive, Wallet, ArrowDownToLine, Link2, Copy, Award, Globe2 } from "lucide-react";
+"use client";
 
-const Halo = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-3xl ring-4 ring-cyan/70 animate-pulse shadow-[0_0_60px_-10px_var(--cyan)] bg-panel border border-slate-line p-5 md:p-7 w-full">
-    {children}
-  </div>
-);
+import { useState } from "react";
+import { Maximize2, X } from "lucide-react";
+import { CarouselButton as Button } from "./CarouselButton";
 
-function Hub() {
-  return <Halo><div className="flex items-center gap-3 rounded-2xl border border-slate-line bg-navy px-4 py-3"><Search className="h-5 w-5 text-cyan" /><span className="text-soft/60 text-sm">Search briefs, rooms, archives…</span></div><div className="mt-5 grid grid-cols-3 gap-3">{["Intern", "Associate", "Expert"].map((r, i) => <div key={r} className={`rounded-xl border p-3 text-center ${i === 0 ? "border-cyan bg-cyan/10" : "border-slate-line"}`}><div className="text-[10px] uppercase tracking-widest text-soft/50">Rank {i + 1}</div><div className="font-display text-soft font-semibold mt-1 text-sm">{r}</div></div>)}</div><div className="mt-5"><div className="flex justify-between text-xs text-soft/60"><span>Week 1 of 24</span><span>4%</span></div><div className="mt-2 h-2 rounded-full bg-slate-line"><div className="h-full w-[4%] rounded-full bg-cyan" /></div></div></Halo>;
+type Screenshot = {
+  url: string;
+  width?: number;
+  alt: string;
+  label: string;
+};
+
+const screenshots: Screenshot[] = [
+  { url: "/welcome-final.png", alt: "Headquarters welcome panel with the first task button highlighted", label: "Headquarters · Welcome" },
+  { url: "/desk-guided2.png", width: 1650, alt: "My Office sidebar tab and advanced cybersecurity client task highlighted", label: "My Office · Client brief" },
+  { url: "/hub-guided2.png", width: 1650, alt: "Headquarters sidebar tab and first week of the learning roadmap highlighted", label: "Headquarters · Learning roadmap" },
+  { url: "/desk-guided2.png", width: 1650, alt: "My Office sidebar tab and assigned task with reference materials highlighted", label: "My Office · Your Desk" },
+  { url: "/wallet-guided2.png", width: 1720, alt: "Profile Settings sidebar tab, KYC & Security tab and bank and withdrawal security setup highlighted", label: "Profile Settings · KYC & Security" },
+  { url: "/earn-guided2.png", width: 1250, alt: "Earn Money sidebar tab and referral link sharing controls highlighted", label: "Earn Money · Referral link" },
+  { url: "/letters-guided2.png", width: 1920, alt: "Headquarters sidebar tab and work and visa reference letter milestones highlighted", label: "Headquarters · Reference letters" },
+];
+
+const taskScreenshots: Screenshot[] = [
+  { url: "/task-desk.png", width: 1920, alt: "My Office sidebar tab and assigned task highlighted on Your Desk", label: "Your Desk" },
+  { url: "/task-actions.png", width: 855, alt: "Task popup with View Full Details and Submit Work buttons highlighted", label: "Task actions" },
+  { url: "/task-details.png", width: 862, alt: "Full task details showing the deadline, attached resources, and task brief", label: "Full details" },
+  { url: "/task-submit.png", width: 640, alt: "Submit Work popup with upload area and Submit to Sola button highlighted", label: "Submit work" },
+];
+
+export function TaskSubmissionPreview() {
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const active = expanded === null ? null : taskScreenshots[expanded];
+
+  return (
+    <>
+      <div className="mx-auto grid w-full max-w-[900px] gap-3 sm:grid-cols-2" role="group" aria-label="Task submission walkthrough">
+        {taskScreenshots.map((shot, index) => (
+          <figure key={shot.label} className="min-w-0 overflow-hidden rounded-md border border-slate-line bg-panel">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-line px-3 py-1.5">
+              <figcaption className="min-w-0 truncate text-xs font-semibold text-soft/80">{index + 1} / 4 · {shot.label}</figcaption>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(index)} aria-label={`Enlarge ${shot.label} screenshot`} title="View screenshot at full size" className="h-7 w-7 shrink-0 text-cyan hover:bg-cyan/10 hover:text-cyan"><Maximize2 /></Button>
+            </div>
+            <img src={shot.url} alt={shot.alt} className="mx-auto block h-auto w-full max-h-[37vh] object-contain sm:max-h-[17vh]" loading="eager" decoding="async" />
+          </figure>
+        ))}
+      </div>
+      {active && (
+        <div className="fixed inset-0 z-[60] overflow-auto bg-navy/95 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label={`${active.label} screenshot at full size`} onClick={() => setExpanded(null)}>
+          <div className="mx-auto w-fit max-w-none" onClick={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-line bg-navy px-3 py-2 text-sm font-semibold text-soft">
+              <span>{active.label}</span>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(null)} aria-label="Close enlarged screenshot" className="text-soft hover:bg-slate-line hover:text-soft"><X /></Button>
+            </div>
+            <img src={active.url} alt={active.alt} className="block max-w-none" width={active.width} />
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
-function Office() {
-  const items = [{ icon: Briefcase, t: "My Desk", s: "3 client briefs waiting" }, { icon: Users, t: "Meeting Room", s: "Tolu + AI support online" }, { icon: Archive, t: "Archives", s: "Data sheets & past assets" }];
-  return <Halo><div className="space-y-3">{items.map(({ icon: I, t, s }, i) => <div key={t} className={`flex items-center gap-4 rounded-2xl border p-4 ${i === 0 ? "border-cyan bg-cyan/10" : "border-slate-line bg-navy"}`}><div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-line"><I className="h-5 w-5 text-cyan" /></div><div><div className="font-display font-semibold text-soft">{t}</div><div className="text-sm text-soft/60">{s}</div></div></div>)}</div></Halo>;
-}
+export function FeaturePreview({ index }: { index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const shot = screenshots[index];
+  if (!shot) return null;
 
-function WalletCard() {
-  return <Halo><div className="flex items-center justify-between"><span className="text-xs uppercase tracking-widest text-soft/50">Global Wallet</span><Wallet className="h-5 w-5 text-cyan" /></div><div className="mt-3 font-display text-4xl md:text-5xl font-bold text-soft">₦1,240<span className="text-soft/40">.50</span></div><div className="mt-1 text-sm text-emerald">+ ₦180 referral payouts this month</div><div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-line bg-navy p-3"><div className="text-xs text-soft/50">Subscription</div><div className="text-soft font-semibold">Pro · Active</div></div><button className="flex items-center justify-center gap-2 rounded-xl bg-cyan font-semibold text-navy"><ArrowDownToLine className="h-4 w-4" />Withdraw</button></div></Halo>;
+  return (
+    <>
+      <figure className="w-full overflow-hidden rounded-md border border-slate-line bg-panel shadow-[0_12px_40px_-20px_var(--cyan)]">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-line px-3 py-2 sm:px-4">
+          <figcaption className="min-w-0 truncate text-xs font-semibold text-soft/80">{shot.label}</figcaption>
+          <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(true)} aria-label={`Enlarge ${shot.label} screenshot`} title="View screenshot at full size" className="h-7 w-7 shrink-0 text-cyan hover:bg-cyan/10 hover:text-cyan">
+            <Maximize2 />
+          </Button>
+        </div>
+        <img src={shot.url} alt={shot.alt} className="mx-auto block h-auto max-h-[32vh] w-auto max-w-full object-contain md:max-h-[36vh]" loading="eager" decoding="async" />
+      </figure>
+      {expanded && (
+        <div className="fixed inset-0 z-[60] overflow-auto bg-navy/95 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label={`${shot.label} screenshot at full size`} onClick={() => setExpanded(false)}>
+          <div className="mx-auto w-fit max-w-none" onClick={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-line bg-navy px-3 py-2 text-sm font-semibold text-soft">
+              <span>{shot.label}</span>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(false)} aria-label="Close enlarged screenshot" className="text-soft hover:bg-slate-line hover:text-soft"><X /></Button>
+            </div>
+            <img src={shot.url} alt={shot.alt} className="block max-w-none" width={shot.width ?? 1535} />
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
-
-function Earn() {
-  return <Halo><div className="text-xs uppercase tracking-widest text-soft/50">Your affiliate link</div><div className="mt-2 flex items-center gap-2 rounded-xl border border-slate-line bg-navy px-3 py-3"><Link2 className="h-4 w-4 text-cyan" /><span className="flex-1 truncate text-sm text-soft">wdclabs.com/r/abdulquadri</span><Copy className="h-4 w-4 text-soft/60" /></div><div className="mt-5 grid grid-cols-3 gap-3 text-center">{[["24", "Clicks"], ["7", "Referrals"], ["₦180", "Earned"]].map(([v, l]) => <div key={l} className="rounded-xl border border-slate-line p-3"><div className="font-display text-xl font-bold text-soft">{v}</div><div className="text-xs text-soft/50">{l}</div></div>)}</div></Halo>;
-}
-
-function Letters() {
-  return <div className="w-full rounded-3xl ring-4 ring-emerald/70 animate-pulse shadow-[0_0_60px_-10px_var(--emerald)] bg-panel border border-slate-line p-5 md:p-7">{[{ icon: Award, t: "Work Reference Letter", n: 12, d: 9 }, { icon: Globe2, t: "Visa Reference Letter", n: 24, d: 9 }].map(({ icon: I, t, n, d }) => <div key={t} className="mb-4 last:mb-0 rounded-2xl border border-slate-line bg-navy p-4"><div className="flex items-center gap-3"><I className="h-6 w-6 text-emerald" /><div className="flex-1 font-display font-semibold text-soft">{t}</div><span className="text-sm text-soft/60">{d}/{n}</span></div><div className="mt-3 h-2 rounded-full bg-slate-line"><div className="h-full rounded-full bg-emerald" style={{ width: `${(d / n) * 100}%` }} /></div></div>)}</div>;
-}
-
-export const features = [Hub, Office, WalletCard, Earn, Letters];
