@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 // Helper: Calculate the upcoming Monday at 00:00:00 based on a given completion date
@@ -13,11 +13,11 @@ function getNextMonday(completionDate: string | Date) {
 }
 
 export async function GET(
-  request: Request,
-  { params }: { params: { trackId: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ trackId: string }> } // <-- Promise type for Next.js 15
 ) {
   try {
-    const { trackId } = params;
+    const { trackId } = await params; // <-- Await params before reading trackId
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
@@ -48,19 +48,16 @@ export async function GET(
     // 3. Process Locks and Map Data
     let previousWeekCompletedAt: string | null = null;
 
-    const formattedCurriculum = weeks.map((week, weekIndex) => {
+    const formattedCurriculum = (weeks || []).map((week, weekIndex) => {
       const sortedModules = (week.Module || []).sort((a: any, b: any) => a.dayNumber - b.dayNumber);
       
-      // -- WEEKLY MONDAY LOCK LOGIC --
       let isWeekLocked = false;
       let unlockDate = null;
 
       if (weekIndex > 0) {
         if (!previousWeekCompletedAt) {
-          // If the previous week isn't done yet, this week is definitely locked
           isWeekLocked = true;
         } else {
-          // Previous week is done. Calculate the next Monday.
           const nextMonday = getNextMonday(previousWeekCompletedAt);
           if (now < nextMonday) {
             isWeekLocked = true;
@@ -75,10 +72,8 @@ export async function GET(
       const processedModules = sortedModules.map((module: any, moduleIndex: number) => {
         const userProgress = progressMap.get(module.id) || { status: 'NOT_STARTED', completedAt: null };
         
-        // -- DAILY SEQUENTIAL LOCK LOGIC --
         let isModuleLocked = isWeekLocked; 
         
-        // If the week is unlocked, check if the previous day is completed
         if (!isWeekLocked && moduleIndex > 0) {
           const previousModuleId = sortedModules[moduleIndex - 1].id;
           const previousModuleProgress = progressMap.get(previousModuleId);
@@ -87,7 +82,6 @@ export async function GET(
           }
         }
 
-        // Track completion for the week-level logic
         if (userProgress.status !== 'COMPLETED') {
           allModulesCompletedInWeek = false;
         } else {
@@ -101,7 +95,6 @@ export async function GET(
         };
       });
 
-      // If this entire week is done, pass its completion date forward to check the Monday lock for the next week
       if (allModulesCompletedInWeek && lastCompletedDateInWeek) {
         previousWeekCompletedAt = lastCompletedDateInWeek;
       } else {
@@ -111,7 +104,7 @@ export async function GET(
       return {
         ...week,
         isLocked: isWeekLocked,
-        unlockDate: unlockDate, // Tells the frontend exactly when it opens (e.g., to show a countdown)
+        unlockDate: unlockDate,
         modules: processedModules,
       };
     });
