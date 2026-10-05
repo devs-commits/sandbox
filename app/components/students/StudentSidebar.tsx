@@ -215,7 +215,7 @@ export const StudentSidebar = () => {
     <>
       <div className="flex items-center gap-2 mb-4 mt-5 ml-5 max-w-3xl">
         <Link href="/">
-          <Image src={wdcNewLogo} alt="WildFusion Digital Centre" width={120} height={40} className="h-8 md:h-10 object-contain contrast-50 brightness-200" priority />
+          <Image src={wdcNewLogo} alt="WildFusion Digital Centre" width={120} height={40} className="h-8 w-auto md:h-10 object-contain contrast-50 brightness-200" priority />
         </Link>
       </div>
 

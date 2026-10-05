@@ -19,7 +19,7 @@ export default function Navbar() {
               alt="WildFusion Digital Centre"
               width={120}
               height={40}
-              className="h-8 md:h-10 object-contain"
+              className="h-8 w-auto md:h-10 object-contain"
               priority
             />
           </Link>
