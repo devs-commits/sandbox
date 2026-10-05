@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -2369,6 +2371,173 @@
   .landing-refresh .course-rail span {
     transition: none;
   }
+}
+
+/* Lovable's onboarding design tokens and presentation rules. Scoped so the
+   supplied carousel retains its original visual system without recolouring the app. */
+.onboarding-lovable {
+  --navy: 222 48% 12%;
+  --onboarding-panel: 220 44% 15%;
+  --onboarding-slate: 218 34% 24%;
+  --cyan: 185 86% 51%;
+  --onboarding-soft: 210 30% 97%;
+  --onboarding-emerald: 158 70% 47%;
+  --onboarding-violet: 282 70% 60%;
+  --onboarding-cyan-exact: oklch(0.74 0.14 205);
+  --onboarding-emerald-exact: oklch(0.72 0.18 160);
+  --onboarding-navy-exact: oklch(0.2 0.04 265);
+  --onboarding-slate-exact: oklch(0.26 0.05 255);
+  --emerald: hsl(var(--onboarding-emerald));
+  --violet: hsl(var(--onboarding-violet));
+  --pinkglow: oklch(0.68 0.22 330);
+  --tolu-cyan: oklch(0.74 0.14 205);
+  --tolu-emerald: oklch(0.72 0.18 160);
+  font-family: "Manrope", sans-serif;
+}
+
+.onboarding-lovable .onboarding-next-button {
+  color: var(--onboarding-navy-exact);
+}
+
+.onboarding-lovable .onboarding-cyan-button,
+.onboarding-lovable .onboarding-cyan-indicator {
+  background-color: var(--onboarding-cyan-exact);
+}
+
+.onboarding-lovable .onboarding-cyan-button:hover {
+  background-color: color-mix(in oklab, var(--onboarding-cyan-exact) 90%, transparent);
+}
+
+.onboarding-lovable .onboarding-emerald-button,
+.onboarding-lovable .onboarding-emerald-indicator {
+  background-color: var(--onboarding-emerald-exact);
+}
+
+.onboarding-lovable .onboarding-emerald-button:hover {
+  background-color: color-mix(in oklab, var(--onboarding-emerald-exact) 90%, transparent);
+}
+
+.onboarding-lovable .onboarding-inactive-indicator {
+  background-color: var(--onboarding-slate-exact);
+}
+
+.onboarding-lovable .tolu-sphere {
+  background: linear-gradient(135deg, hsl(220 30% 25%) 0%, hsl(282 55% 42%) 50%, hsl(222 42% 12%) 100%);
+  box-shadow: inset 0 4px 12px hsl(0 0% 100% / .15), inset -10px -14px 30px hsl(280 35% 8% / .8), 0 20px 50px -20px var(--violet);
+}
+
+.onboarding-lovable .tolu-aura-welcome {
+  background: radial-gradient(circle, var(--pinkglow, var(--violet)) 0%, var(--violet) 35%, transparent 70%);
+}
+
+.onboarding-lovable .tolu-aura-scanning {
+  background: radial-gradient(circle, var(--tolu-cyan) 0%, transparent 65%);
+}
+
+.onboarding-lovable .tolu-scan-sweep {
+  background: conic-gradient(from 0deg, transparent 0deg, color-mix(in oklab, var(--tolu-cyan) 45%, transparent) 40deg, transparent 60deg);
+}
+
+.onboarding-lovable .orb-shell {
+  background: radial-gradient(circle at 30% 25%, oklch(0.98 0.02 300) 0%, oklch(0.75 0.06 290) 18%, oklch(0.42 0.12 295) 48%, oklch(0.18 0.05 280) 80%);
+  box-shadow: inset -10px -14px 30px oklch(0.1 0.04 280 / .8), inset 8px 8px 20px oklch(1 0 0 / .35);
+}
+
+.onboarding-lovable .orb-visor {
+  background: linear-gradient(180deg, oklch(0.12 0.03 260), oklch(0.2 0.05 250));
+  box-shadow: inset 0 2px 8px oklch(0 0 0 / .8), 0 0 0 2px oklch(0.6 0.05 280 / .6);
+}
+
+.onboarding-lovable .eye {
+  background: var(--tolu-cyan);
+  box-shadow: 0 0 10px var(--tolu-cyan), 0 0 24px var(--tolu-cyan);
+}
+
+.onboarding-lovable .tolu-celebration-eye {
+  border: 4px solid var(--tolu-emerald);
+  border-bottom: 0;
+  border-radius: 9999px 9999px 0 0;
+  filter: drop-shadow(0 0 5px var(--tolu-emerald));
+  box-shadow: 0 0 10px color-mix(in oklab, var(--tolu-emerald) 75%, transparent);
+}
+
+.onboarding-lovable .tolu-antenna-tip.welcome {
+  background: var(--pinkglow, var(--violet));
+  box-shadow: 0 0 14px var(--pinkglow, var(--violet));
+}
+
+.onboarding-lovable .tolu-antenna-tip.scanning {
+  background: var(--tolu-cyan);
+  box-shadow: 0 0 14px var(--tolu-cyan);
+}
+
+.onboarding-lovable .tolu-antenna-tip.celebrating {
+  background: var(--tolu-emerald);
+  box-shadow: 0 0 14px var(--tolu-emerald);
+}
+
+.onboarding-lovable .speech::before,
+.onboarding-lovable .speech::after { content: ""; position: absolute; border: solid transparent; }
+.onboarding-lovable .speech-up::before { top: -12px; left: 50%; transform: translateX(-50%); border-width: 0 12px 12px; border-bottom-color: hsl(var(--onboarding-slate) / .5); }
+.onboarding-lovable .speech-up::after { top: -10px; left: 50%; transform: translateX(-50%); border-width: 0 11px 11px; border-bottom-color: hsl(var(--onboarding-panel)); }
+
+.onboarding-lovable > main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.onboarding-lovable > main > section {
+  flex-shrink: 0;
+}
+
+.onboarding-lovable .onboarding-scroll-region > div {
+  justify-content: safe center;
+}
+
+@media (min-width: 768px) {
+  .onboarding-lovable > main > section {
+    flex-direction: row;
+    justify-content: center;
+    width: 100%;
+    max-width: 72rem;
+    margin-inline: auto;
+    gap: 2rem;
+  }
+
+  .onboarding-lovable > main > section > div:nth-child(3) {
+    flex: 1 1 0%;
+    min-width: 0;
+    width: auto;
+  }
+
+  .onboarding-lovable .speech-up::before {
+    top: 50%;
+    left: -12px;
+    transform: translateY(-50%);
+    border-width: 12px 12px 12px 0;
+    border-bottom-color: transparent;
+    border-right-color: hsl(var(--onboarding-slate) / .5);
+  }
+
+  .onboarding-lovable .speech-up::after {
+    top: 50%;
+    left: -10px;
+    transform: translateY(-50%);
+    border-width: 11px 11px 11px 0;
+    border-bottom-color: transparent;
+    border-right-color: hsl(var(--onboarding-panel));
+  }
+}
+
+@media (min-width: 1024px) {
+  .onboarding-lovable .speech-side::before { left: -12px; top: 50%; transform: translateY(-50%); border-width: 12px 12px 12px 0; border-right-color: hsl(var(--onboarding-slate) / .5); }
+  .onboarding-lovable .speech-side::after { left: -10px; top: 50%; transform: translateY(-50%); border-width: 11px 11px 11px 0; border-right-color: hsl(var(--onboarding-panel)); }
+}
+
+@media (max-width: 1023px) {
+  .onboarding-lovable .speech-side::before { top: -12px; left: 50%; transform: translateX(-50%); border-width: 0 12px 12px; border-bottom-color: hsl(var(--onboarding-slate) / .5); }
+  .onboarding-lovable .speech-side::after { top: -10px; left: 50%; transform: translateX(-50%); border-width: 0 11px 11px; border-bottom-color: hsl(var(--onboarding-panel)); }
 }
   .phone-input-global .PhoneInputInput {
     background: transparent;

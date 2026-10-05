@@ -1,7 +1,8 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, BookOpen, User, MessageSquare, Target } from 'lucide-react';
+import { Briefcase, BookOpen, User, MessageSquare, Target, Compass } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
@@ -49,7 +50,9 @@ export function OfficeDashboard() {
     setActiveView,
     chatUnreadCount,
     markChatRead,
+    firstShift,
   } = useOffice();
+  const router = useRouter();
   const [showProfile, setShowProfile] = useState(false);
 
   const deskRef = useRef<HTMLButtonElement | null>(null);
@@ -163,14 +166,22 @@ export function OfficeDashboard() {
             <p className="text-xs text-muted-foreground">{userLevel || 'Level 1'} • Probation</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          onClick={() => setShowProfile(true)}
-          className="h-auto py-1.5 px-2 flex flex-col gap-0.5 rounded-xl hover:bg-primary"
-        >
-          <User size={18} />
-          <span className="text-[10px] font-medium text-foreground">Profile</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          {firstShift.enabled && phase !== 'first_shift' && (
+            <Button variant="ghost" onClick={() => router.push('/onboarding')} className="h-auto py-1.5 px-2 flex flex-col gap-0.5 rounded-xl hover:bg-primary" aria-label="Take onboarding tour" title="Take onboarding tour">
+              <Compass size={18} />
+              <span className="text-[10px] font-medium text-foreground">Take tour</span>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => setShowProfile(true)}
+            className="h-auto py-1.5 px-2 flex flex-col gap-0.5 rounded-xl hover:bg-primary"
+          >
+            <User size={18} />
+            <span className="text-[10px] font-medium text-foreground">Profile</span>
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">

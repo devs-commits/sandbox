@@ -16,6 +16,9 @@ import { buildLetterFileName, downloadLetterFromElement, type LetterType } from 
 import { ReferenceLetterTemplate, type LetterData } from "../../components/letters/ReferenceLetterTemplate";
 import { HeadquartersProvider } from "../../contexts/HeadquartersContext";
 import { HeadquartersTour } from "../../components/students/headquarters/HeadquartersTour";
+import { PROGRAM_MILESTONES } from "@/lib/program-milestones";
+
+// 🔥 Import the new Subscribe Modal
 import { SubscribeModal } from "@/app/components/students/SubscribeModal"; 
 
 type ModuleDef = { topic: string; days: string[]; };
@@ -131,8 +134,9 @@ function HeadquartersContent() {
 
   const [showSubModal, setShowSubModal] = useState(false);
   
-  const tasksRemaining12 = Math.max(12 - tasksCompleted, 0);
-  const tasksRemaining24 = Math.max(24 - tasksCompleted, 0);
+  const { workLetterTasks, visaLetterTasks } = PROGRAM_MILESTONES;
+  const tasksRemaining12 = Math.max(workLetterTasks - tasksCompleted, 0);
+  const tasksRemaining24 = Math.max(visaLetterTasks - tasksCompleted, 0);
 
   const fetchUserData = async () => {
     if (!user) return;
@@ -417,23 +421,23 @@ function HeadquartersContent() {
 
           <div className="mb-6">
             <div className="relative w-full bg-muted rounded-full h-3 overflow-hidden border border-border">
-              <div className="bg-purple-600 h-full rounded-full transition-all duration-700 relative" style={{ width: `${Math.min((tasksCompleted / 24) * 100, 100)}%` }} />
+              <div className="bg-purple-600 h-full rounded-full transition-all duration-700 relative" style={{ width: `${Math.min((tasksCompleted / visaLetterTasks) * 100, 100)}%` }} />
               
               <div className={`absolute top-1/2 w-4 h-4 rounded-full border-2 transition-all duration-500 ${
-                tasksCompleted >= 12 ? "bg-emerald-500 border-white shadow-lg" : "bg-muted-foreground border-border"
+                tasksCompleted >= workLetterTasks ? "bg-emerald-500 border-white shadow-lg" : "bg-muted-foreground border-border"
               }`} style={{ left: "50%", transform: "translate(-50%, -50%)" }} />
             </div>
             <div className="relative mt-3 text-xs font-medium text-muted-foreground flex justify-between">
               <span>{tasksCompleted} Tasks Done</span>
-              <span className={`absolute left-1/2 -translate-x-1/2 ${tasksCompleted >= 12 ? "text-emerald-400" : ""}`}>12 Tasks (Work)</span>
-              <span>24 Tasks (Visa)</span>
+              <span className={`absolute left-1/2 -translate-x-1/2 ${tasksCompleted >= workLetterTasks ? "text-emerald-400" : ""}`}>{workLetterTasks} Tasks (Work)</span>
+              <span>{visaLetterTasks} Tasks (Visa)</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4" data-tour="hq-letters">
             <div className="bg-muted/30 border border-border rounded-xl p-5 flex justify-between items-center">
               <div className="flex gap-3 items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tasksCompleted >= 12 ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tasksCompleted >= workLetterTasks ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
                   <FileText size={18} />
                 </div>
                 <div>
@@ -451,7 +455,7 @@ function HeadquartersContent() {
 
             <div className="bg-muted/30 border border-border rounded-xl p-5 flex justify-between items-center">
               <div className="flex gap-3 items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tasksCompleted >= 24 ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tasksCompleted >= visaLetterTasks ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
                   <FileText size={18} />
                 </div>
                 <div>

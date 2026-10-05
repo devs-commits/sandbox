@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,38 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
-    return NextResponse.json({ success: true, user: data.user, session: data.session });
+    let requiresFirstShift = false;
+    if (userRole === 'student') {
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('users')
+        .select('has_completed_onboarding, has_completed_tour, has_completed_headquarters_tour')
+        .eq('auth_id', data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Unable to load onboarding state after login:', profileError);
+      } else if (profile && !profile.has_completed_onboarding && !profile.has_completed_tour && !profile.has_completed_headquarters_tour) {
+        const [{ data: flag, error: flagError }, { count, error: taskError }] = await Promise.all([
+          supabaseAdmin
+            .from('feature_flags')
+            .select('mode')
+            .eq('key', 'first_shift_enabled')
+            .maybeSingle(),
+          supabaseAdmin
+            .from('tasks')
+            .select('id', { count: 'exact', head: true })
+            .eq('user', data.user.id),
+        ]);
+
+        if (flagError || taskError) {
+          console.error('Unable to confirm First Shift eligibility after login:', flagError || taskError);
+        } else {
+          requiresFirstShift = flag?.mode === 'everyone' && count === 0;
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true, user: data.user, session: data.session, requiresFirstShift });
 
   } catch (error) {
     console.error("Login Route Error:", error);

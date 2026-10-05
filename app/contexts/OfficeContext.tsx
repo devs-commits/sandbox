@@ -19,6 +19,21 @@ interface SubscriptionState {
   expiresAt: string | null;
 }
 
+type FirstShiftSession = {
+  id: string;
+  version: number;
+  status: 'in_progress' | 'completed' | 'skipped';
+  current_step: number;
+  replay_count: number;
+  last_exited_at: string | null;
+};
+
+type FirstShiftState = {
+  enabled: boolean;
+  session: FirstShiftSession | null;
+  canReplay: boolean;
+};
+
 interface OfficeContextType extends OfficeState {
   subscription: SubscriptionState | null;
   refreshSubscription: () => Promise<SubscriptionState | null>;
@@ -39,6 +54,7 @@ interface OfficeContextType extends OfficeState {
   generationStatusText: string; 
   isLoadingTasks: boolean;
   isLoadingOnboarding: boolean;
+  isLoadingFirstShift: boolean;
   activeView: 'desk' | 'meeting' | 'archives' | 'bounty';
   setActiveView: (view: 'desk' | 'meeting' | 'archives' | 'bounty') => void;
   submitBio: (bio: string, file?: File) => Promise<void>;
@@ -64,6 +80,11 @@ interface OfficeContextType extends OfficeState {
   weekStatus: 'in_progress' | 'passed_waiting';
   nextUnlockDate: string | null;
   unlockedBadges: Array<{ badge_name: string; earned_in_week: number; unlocked_at: string }>;
+  firstShift: FirstShiftState;
+  completeFirstShift: (mode: 'complete' | 'skip') => Promise<void>;
+  recordFirstShiftStep: (step: number) => Promise<void>;
+  exitFirstShift: () => Promise<void>;
+  replayFirstShift: () => Promise<void>;
 }
 
 const OfficeContext = createContext<OfficeContextType | null>(null);
@@ -105,6 +126,8 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   const [messageCount, setMessageCount] = useState(0);
 
   const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
+  const [firstShift, setFirstShift] = useState<FirstShiftState>({ enabled: false, session: null, canReplay: false });
+  const [isLoadingFirstShift, setIsLoadingFirstShift] = useState(true);
   const [shouldTriggerTeamIntro, setShouldTriggerTeamIntro] = useState(false);
   const pendingTaskGenerationSourceRef = useRef<'automatic' | 'manual' | null>(null);
   const taskGenerationInFlightRef = useRef(false);
@@ -646,6 +669,143 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       console.error('persistState: Exception:', error);
     }
   }, [userId]);
+
+  const requestFirstShift = useCallback(async (method: 'GET' | 'POST', body?: Record<string, unknown>) => {
+    // Resolve the local Supabase auth session before starting the request
+    // deadline; otherwise auth-lock latency consumes the API's time budget.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const controller = new AbortController();
+    // The API can need several Supabase round trips on a fresh account.
+    // Bound the network request itself while allowing normal cold-start latency.
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch('/api/onboarding/first-shift', {
+        method,
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: {
+          ...(body ? { 'Content-Type': 'application/json' } : {}),
+          ...(sessionData.session?.access_token ? { Authorization: `Bearer ${sessionData.session.access_token}` } : {}),
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        throw new Error(data?.error || 'First Shift is unavailable');
+      }
+      return data;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, []);
+
+  const finishFirstShiftFallback = useCallback(async () => {
+    // A transient flag/API failure must not permanently mark onboarding done.
+    // Keep this fallback in memory only, so the feature can be retried next visit.
+    setFirstShift({ enabled: false, session: null, canReplay: false });
+    setHasCompletedOnboarding(true);
+    setHasCompletedTour(true);
+    setPhaseState('working');
+    setShouldTriggerTeamIntro(true);
+  }, []);
+
+  useEffect(() => {
+    if (isLoadingOnboarding) return;
+    if (!userId) {
+      setIsLoadingFirstShift(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingFirstShift(true);
+
+    const loadFirstShift = async () => {
+      try {
+        const state = await requestFirstShift('GET');
+        if (cancelled || !state.enabled) return;
+
+        let session = state.session as FirstShiftSession | null;
+        if (!session && state.eligible) {
+          const started = await requestFirstShift('POST', { action: 'start' });
+          session = started.session as FirstShiftSession;
+        }
+
+        if (cancelled || !session) {
+          if (!cancelled) setFirstShift({ enabled: true, session: null, canReplay: Boolean(state.canReplay) });
+          return;
+        }
+
+        setFirstShift({
+          enabled: true,
+          session,
+          canReplay: Boolean(state.canReplay),
+        });
+
+        if (session.status === 'in_progress') {
+          setPhaseState('first_shift');
+        }
+      } catch (error) {
+        // First Shift is progressive enhancement: any slow or failed flag/API
+        // lookup leaves the established Office flow fully available.
+        if (!cancelled) setFirstShift({ enabled: false, session: null, canReplay: false });
+        console.warn('First Shift unavailable; using the existing Office flow.', error);
+      } finally {
+        if (!cancelled) setIsLoadingFirstShift(false);
+      }
+    };
+
+    void loadFirstShift();
+    return () => { cancelled = true; };
+  }, [isLoadingOnboarding, requestFirstShift, userId]);
+
+  const recordFirstShiftStep = useCallback(async (step: number) => {
+    try {
+      const result = await requestFirstShift('POST', { action: 'step_completed', step });
+      const session = result.session as FirstShiftSession;
+      setFirstShift((current) => ({ ...current, enabled: true, session }));
+    } catch (error) {
+      console.warn('First Shift step could not be saved; using the existing Office flow.', error);
+      await finishFirstShiftFallback();
+    }
+  }, [finishFirstShiftFallback, requestFirstShift]);
+
+  const exitFirstShift = useCallback(async () => {
+    try {
+      const result = await requestFirstShift('POST', { action: 'exit' });
+      const session = result.session as FirstShiftSession;
+      setFirstShift((current) => ({ ...current, enabled: true, session }));
+    } catch (error) {
+      console.warn('First Shift exit could not be saved; using the existing Office flow.', error);
+      await finishFirstShiftFallback();
+    }
+  }, [finishFirstShiftFallback, requestFirstShift]);
+
+  const completeFirstShift = useCallback(async (mode: 'complete' | 'skip') => {
+    try {
+      const result = await requestFirstShift('POST', { action: mode });
+      const session = result.session as FirstShiftSession;
+      setFirstShift({ enabled: true, session, canReplay: true });
+      setHasCompletedOnboarding(true);
+      setHasCompletedTour(true);
+      setPhaseState('working');
+      setShouldTriggerTeamIntro(true);
+    } catch (error) {
+      console.warn('First Shift handoff could not be saved; using the existing Office flow.', error);
+      await finishFirstShiftFallback();
+    }
+  }, [finishFirstShiftFallback, requestFirstShift]);
+
+  const replayFirstShift = useCallback(async () => {
+    try {
+      const result = await requestFirstShift('POST', { action: 'replay' });
+      const session = result.session as FirstShiftSession;
+      setFirstShift({ enabled: true, session, canReplay: false });
+      setPhaseState('first_shift');
+    } catch (error) {
+      // The user remains in the current Office state if replay is unavailable.
+      console.warn('First Shift replay is unavailable.', error);
+    }
+  }, [requestFirstShift]);
 
   const activateSubscription = useCallback(async (_planType: string) => {
     // Kept temporarily for compatibility with existing consumers. Never let
@@ -1319,6 +1479,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         generationStatusText, 
         isLoadingTasks,
         isLoadingOnboarding,
+        isLoadingFirstShift,
         activeView,
         setActiveView,
         submitBio,
@@ -1342,7 +1503,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
         currentIdentity,
         weekStatus,
         nextUnlockDate,
-        unlockedBadges
+        unlockedBadges,
+        firstShift,
+        completeFirstShift,
+        recordFirstShiftStep,
+        exitFirstShift,
+        replayFirstShift,
       }}
     >
       {children}
