@@ -16,6 +16,7 @@ import { Task } from './types';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { ReportIssueModal } from './ReportIssueModal'; 
+import { supabase } from "../../../../lib/supabase";
 
 const openSans = Open_Sans({
   subsets: ['latin'],
@@ -100,15 +101,7 @@ export function TaskDashboard() {
 
   const markDayComplete = async (taskId: string) => {
     try {
-      // 1. Instantly update the UI so it feels lightning fast
-      const updatedTasks = tasks.map(t => 
-        t.id === taskId ? { ...t, status: 'passed', completed: true } : t
-      );
-      if (useOffice.setState) {
-        useOffice.setState({ tasks: updatedTasks });
-      }
-
-      // 2. Update Supabase
+      // 1. Update Supabase
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'passed', completed: true })
@@ -118,13 +111,18 @@ export function TaskDashboard() {
 
       toast.success("Day marked as complete! Next module unlocked.");
       
-      // 3. Move them to the next task automatically
+      // 2. Move them to the next task automatically
       const currentWeekTasks = groupedTasks[activeWeek || 1];
       const currentIndex = currentWeekTasks.findIndex(t => t.id === taskId);
       
       if (currentIndex !== -1 && currentIndex + 1 < currentWeekTasks.length) {
         setActiveTask(currentWeekTasks[currentIndex + 1]);
       }
+
+      // 3. Sync the sidebar checkmarks and unlock states
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
 
     } catch (error) {
       console.error("Error marking day complete:", error);
