@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 
 interface AuthUser {
@@ -13,6 +13,10 @@ interface AuthUser {
   country?: string;
   referralLink?: string;
   created_at?: string;
+  // 🔥 Unified Intelligence Variables
+  tasksCompleted?: number;
+  subscriptionStatus?: string;
+  currentWeek?: number;
 }
 
 interface AuthContextType {
@@ -25,6 +29,7 @@ interface AuthContextType {
   forgotPassword: (email: string, role: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (newPassword: string, token?: string) => Promise<{ success: boolean; error?: string }>;
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  refreshUserStats: () => Promise<void>; // 🔥 Trigger this to re-sync stats across Sidebar/Headquarters
 }
 
 interface SignupData {
@@ -46,11 +51,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 🔥 Helper function to silently fetch and patch the user state with DB stats
+  const fetchUserStats = useCallback(async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('track, tasks_completed, subscription_status')
+        .eq('auth_id', userId)
+        .single();
+        
+      if (!error && data) {
+        setUser((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            track: data.track || prev.track,
+            tasksCompleted: data.tasks_completed || 0,
+            subscriptionStatus: data.subscription_status || "inactive",
+            currentWeek: (data.tasks_completed || 0) + 1,
+          };
+        });
+      }
+    } catch (err) {
+      console.error("Failed to sync DB stats:", err);
+    }
+  }, []);
+
+  const refreshUserStats = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await fetchUserStats(session.user.id);
+    }
+  };
+
   useEffect(() => {
     const recordStudentActivity = async (accessToken?: string) => {
       if (!accessToken) return;
-
-      // Activity reporting must never block authentication or session recovery.
       try {
         await fetch('/api/users/activity', {
           method: 'POST',
@@ -66,9 +102,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const { user_metadata } = session.user;
+          // 🔥 Modified to pull the extra unified variables on initial load
           const { error, data } = await supabase
             .from('users')
-            .select('id')
+            .select('id, track, tasks_completed, subscription_status')
             .eq('auth_id', session.user.id)
             .single();
             
@@ -79,11 +116,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               email: session.user.email!,
               fullName: user_metadata.fullName,
               role: user_metadata.role,
-              track: user_metadata.track,
+              track: data.track || user_metadata.track,
               experienceLevel: user_metadata.experienceLevel,
               country: user_metadata.country,
               referralLink: user_metadata.referralLink,
               created_at: session.user.created_at,
+              // Map our new DB stats:
+              tasksCompleted: data.tasks_completed || 0,
+              subscriptionStatus: data.subscription_status || "inactive",
+              currentWeek: (data.tasks_completed || 0) + 1,
             });
             void recordStudentActivity(session.access_token);
           }
@@ -97,13 +138,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         const { user_metadata } = session.user;
         
         setUser((prev) => {
           if (prev?.id === session.user.id) return prev;
-
+          
+          // 🔥 Return synchronous state instantly so the app doesn't crash/redirect
           return {
             id: session.user.id,
             user_id: user_metadata.id, 
@@ -115,17 +157,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             country: user_metadata.country,
             referralLink: user_metadata.referralLink,
             created_at: session.user.created_at,
+            tasksCompleted: 0,
+            subscriptionStatus: "inactive",
+            currentWeek: 1
           };
         });
+        
+        // 🔥 Then fetch the updated DB stats silently in the background
+        fetchUserStats(session.user.id);
         void recordStudentActivity(session.access_token);
       } else {
         setUser(null);
       }
-      setIsLoading(false);
+      setIsLoading(false); // Can safely fire immediately now!
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchUserStats]);
 
   const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
@@ -176,51 +224,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const newAuthId = result.user?.id || result.data?.user?.id;
       
-      // 🔥 WDC LABS REFERRAL ENGINE: Runs silently after successful account creation
       if (data.referralLink && newAuthId) {
         try {
-          const { data: newUserDB } = await supabase
-            .from('users')
-            .select('id')
-            .eq('auth_id', newAuthId)
-            .single();
-
-          const { data: referrerDB } = await supabase
-            .from('users')
-            .select('id')
-            .eq('referral_code', data.referralLink.toLowerCase().trim())
-            .maybeSingle();
+          const { data: newUserDB } = await supabase.from('users').select('id').eq('auth_id', newAuthId).single();
+          const { data: referrerDB } = await supabase.from('users').select('id').eq('referral_code', data.referralLink.toLowerCase().trim()).maybeSingle();
 
           if (newUserDB && referrerDB) {
-            await supabase.from('referrals').insert({
-              referrer_id: referrerDB.id,
-              referred_user_id: newUserDB.id,
-              status: 'pending'
-            });
-            console.log("WDC Labs: Referral Successfully Linked.");
+            await supabase.from('referrals').insert({ referrer_id: referrerDB.id, referred_user_id: newUserDB.id, status: 'pending' });
           }
-        } catch (refError) {
-          console.error("WDC Labs: Referral linking failed quietly:", refError);
-        }
+        } catch (refError) {}
       }
 
-      // 🔥 WDC LABS SQUAD ENGINE: Auto-join squad silently
       if (data.squadSlug && newAuthId) {
         try {
-          const squadRes = await fetch('/api/squad/join', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: newAuthId, slug: data.squadSlug }),
-          });
-          const squadData = await squadRes.json();
-          if (squadData.success) {
-            console.log("WDC Labs: Successfully auto-joined squad.");
-          } else {
-            console.warn("WDC Labs: Squad auto-join failed:", squadData.error);
-          }
-        } catch (squadErr) {
-          console.error("WDC Labs: Squad auto-join failed quietly:", squadErr);
-        }
+          await fetch('/api/squad/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: newAuthId, slug: data.squadSlug }) });
+        } catch (squadErr) {}
       }
 
       return { success: true, user: result.user }; 
@@ -230,24 +248,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // ==========================================
-  // 🔥 UPDATED LOGOUT FUNCTION
-  // ==========================================
   const logout = async () => {
-    // 1. Wipe the browser's session memory so the CV prompt resets for the next login
     if (typeof window !== "undefined") {
       sessionStorage.clear();
-      localStorage.removeItem("supabase.auth.token"); // Failsafe
+      localStorage.removeItem("supabase.auth.token"); 
     }
-
-    // 2. Hit the new logout route to clear server cookies
     await fetch('/api/auth/logout', { method: 'POST' });
-    
-    // 3. Clear Supabase local state
     await supabase.auth.signOut();
     setUser(null);
-
-    // 4. Force a hard redirect to login so the app state mounts fresh next time
     if (typeof window !== "undefined") {
       window.location.href = '/login';
     }
@@ -256,9 +264,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const forgotPassword = async (email: string, role: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/reset-password`,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${siteUrl}/reset-password` });
       if (error) throw error;
       return { success: true };
     } catch (error: any) {
@@ -278,10 +284,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
     const { data: { session } } = await supabase.auth.getSession();
-    const headers: Record<string, string> = {
-      ...(options.headers as Record<string, string>),
-      'Content-Type': 'application/json',
-    };
+    const headers: Record<string, string> = { ...(options.headers as Record<string, string>), 'Content-Type': 'application/json' };
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
@@ -289,7 +292,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, signup, logout, forgotPassword, resetPassword, authenticatedFetch }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, signup, logout, forgotPassword, resetPassword, authenticatedFetch, refreshUserStats }}>
       {children}
     </AuthContext.Provider>
   );

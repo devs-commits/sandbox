@@ -41,8 +41,7 @@ export default function PortfolioPage() {
 
   const [metrics, setMetrics] = useState({
     currentTask: "Awaiting Assignment...",
-    currentLevel: (user as any)?.user_level || "Junior Intern",
-    tasksCompleted: 0,
+    currentLevel: "Junior Intern",
     masteryScore: 0,
     averageScore: 0,
     ratings: { excellent: 0, good: 0, pass: 0 }
@@ -112,8 +111,7 @@ export default function PortfolioPage() {
 
       setMetrics({
         currentTask: active ? active.title : "All caught up!",
-        currentLevel: userData?.user_level || (user as any)?.user_level || "Junior Intern",
-        tasksCompleted: completed.length,
+        currentLevel: userData?.user_level || "Junior Intern",
         averageScore: userData?.average_score || 0,
         masteryScore: Math.min(100, (completed.length * 5) + ((userData?.average_score || 0) * 0.5)),
         ratings: { excellent: excCount, good: gdCount, pass: psCount }
@@ -127,7 +125,8 @@ export default function PortfolioPage() {
   }
 
   const handleGenerateResume = async () => {
-    if (tasks.length < 1) return
+    // 🔥 Ensures we don't block generation if tasks array is slow to mount, as long as the global counter knows they have tasks
+    if (tasks.length < 1 && (user?.tasksCompleted || 0) < 1) return
     if (resumeContent) return 
 
     setIsGeneratingResume(true)
@@ -137,8 +136,9 @@ export default function PortfolioPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user?.id,
-          user_name: user?.fullName,
-          track: user?.track,
+          user_name: user?.fullName, // 🔥 Sourced directly from unified AuthContext
+          track: user?.track,        // 🔥 Sourced directly from unified AuthContext
+          task_count: tasks.length || user?.tasksCompleted, // 🔥 Explicitly passes the correct count to prevent the "0" bug
           start_date: user?.created_at,
           end_date: null,
           tasks: tasks,
@@ -195,25 +195,37 @@ export default function PortfolioPage() {
     verified: true
   }))
 
+  // 🔥 Leverage the global user state for immediate UI feedback
+  const totalCompletedTasks = user?.tasksCompleted || tasks.length;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <StudentHeader title="Portfolio & Performance" />
       <div className="p-4 lg:p-6 space-y-8 max-w-7xl mx-auto">
 
         {/* Action Bar */}
-        <div className="flex flex-wrap gap-3 justify-end">
-          <Button
-            onClick={handleGenerateResume}
-            disabled={tasks.length < 1}
-            className={cn("border-none shadow-none font-medium", tasks.length < 1 ? "bg-slate-800 text-slate-400" : "bg-purple-600 hover:bg-purple-700 text-white")}
-          >
-            {tasks.length < 1 ? <Lock className="mr-2 h-4 w-4" /> : <Wand2 className="mr-2 h-4 w-4" />}
-            Auto-Generate Resume
-          </Button>
-          <Button onClick={() => setIsShareOpen(true)} className="bg-cyan-600 hover:bg-cyan-700 text-white border-none shadow-none font-medium">
-            <Share2 className="mr-2 h-4 w-4" /> Share Public Link
-          </Button>
-        </div>
+<div className="flex flex-wrap gap-3 justify-end">
+  <div 
+    title={totalCompletedTasks < 1 ? "Complete at least 1 task to unlock your resume" : "Generate your ATS-ready resume"}
+    className="inline-block"
+  >
+    <Button
+      onClick={handleGenerateResume}
+      disabled={totalCompletedTasks < 1}
+      className={cn("border-none shadow-none font-medium transition-all", 
+        totalCompletedTasks < 1 
+          ? "bg-slate-800/80 text-slate-500" 
+          : "bg-purple-600 hover:bg-purple-700 text-white"
+      )}
+    >
+      {totalCompletedTasks < 1 ? <Lock className="mr-2 h-4 w-4 text-slate-500" /> : <Wand2 className="mr-2 h-4 w-4" />}
+      {totalCompletedTasks < 1 ? "Locked: Complete 1 Task" : "Auto-Generate Resume"}
+    </Button>
+  </div>
+  <Button onClick={() => setIsShareOpen(true)} className="bg-cyan-600 hover:bg-cyan-700 text-white border-none shadow-none font-medium">
+    <Share2 className="mr-2 h-4 w-4" /> Share Public Link
+  </Button>
+</div>
 
         {/* DASHBOARD METRICS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -229,7 +241,7 @@ export default function PortfolioPage() {
               </div>
               <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
                 <span className="text-xs text-muted-foreground font-semibold uppercase">Tasks Completed</span>
-                <p className="text-xl font-bold text-foreground mt-1">{metrics.tasksCompleted}</p>
+                <p className="text-xl font-bold text-foreground mt-1">{totalCompletedTasks}</p>
               </div>
               <div className="col-span-2 bg-muted/50 p-4 rounded-lg border border-border/50">
                 <span className="text-xs text-muted-foreground font-semibold uppercase">Active Task</span>
@@ -295,7 +307,7 @@ export default function PortfolioPage() {
           )}
         </div>
 
-        {/* 🔥 THE NEW TRANSPARENCY FIX: Completed Task Scoring Breakdown */}
+        {/* Task History & Scoring */}
         {tasks.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
             <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
@@ -322,7 +334,6 @@ export default function PortfolioPage() {
                     )}
                   </div>
                   
-                  {/* The actual AI Breakdown outputted straight from the DB */}
                   {task.score_breakdown && Object.keys(task.score_breakdown).length > 0 && (
                     <div className="mt-4 pt-3 border-t border-border/50 grid grid-cols-1 md:grid-cols-3 gap-3">
                       {Object.entries(task.score_breakdown).map(([criteria, points]) => (

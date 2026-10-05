@@ -3,7 +3,7 @@
 import { useState, useMemo, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Copy, Clock, AlertCircle, CreditCard, Banknote, X, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, X, CheckCircle2 } from "lucide-react";
 import { AuthInput } from "../components/auth/AuthInput";
 import { AuthSelect } from "../components/auth/AuthSelect";
 import { RoleToggle } from "../components/auth/RoleToggle";
@@ -18,7 +18,6 @@ import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 countries.registerLocale(enLocale);
-declare const PaystackPop: any;
 
 interface SignupData {
   fullName: string;
@@ -40,14 +39,6 @@ const tracks = [
   { value: "cyber-security", label: "Cyber Security" },
 ];
 
-type PaymentDetails = {
-  accountNumber: string;
-  accountName: string;
-  localExpiry: number;
-  transactionId: string;
-};
-
-// Safely extract the cached cookies
 const getCookie = (name: string) => {
   if (typeof document === 'undefined') return null;
   const value = `; ${document.cookie}`;
@@ -61,23 +52,8 @@ const SignUpContent = () => {
   const { signup } = useAuth();
   const searchParams = useSearchParams();
 
-  // NEW: Your Paystack Plan Codes - Live Plan Codes
-  const PAYSTACK_PLAN_CODES = {
-    monthly: "PLN_46z8gz0p4foduy8",
-    quarterly: "PLN_ddzhasixy441mju"
-  };
-
-  //   // NEW: Your Paystack Plan Codes - Test Plan Codes
-  // const PAYSTACK_PLAN_CODES = {
-  //   monthly: "PLN_0a0fy91qz8jff3g",
-  //   quarterly: "PLN_f2c6kpj0yr50ww9"
-  // };
-
   const [role, setRole] = useState<"student" | "recruiter">("student");
   const [subscriptionPlan, setSubscriptionPlan] = useState<"monthly" | "quarterly">("monthly");
-  
-  // 🔥 UPDATED: Set default directly to Paystack to bypass Supply Smart entirely
-  const [paymentMethod, setPaymentMethod] = useState<"paystack">("paystack");
   
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -92,26 +68,13 @@ const SignUpContent = () => {
   const [referralLink, setReferralLink] = useState("");
   const [squadSlug, setSquadSlug] = useState("");
   const [hasValidReferral, setHasValidReferral] = useState(false);
-  
-  // Referral Verification States
   const [isVerifyingReferral, setIsVerifyingReferral] = useState(false);
   const [referralError, setReferralError] = useState("");
   const [verifiedReferralName, setVerifiedReferralName] = useState("");
 
-  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [creatingAccount, setCreatingAccount] = useState(false);
-  const [initializingPaystack, setInitializingPaystack] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [wdcPrivacy, setWdcPrivacy] = useState(false);
-
-  const [couponCode, setCouponCode] = useState("");
-  const [isCouponApplied, setIsCouponApplied] = useState(false);
-  const [trialDays, setTrialDays] = useState<number>(0); 
-  const [couponError, setCouponError] = useState("");
-  const [isProcessingTrial, setIsProcessingTrial] = useState(false);
 
   useEffect(() => {
     const fetchCountryCode = async () => {
@@ -152,23 +115,6 @@ const SignUpContent = () => {
   }, [referralLink, verifiedReferralName]);
 
   useEffect(() => {
-    const promoFromUrl = searchParams.get("promo") || searchParams.get("coupon");
-    if (promoFromUrl) {
-      const normalizedCode = promoFromUrl.trim().toUpperCase();
-      setCouponCode(normalizedCode);
-      if (normalizedCode === "WDCLABS14") {
-        setIsCouponApplied(true);
-        setTrialDays(14);
-        setCouponError("");
-        toast.success("🎉 Promo Link Active! Your 14-day free trial is unlocked.");
-      } else if (normalizedCode === "FIRSTTASK") {
-        setIsCouponApplied(true);
-        setTrialDays(7);
-        setCouponError("");
-        toast.success("🎉 Promo Link Active! Your 7-day free trial is unlocked.");
-      }
-    }
-
     const refFromUrl = searchParams.get("ref");
     const refFromCookie = getCookie("wdc_referral_id");
     const activeReferral = refFromUrl || refFromCookie;
@@ -181,40 +127,14 @@ const SignUpContent = () => {
       if (squadFromUrl) document.cookie = `wdc_squad_id=${squadFromUrl}; path=/; max-age=86400`;
     }
 
-    const activeSquad = squadFromUrl || squadFromCookie;
-
     if (activeReferral) {
       setReferralLink(activeReferral);
       setHasValidReferral(true);
     }
-
-    if (activeSquad) {
-      setSquadSlug(activeSquad);
+    if (squadFromUrl || squadFromCookie) {
+      setSquadSlug(squadFromUrl || squadFromCookie || "");
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    const localExpiry = paymentDetails?.localExpiry;
-    if (!localExpiry) return;
-    
-    const updateTimer = () => {
-      const diff = localExpiry - Date.now();
-      if (diff <= 0) {
-        setSecondsLeft(0);
-        return;
-      }
-      setSecondsLeft(Math.floor(diff / 1000));
-    };
-    
-    updateTimer();
-    const timer = setInterval(updateTimer, 1000);
-    return () => clearInterval(timer);
-  }, [paymentDetails?.localExpiry]);
-
-  const formattedTime = secondsLeft === null ? "--:--" : 
-    `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
-
-  const timerExpired = secondsLeft === 0;
 
   const validateForm = () => {
     if (!fullName || !email || !phone || !password || !country || (role === "student" && (!track || !experienceLevel))) {
@@ -228,55 +148,11 @@ const SignUpContent = () => {
     return true;
   };
 
-  const handleRegistration = async () => {
-    const trialPlanString = trialDays === 7 ? "trial_7" : "trial";
-    
-    const signupPayload: SignupData = {
-      fullName, 
-      email, 
-      phone, 
-      password, 
-      role, 
-      country,
-      track: role === "student" ? track : undefined,
-      experienceLevel: role === "student" ? experienceLevel : undefined,
-      referralLink: role === "student" && referralLink && hasValidReferral ? referralLink : undefined,
-      squadSlug: role === "student" && squadSlug ? squadSlug : undefined, 
-      subscriptionPlan: isCouponApplied ? trialPlanString : subscriptionPlan, 
-    };
-
-    const result = await signup(signupPayload);
-
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-    return { success: true, userId: (result as any).user?.id || (result as any).data?.user?.id };
-  };
-
-  const handleApplyCoupon = () => {
-    const normalizedCode = couponCode.trim().toUpperCase();
-    if (normalizedCode === "WDCLABS14") {
-      setIsCouponApplied(true);
-      setTrialDays(14);
-      setCouponError("");
-      toast.success("🎉 WDCLABS14 Applied! 14-day free trial unlocked.");
-    } else if (normalizedCode === "FIRSTTASK") {
-      setIsCouponApplied(true);
-      setTrialDays(7);
-      setCouponError("");
-      toast.success("🎉 FIRSTTASK Applied! 7-day free trial unlocked.");
-    } else {
-      setIsCouponApplied(false);
-      setCouponError("Invalid coupon code. Please try again.");
-    }
-  };
-
   const handleVerifyReferral = async () => {
     if (!referralLink.trim()) {
       setReferralError("Please enter a referral code.");
       return;
     }
-    
     setIsVerifyingReferral(true);
     setReferralError("");
 
@@ -306,192 +182,40 @@ const SignUpContent = () => {
     }
   };
 
-  const handleTrialBypass = async () => {
+  const handleRegistration = async () => {
     if (!validateForm()) return;
-    setIsProcessingTrial(true);
+    setIsProcessing(true);
     setError("");
 
     try {
-      toast.info(`Activating your ${trialDays}-Day Free Trial...`, { id: "trial" });
-      const reg = await handleRegistration();
-      if (!reg.success) throw new Error(reg.error || "Signup failed");
+      toast.info("Setting up your Free Week...", { id: "reg" });
+      
+      const signupPayload: SignupData = {
+        fullName, 
+        email, 
+        phone, 
+        password, 
+        role, 
+        country,
+        track: role === "student" ? track : undefined,
+        experienceLevel: role === "student" ? experienceLevel : undefined,
+        referralLink: role === "student" && referralLink && hasValidReferral ? referralLink : undefined,
+        squadSlug: role === "student" && squadSlug ? squadSlug : undefined, 
+        subscriptionPlan: "trial_7", // Automatically grants free week
+      };
+
+      const result = await signup(signupPayload);
+
+      if (!result.success) throw new Error(result.error || "Signup failed");
 
       clearReferralCookies(); 
-
-      toast.success("Trial Activated! Check your email to verify.", { id: "trial" });
+      toast.success("Account created! Check your email to verify.", { id: "reg" });
       router.push("/auth/verify-email");
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong activating your trial.", { id: "trial" });
+      toast.error(err.message || "An error occurred during registration.", { id: "reg" });
+      setError(err.message);
     } finally {
-      setIsProcessingTrial(false);
-    }
-  };
-
-  // Kept intact but unused now that Supply Smart is bypassed
-  const createPaymentAccount = async () => {
-    if (!validateForm()) return;
-    setCreatingAccount(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/payment/create-account", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, phone, track: role === "student" ? track : "recruiter", role, subscriptionPlan }),
-      });
-      
-      const data = await response.json();
-      if (!data?.success) throw new Error(data?.message || data?.error || "Provider error");
-      
-      setPaymentDetails({
-        accountNumber: data.accountNumber,
-        accountName: data.accountName,
-        transactionId: data.transactionId,
-        localExpiry: Date.now() + 15 * 60 * 1000,
-      });
-      toast.success("Payment details generated");
-    } catch (err: any) {
-      setError(err.message || "Failed to generate payment details");
-    } finally {
-      setCreatingAccount(false);
-    }
-  };
-
-  // Kept intact but unused
-  const verifyPayment = async () => {
-    if (!paymentDetails?.transactionId) return;
-    setCheckingPayment(true);
-    try {
-      const response = await fetch("/api/payment/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionId: paymentDetails.transactionId }),
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setPaymentConfirmed(true);
-        toast.success("Payment verified successfully. You can now register.");
-      } else {
-        toast.error("Payment not yet confirmed. Please wait a minute and try again.");
-      }
-    } catch {
-      toast.error("Verification failed");
-    } finally {
-      setCheckingPayment(false);
-    }
-  };
-
-  // Kept intact but unused
-  const handleSubmit = async () => {
-    if (!paymentDetails?.transactionId) return;
-    setCreatingAccount(true);
-
-    try {
-      toast.info("Registering your account...", { id: "reg" });
-      const reg = await handleRegistration();
-      if (!reg.success) throw new Error(reg.error || "Signup failed");
-
-      const res = await fetch("/api/auth/finalize-transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionId: paymentDetails.transactionId, userId: reg.userId }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        clearReferralCookies(); 
-        toast.success("Registration complete. Check your email.", { id: "reg" });
-        router.push("/auth/verify-email");
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (err: any) {
-      toast.error(err.message || "An error occurred while finalizing.");
-    } finally {
-      setCreatingAccount(false);
-    }
-  };
-
-  // 🔥 UPDATED: Paystack Engine integration
-  const handlePaystackCheckout = async () => {
-    if (!validateForm()) return;
-    setInitializingPaystack(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/paystack/initialize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email, fullName, phone, track: role === "student" ? track : "recruiter", role,
-          amount: numericAmount, subscriptionPlan,
-          callback_url: `${window.location.origin}/auth/verify-email` 
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to initialize payment API");
-      const data = await res.json();
-
-      if (data?.data?.reference) {
-        
-        // Grab the right plan based on selection
-        const planCode = subscriptionPlan === "quarterly" 
-          ? PAYSTACK_PLAN_CODES.quarterly 
-          : PAYSTACK_PLAN_CODES.monthly;
-
-        const paystack = new PaystackPop();
-        paystack.newTransaction({
-          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-          email: email,
-          amount: numericAmount * 100,
-          reference: data.data.reference,
-          plan: planCode,       // Connects the payment to your recurring plan
-          channels: ['card'],   // Forces strictly card for subscriptions
-          onSuccess: async (transaction: any) => {
-            toast.success("Payment received. Setting up your profile...");
-            const reg = await handleRegistration();
-            if (!reg.success) {
-                toast.error("Profile creation failed, but payment received. Contact support.");
-                return;
-            }
-
-            await fetch("/api/paystack/verify", {
-               method: "POST",
-               headers: { "Content-Type": "application/json" },
-               body: JSON.stringify({ reference: transaction.reference, userId: reg.userId })
-            });
-
-            clearReferralCookies();
-            router.push("/auth/verify-email");
-          },
-          onCancel: () => {
-            toast.error("Payment cancelled.");
-            setInitializingPaystack(false);
-          },
-        });
-      } else {
-        throw new Error("Failed to get payment reference");
-      }
-    } catch (err) {
-      toast.error("Payment setup failed. Please try again.");
-      setInitializingPaystack(false);
-    }
-  };
-
-  const handleMainAction = () => {
-    if (paymentMethod === "paystack") return handlePaystackCheckout();
-    if (!paymentDetails?.accountNumber || timerExpired) return createPaymentAccount();
-    if (paymentConfirmed) return handleSubmit();
-    toast.error("Please verify your payment first");
-  };
-
-  const copyAccount = async () => {
-    try {
-      await navigator.clipboard.writeText(paymentDetails?.accountNumber || "");
-      toast.success("Copied");
-    } catch {
-      toast.error("Copy failed");
+      setIsProcessing(false);
     }
   };
 
@@ -519,10 +243,10 @@ const SignUpContent = () => {
             </p>
             
             <ul className="space-y-5">
-              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Industry-simulated daily tasks</li>
+              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Start immediately with a Free Week</li>
               <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> AI-powered feedback & grading</li>
               <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Automated CV & Portfolio generation</li>
-              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> Squad accountability & networking</li>
+              <li className="flex items-center gap-3 text-foreground font-medium"><CheckCircle2 className="w-6 h-6 text-primary" /> No credit card required upfront</li>
             </ul>
           </div>
         </div>
@@ -543,14 +267,14 @@ const SignUpContent = () => {
           
           <div className="lg:hidden text-center space-y-2 mb-8">
             <h1 className="text-3xl font-black text-foreground">Join WDC Labs</h1>
-            <p className="text-muted-foreground">Kickstart your tech career today.</p>
+            <p className="text-muted-foreground">Your first week is completely free.</p>
           </div>
 
           <div className="space-y-6">
             {error && <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-lg font-medium">{error}</div>}
             
             <div className="flex justify-center lg:justify-start">
-               <RoleToggle value={role} onChange={(r) => { setRole(r); setPaymentDetails(null); }} />
+               <RoleToggle value={role} onChange={setRole} />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -576,7 +300,7 @@ const SignUpContent = () => {
               
               {role === "student" && (
                 <>
-                  <AuthSelect label="Learning Track" value={track} onChange={(t) => { setTrack(t); setPaymentDetails(null); }} options={tracks} />
+                  <AuthSelect label="Learning Track" value={track} onChange={setTrack} options={tracks} />
                   <AuthSelect label="Experience Level" value={experienceLevel} onChange={setExperienceLevel} options={experienceLeveloptions} />
                 </>
               )}
@@ -626,154 +350,45 @@ const SignUpContent = () => {
                       </button>
                   </div>
                 )}
-
-                {squadSlug && (
-                  <div className="flex items-center gap-2 p-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 rounded-lg text-sm font-bold animate-in fade-in">
-                    🛡️ Squad Invite detected! You will be added automatically after payment.
-                  </div>
-                )}
               </div>
             )}
 
-            {!squadSlug && (
-              <div className="space-y-2 pt-6 border-t border-border/40">
-                {!isCouponApplied ? (
-                  <div className="flex flex-col space-y-2">
-                    <label className="text-sm font-semibold text-muted-foreground">Have a Promo Code?</label>
-                    <div className="flex items-center space-x-2">
-                      <input 
-                        type="text" 
-                        placeholder="Enter discount code" 
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value)}
-                        className="flex h-11 w-full rounded-md border border-input bg-secondary px-4 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                      <Button type="button" onClick={handleApplyCoupon} variant="secondary" className="h-11 px-6 font-bold">
-                        Apply
-                      </Button>
-                    </div>
-                    {couponError && <p className="text-red-500 text-xs font-medium">{couponError}</p>}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-green-500/10 text-green-600 rounded-lg border border-green-500/30 text-sm font-bold flex justify-between items-center">
-                    <span>🎉 {couponCode.toUpperCase()} Applied! (Trial)</span>
-                    <button type="button" onClick={() => setIsCouponApplied(false)} className="text-green-600 hover:text-green-700 transition-colors">
-                      <X size={18} />
-                    </button>
-                  </div>
-                )}
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="space-y-3 pt-4 border-t border-border/40">
+                <label className="text-sm font-semibold text-muted-foreground">After Free Week, I prefer to be billed:</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button type="button" onClick={() => setSubscriptionPlan("monthly")} className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${subscriptionPlan === "monthly" ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                    <span className="text-sm font-bold">Monthly</span>
+                    <span className="text-xs font-medium mt-1">₦ 15,000 / mo</span>
+                  </button>
+                  <button type="button" onClick={() => setSubscriptionPlan("quarterly")} className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all relative overflow-hidden ${subscriptionPlan === "quarterly" ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
+                    <div className="absolute top-0 right-0 bg-primary text-[10px] text-white px-2 py-0.5 font-bold rounded-bl-lg">SAVE</div>
+                    <span className="text-sm font-bold">Quarterly</span>
+                    <span className="text-xs font-medium mt-1">₦ 40,500 / 3 mos</span>
+                  </button>
+                </div>
               </div>
-            )}
 
-            {!isCouponApplied && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="space-y-3 pt-4">
-                  <label className="text-sm font-semibold text-muted-foreground">Subscription Plan</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button type="button" onClick={() => { setSubscriptionPlan("monthly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${subscriptionPlan === "monthly" ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                      <span className="text-sm font-bold">Monthly</span>
-                      <span className="text-xs font-medium mt-1">₦ 15,000 / mo</span>
-                    </button>
-                    <button type="button" onClick={() => { setSubscriptionPlan("quarterly"); setPaymentDetails(null); }} className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all relative overflow-hidden ${subscriptionPlan === "quarterly" ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                      <div className="absolute top-0 right-0 bg-primary text-[10px] text-white px-2 py-0.5 font-bold rounded-bl-lg">SAVE</div>
-                      <span className="text-sm font-bold">Quarterly</span>
-                      <span className="text-xs font-medium mt-1">₦ 40,500 / 3 mos</span>
-                    </button>
-                  </div>
+              <div className="flex flex-col p-5 mt-5 bg-secondary/50 rounded-xl border border-border/50">
+                <div className="flex justify-between items-center font-semibold">
+                  <span className="text-sm text-muted-foreground font-medium">Due Today</span>
+                  <span className="text-2xl font-black text-emerald-500">₦ 0.00</span>
                 </div>
-
-                <div className="flex flex-col p-5 mt-5 bg-secondary/50 rounded-xl border border-border/50">
-                  <div className="flex justify-between items-center font-semibold">
-                    <span className="text-sm text-muted-foreground font-medium">Total Fee</span>
-                    <div className="text-right">
-                      {subscriptionPlan === "quarterly" && (
-                        <div className="text-xs text-muted-foreground line-through mb-0.5">Regular Price: ₦ 45,000</div>
-                      )}
-                      <span className="text-2xl font-black text-primary">
-                        {subscriptionPrice}
-                      </span>
-                    </div>
-                  </div>
-                  {subscriptionPlan === "quarterly" && (
-                    <div className="flex justify-end mt-2">
-                      <span className="bg-green-500/10 text-green-600 text-xs px-2.5 py-1 rounded-full font-bold">
-                        Total Savings: ₦ 4,500
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 🔥 SUPPLY SMART COMMENTED OUT BELOW 🔥 */}
-                {/* 
-                <div className="space-y-3 pt-6">
-                  <label className="text-sm font-semibold text-muted-foreground">Payment Method</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button type="button" onClick={() => setPaymentMethod("transfer")} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 text-sm font-bold transition-all ${paymentMethod === "transfer" ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                      <Banknote size={18} /> Bank Transfer
-                    </button>
-                    <button type="button" onClick={() => { setPaymentMethod("paystack"); setPaymentDetails(null); }} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 text-sm font-bold transition-all ${paymentMethod === "paystack" ? "border-primary bg-primary/5 text-primary" : "border-border/40 hover:bg-muted/50 text-muted-foreground"}`}>
-                      <CreditCard size={18} /> Paystack
-                    </button>
-                  </div>
-                </div>
-                
-                {paymentMethod === "transfer" && paymentDetails && (
-                  <div className="border-2 border-primary/20 rounded-2xl p-6 bg-primary/5 space-y-5 mt-6 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Transfer Details</span>
-                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border shadow-sm ${timerExpired ? 'border-destructive/50 text-destructive' : 'border-primary/30 text-primary'}`}>
-                        <Clock size={14} className={timerExpired ? "" : "animate-pulse"} />
-                        <span className="text-sm font-mono font-bold">{formattedTime}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-4 text-sm">
-                      <div className="flex justify-between opacity-80"><span>Bank</span><span className="font-semibold text-right">Parallex Bank</span></div>
-                      <div className="flex justify-between items-center bg-background p-4 rounded-xl border shadow-sm">
-                        <span className="text-xs text-muted-foreground uppercase font-bold">Account</span>
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-bold text-xl tracking-tight">{paymentDetails.accountNumber}</span>
-                          <button type="button" onClick={copyAccount} className="p-2 bg-secondary hover:bg-secondary/80 rounded-lg transition-colors"><Copy size={16} /></button>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-start pt-1">
-                        <span className="opacity-80">Name</span>
-                        <span className="font-bold text-right max-w-[180px] leading-tight">{paymentDetails.accountName}</span>
-                      </div>
-                    </div>
-                    <Button type="button" onClick={verifyPayment} disabled={checkingPayment || timerExpired || paymentConfirmed} className="w-full font-bold shadow-md h-12 text-base mt-2">
-                      {checkingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : paymentConfirmed ? "Payment Verified" : "I have transferred"}
-                    </Button>
-                    {timerExpired && <div className="flex items-center justify-center gap-2 text-destructive text-xs font-bold animate-pulse uppercase mt-3"><AlertCircle size={16} /> Account Expired</div>}
-                  </div>
-                )}
-                */}
-                {/* 🔥 END SUPPLY SMART COMMENT OUT 🔥 */}
               </div>
-            )}
+            </div>
 
             <div className="pt-4">
               <TermsAgreement wdcPrivacy={wdcPrivacy} onWdcPrivacyChange={setWdcPrivacy} />
             </div>
 
-            {isCouponApplied ? (
-              <Button 
-                type="button" 
-                className="w-full h-14 text-base font-bold transition-all shadow-lg bg-green-600 hover:bg-green-700 text-white mt-4" 
-                disabled={isProcessingTrial} 
-                onClick={handleTrialBypass}
-              >
-                {isProcessingTrial ? <Loader2 className="w-6 h-6 animate-spin" /> : `Start ${trialDays}-Day Free Trial`}
-              </Button>
-            ) : (
-              <Button 
-                type="button" 
-                className="w-full h-14 text-base font-bold transition-all shadow-lg mt-4" 
-                disabled={initializingPaystack} 
-                onClick={handleMainAction}
-              >
-                {initializingPaystack ? <Loader2 className="w-6 h-6 animate-spin" /> : "Proceed to Checkout"}
-              </Button>
-            )}
+            <Button 
+              type="button" 
+              className="w-full h-14 text-base font-bold transition-all shadow-lg bg-primary hover:bg-primary/90 text-white mt-4" 
+              disabled={isProcessing} 
+              onClick={handleRegistration}
+            >
+              {isProcessing ? <Loader2 className="w-6 h-6 animate-spin" /> : "Start Your Free Week"}
+            </Button>
 
             <p className="text-center text-sm text-muted-foreground pt-6">
               Already have an account? <Link href="/login" className="text-primary font-bold hover:underline underline-offset-4">Log in here</Link>

@@ -205,11 +205,12 @@ export const StudentSidebar = () => {
   const CurrentTrackIcon = currentTrackData.icon || Trophy;
   const progressPercentage = Math.min((currentWeek / 24) * 100, 100);
 
-  // Derive dynamic identity if the DB says "Intern" or is null
-  let displayIdentity = dbIdentity || "Intern";
-  if (displayIdentity === "Intern") {
-    displayIdentity = currentTrackData.progression[0].title;
-  }
+// Dynamically calculate identity based on the active track and current week to prevent stale DB state
+  const currentProgressionStage = currentTrackData.progression.find(
+    (stage) => currentWeek >= stage.minWeek && currentWeek <= stage.maxWeek
+  ) || currentTrackData.progression[0];
+
+  const displayIdentity = currentProgressionStage.title;
 
   const renderNavContent = () => (
     <>
