@@ -238,48 +238,14 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
 
         <div className="product-stage" aria-label="Preview of the WDC Labs workplace experience">
           <div className="stage-glow" />
-          <div className="dashboard-card">
-            <div className="dashboard-top">
-              <div>
-                <span className="mini-mark">W</span>
-                <strong>Reality Engine</strong>
-              </div>
-              <span className="online">● LIVE WORKSPACE</span>
-            </div>
-            <div className="manager-row">
-              <div className="avatar">AM</div>
-              <div>
-                <small>YOUR AI MANAGER</small>
-                <strong>Amara · Strategy Lead</strong>
-              </div>
-              <span className="status-pill">Task assigned</span>
-            </div>
-            <div className="task-card">
-              <div className="task-meta">
-                <span>ASSIGNMENT 01</span>
-                <span className="due">Due in 2 days</span>
-              </div>
-              <h3>Diagnose falling retail revenue</h3>
-              <p>Analyze the dataset, identify the key drivers and recommend three actions to leadership.</p>
-              <div className="progress">
-                <span style={{ width: "38%" }} />
-              </div>
-              <div className="task-bottom">
-                <span>Progress · 38%</span>
-                <Link href={registrationLink}>
-                  Continue task →
-                </Link>
-              </div>
-            </div>
-            <div className="feedback-float">
-              <span className="score">84</span>
-              <div>
-                <small>CAREER READINESS</small>
-                <strong>Strong analytical thinking</strong>
-                <span>+8 points this week</span>
-              </div>
-            </div>
-          </div>
+          <figure className="desk-preview">
+            <img
+              src="/landing-office-headquarters.png"
+              alt="WDC Labs Headquarters page showing the 24-week Cyber Security learning roadmap."
+              fetchPriority="high"
+            />
+            <figcaption>Headquarters · Cyber Security Learning Roadmap</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -388,81 +354,93 @@ export default function Landing({ isTrial = false }: { isTrial?: boolean }) {
             </button>
           ))}
         </div>
-        <div className="assignment-window">
-          <aside>
-            <small>YOU ARE THE</small>
-            <h3>{selected.role}</h3>
-            <div className="company-card">
-              <span>CLIENT</span>
-              <strong>Northstar Retail</strong>
-              <small>Consumer commerce · Lagos</small>
-            </div>
-            <div className="brief-stat">
-              <span>DIFFICULTY</span>
-              <strong>●●○</strong>
-            </div>
-            <div className="brief-stat">
-              <span>EST. TIME</span>
-              <strong>3-4 hours</strong>
-            </div>
-            <div className="brief-stat">
-              <span>TOOLS</span>
-              <strong>{selected.tool}</strong>
-            </div>
-          </aside>
-          <div className="assignment-main">
-            <span className="assignment-number">ASSIGNMENT 01 · BUSINESS DIAGNOSIS</span>
-            <h3>{selected.task}</h3>
-            <p>
-              Your manager expects a concise analysis that connects evidence to action. You will be assessed on
-              research, execution, communication and commercial judgment.
-            </p>
-            <h4>WHAT YOU WILL SUBMIT</h4>
-            <div className="deliverables">
-              {selected.deliverables.map((item, i) => (
-                <div key={item}>
-                  <span>0{i + 1}</span>
-                  {item}
+        <div className={`assignment-window ${activeTrack === "security" ? "security-desk-window" : ""}`}>
+          {activeTrack === "security" ? (
+            <figure className="cybersecurity-desk-preview">
+              <img
+                src="/landing-office-cybersecurity-desktop.png"
+                alt="Cybersecurity Desk in WDC Office, showing the learning pathway, completed Day 1 task, and cybersecurity task brief."
+              />
+              <figcaption>Cybersecurity · Your Desk</figcaption>
+            </figure>
+          ) : (
+            <>
+              <aside>
+                <small>YOU ARE THE</small>
+                <h3>{selected.role}</h3>
+                <div className="company-card">
+                  <span>CLIENT</span>
+                  <strong>Northstar Retail</strong>
+                  <small>Consumer commerce · Lagos</small>
                 </div>
-              ))}
-            </div>
-            <button className="ghost-button" type="button" onClick={() => document.querySelector("#first-task")?.scrollIntoView({ behavior: "smooth" })}>
-              {isTrial ? "Try this assignment free" : "Explore this assignment"} <Arrow />
-            </button>
-          </div>
-          <div className="review-preview">
-            <div className="review-head">
-              <small>YOUR PERFORMANCE REVIEW</small>
-              <span>84/100</span>
-            </div>
-            <div className="bars">
-              <label>
-                Research <span>88</span>
-              </label>
-              <i>
-                <b style={{ width: "88%" }} />
-              </i>
-              <label>
-                Execution <span>82</span>
-              </label>
-              <i>
-                <b style={{ width: "82%" }} />
-              </i>
-              <label>
-                Communication <span>76</span>
-              </label>
-              <i>
-                <b style={{ width: "76%" }} />
-              </i>
-            </div>
-            <div className="manager-note">
-              <span>AM</span>
-              <p>
-                <strong>Manager note</strong>
-                “Your evidence is strong. Make the recommendation more decisive by ranking actions by expected impact.”
-              </p>
-            </div>
-          </div>
+                <div className="brief-stat">
+                  <span>DIFFICULTY</span>
+                  <strong>●●○</strong>
+                </div>
+                <div className="brief-stat">
+                  <span>EST. TIME</span>
+                  <strong>3-4 hours</strong>
+                </div>
+                <div className="brief-stat">
+                  <span>TOOLS</span>
+                  <strong>{selected.tool}</strong>
+                </div>
+              </aside>
+              <div className="assignment-main">
+                <span className="assignment-number">ASSIGNMENT 01 · BUSINESS DIAGNOSIS</span>
+                <h3>{selected.task}</h3>
+                <p>
+                  Your manager expects a concise analysis that connects evidence to action. You will be assessed on
+                  research, execution, communication and commercial judgment.
+                </p>
+                <h4>WHAT YOU WILL SUBMIT</h4>
+                <div className="deliverables">
+                  {selected.deliverables.map((item, i) => (
+                    <div key={item}>
+                      <span>0{i + 1}</span>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <button className="ghost-button" type="button" onClick={() => document.querySelector("#first-task")?.scrollIntoView({ behavior: "smooth" })}>
+                  {isTrial ? "Try this assignment free" : "Explore this assignment"} <Arrow />
+                </button>
+              </div>
+              <div className="review-preview">
+                <div className="review-head">
+                  <small>YOUR PERFORMANCE REVIEW</small>
+                  <span>84/100</span>
+                </div>
+                <div className="bars">
+                  <label>
+                    Research <span>88</span>
+                  </label>
+                  <i>
+                    <b style={{ width: "88%" }} />
+                  </i>
+                  <label>
+                    Execution <span>82</span>
+                  </label>
+                  <i>
+                    <b style={{ width: "82%" }} />
+                  </i>
+                  <label>
+                    Communication <span>76</span>
+                  </label>
+                  <i>
+                    <b style={{ width: "76%" }} />
+                  </i>
+                </div>
+                <div className="manager-note">
+                  <span>AM</span>
+                  <p>
+                    <strong>Manager note</strong>
+                    “Your evidence is strong. Make the recommendation more decisive by ranking actions by expected impact.”
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
