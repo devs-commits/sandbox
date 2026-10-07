@@ -2550,3 +2550,152 @@
   .phone-input-global .PhoneInputCountry {
     margin-right: 12px;
   }
+
+.screenshot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgb(0 0 0 / 78%);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.screenshot-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 111;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.screenshot-backdrop[data-state="open"] {
+  animation: screenshot-fade-in 180ms ease-out both;
+}
+
+.screenshot-backdrop[data-state="closed"] {
+  animation: screenshot-fade-out 160ms ease-in both;
+}
+
+.screenshot-lightbox[data-state="open"] {
+  animation: screenshot-lightbox-in 220ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.screenshot-lightbox[data-state="closed"] {
+  animation: screenshot-lightbox-out 160ms ease-in both;
+}
+
+.screenshot-takeover {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: hsl(var(--foreground));
+}
+
+.screenshot-toolbar {
+  position: absolute;
+  z-index: 2;
+  top: max(1rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+  right: max(1rem, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  pointer-events: none;
+}
+
+.screenshot-toolbar > * {
+  pointer-events: auto;
+}
+
+.screenshot-stage {
+  width: 85vw;
+  height: 85vh;
+  height: 85dvh;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.screenshot-transform {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+.screenshot-transform-content {
+  touch-action: none;
+}
+
+.screenshot-full-image {
+  display: block;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+@keyframes screenshot-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes screenshot-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes screenshot-lightbox-in {
+  from { opacity: 0; transform: scale(.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes screenshot-lightbox-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.98); }
+}
+
+@media (max-width: 767px) {
+  .screenshot-takeover {
+    align-items: stretch;
+    flex-direction: column;
+    background: #05070b;
+  }
+
+  .screenshot-toolbar {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    flex: 0 0 auto;
+    padding: max(.75rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) .75rem max(.75rem, env(safe-area-inset-left));
+  }
+
+  .screenshot-stage {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screenshot-backdrop[data-state],
+  .screenshot-lightbox[data-state] {
+    animation-duration: 1ms;
+  }
+}

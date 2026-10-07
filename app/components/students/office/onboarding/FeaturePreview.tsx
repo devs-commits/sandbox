@@ -1,15 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Maximize2, X } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { CarouselButton as Button } from "./CarouselButton";
-
-type Screenshot = {
-  url: string;
-  width?: number;
-  alt: string;
-  label: string;
-};
+import { ScreenshotLightbox, ScreenshotThumbnail, type Screenshot } from "./ScreenshotLightbox";
 
 const screenshots: Screenshot[] = [
   { url: "/welcome-final.png", alt: "Headquarters welcome panel with the first task button highlighted", label: "Headquarters · Welcome" },
@@ -30,7 +24,7 @@ const taskScreenshots: Screenshot[] = [
 
 export function TaskSubmissionPreview() {
   const [expanded, setExpanded] = useState<number | null>(null);
-  const active = expanded === null ? null : taskScreenshots[expanded];
+  const active = expanded === null ? null : taskScreenshots[expanded] ?? null;
 
   return (
     <>
@@ -41,21 +35,11 @@ export function TaskSubmissionPreview() {
               <figcaption className="min-w-0 truncate text-xs font-semibold text-soft/80">{index + 1} / 4 · {shot.label}</figcaption>
               <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(index)} aria-label={`Enlarge ${shot.label} screenshot`} title="View screenshot at full size" className="h-7 w-7 shrink-0 text-cyan hover:bg-cyan/10 hover:text-cyan"><Maximize2 /></Button>
             </div>
-            <img src={shot.url} alt={shot.alt} className="mx-auto block h-auto w-full max-h-[37vh] object-contain sm:max-h-[17vh]" loading="eager" decoding="async" />
+            <ScreenshotThumbnail shot={shot} onOpen={() => setExpanded(index)} className="mx-auto block h-auto w-full max-h-[37vh] object-contain sm:max-h-[17vh]" />
           </figure>
         ))}
       </div>
-      {active && (
-        <div className="fixed inset-0 z-[60] overflow-auto bg-navy/95 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label={`${active.label} screenshot at full size`} onClick={() => setExpanded(null)}>
-          <div className="mx-auto w-fit max-w-none" onClick={(event) => event.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-line bg-navy px-3 py-2 text-sm font-semibold text-soft">
-              <span>{active.label}</span>
-              <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(null)} aria-label="Close enlarged screenshot" className="text-soft hover:bg-slate-line hover:text-soft"><X /></Button>
-            </div>
-            <img src={active.url} alt={active.alt} className="block max-w-none" width={active.width} />
-          </div>
-        </div>
-      )}
+      <ScreenshotLightbox shot={active} onClose={() => setExpanded(null)} />
     </>
   );
 }
@@ -74,19 +58,9 @@ export function FeaturePreview({ index }: { index: number }) {
             <Maximize2 />
           </Button>
         </div>
-        <img src={shot.url} alt={shot.alt} className="mx-auto block h-auto max-h-[32vh] w-auto max-w-full object-contain md:max-h-[36vh]" loading="eager" decoding="async" />
+        <ScreenshotThumbnail shot={shot} onOpen={() => setExpanded(true)} className="mx-auto block h-auto max-h-[32vh] w-auto max-w-full object-contain md:max-h-[36vh]" />
       </figure>
-      {expanded && (
-        <div className="fixed inset-0 z-[60] overflow-auto bg-navy/95 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label={`${shot.label} screenshot at full size`} onClick={() => setExpanded(false)}>
-          <div className="mx-auto w-fit max-w-none" onClick={(event) => event.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-line bg-navy px-3 py-2 text-sm font-semibold text-soft">
-              <span>{shot.label}</span>
-              <Button type="button" variant="ghost" size="icon" onClick={() => setExpanded(false)} aria-label="Close enlarged screenshot" className="text-soft hover:bg-slate-line hover:text-soft"><X /></Button>
-            </div>
-            <img src={shot.url} alt={shot.alt} className="block max-w-none" width={shot.width ?? 1535} />
-          </div>
-        </div>
-      )}
+      <ScreenshotLightbox shot={expanded ? shot : null} onClose={() => setExpanded(false)} />
     </>
   );
 }
