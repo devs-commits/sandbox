@@ -13,9 +13,9 @@ type Screenshot = {
 
 const screenshots: Screenshot[] = [
   { url: "/welcome-final.png", alt: "Headquarters welcome panel with the first task button highlighted", label: "Headquarters · Welcome" },
-  { url: "/desk-guided2.png", width: 1650, alt: "My Office sidebar tab and advanced cybersecurity client task highlighted", label: "My Office · Client brief" },
+  { url: "/desk-guided3.png", width: 1485, alt: "My Office sidebar tab and advanced cybersecurity client task highlighted", label: "My Office · Client brief" },
   { url: "/hub-guided2.png", width: 1650, alt: "Headquarters sidebar tab and first week of the learning roadmap highlighted", label: "Headquarters · Learning roadmap" },
-  { url: "/desk-guided2.png", width: 1650, alt: "My Office sidebar tab and assigned task with reference materials highlighted", label: "My Office · Your Desk" },
+  { url: "/desk-guided3.png", width: 1485, alt: "My Office sidebar tab and cybersecurity task brief highlighted on Your Desk", label: "My Office · Your Desk" },
   { url: "/wallet-guided2.png", width: 1720, alt: "Profile Settings sidebar tab, KYC & Security tab and bank and withdrawal security setup highlighted", label: "Profile Settings · KYC & Security" },
   { url: "/earn-guided2.png", width: 1250, alt: "Earn Money sidebar tab and referral link sharing controls highlighted", label: "Earn Money · Referral link" },
   { url: "/letters-guided2.png", width: 1920, alt: "Headquarters sidebar tab and work and visa reference letter milestones highlighted", label: "Headquarters · Reference letters" },
