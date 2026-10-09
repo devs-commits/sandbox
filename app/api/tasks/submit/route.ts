@@ -36,7 +36,6 @@ export async function POST(request: Request) {
 
     activeUserId = user_id || userId;
     activeTaskId = task_id || taskId;
-// THE FIX: Fallback to null instead of "" for strict Python validation
     const finalFileUrl = file_url || fileUrl || null;
     const finalFileContent = file_content || taskContent || "";
     const finalTaskTitle = task_title || taskTitle || "Task Submission";
@@ -83,8 +82,6 @@ export async function POST(request: Request) {
         attempt_count: nextAttempt
       }, { onConflict: 'user_id, task_id, attempt_date' });
 
-    // From here, an error is a technical submission failure rather than a
-    // validation response or an invalid assignment.
     submissionStarted = true;
 
     // ==========================================
@@ -121,7 +118,7 @@ export async function POST(request: Request) {
     const isPassed = data.passed || false;
     const technicalAccuracy = data.score ?? 50;
 
-    // Save Sola's feedback to chat history
+    // Save AI feedback to chat history
     await supabase.from('chat_history').insert({
         user_id: activeUserId,
         task_id: activeTaskId,
@@ -130,15 +127,14 @@ export async function POST(request: Request) {
     });
 
     // ==========================================
-    // 3. 🔥 THE FIX: Update Tasks Table Directly
+    // 3. Update Tasks Table Directly
     // ==========================================
-    // We update the task directly so the frontend ArchivesView can pull it immediately.
     await supabaseAdmin
         .from('tasks')
         .update({ 
             status: isPassed ? 'passed' : 'needs_revision',
             completed: isPassed,
-            file_url: finalFileUrl, // Store artifact link for the portfolio
+            file_url: finalFileUrl, 
             score: technicalAccuracy,
             feedback: aiResponse
         })
@@ -156,7 +152,7 @@ export async function POST(request: Request) {
             throw new Error(`User not found for auth_id: ${activeUserId}`);
         }
 
-        // Save historical log in submissions table (Removed the Number() cast to prevent UUID breaks)
+        // Save historical log in submissions table
         await supabaseAdmin
             .from('submissions')
             .insert({
@@ -165,6 +161,19 @@ export async function POST(request: Request) {
                 file_url: finalFileUrl,
                 ai_feedback: aiResponse,
             });
+
+        // 🔥 THE FIX: Push the approved task into the user's Portfolio
+        if (data.portfolio_bullet) {
+            await supabaseAdmin
+                .from('portfolio') // Note: Verify this matches your exact table name (e.g., 'portfolios' or 'portfolio_items')
+                .insert({
+                    user_id: dbUser.id,
+                    task_id: activeTaskId,
+                    title: finalTaskTitle,
+                    description: data.portfolio_bullet, // Adjust column name if your schema uses 'achievement', 'summary', etc.
+                    file_url: finalFileUrl
+                });
+        }
 
         // Get current user stats
         const { data: userData } = await supabaseAdmin
@@ -202,12 +211,8 @@ export async function POST(request: Request) {
                     assessment_date: new Date().toISOString(),
                 });
         }
-        
-        // 🚨 AUTO-GENERATE TASK FETCH REMOVED HERE TO PREVENT WEEK 2 LEAKING!
     }
 
-    // A failing grade still means the backend successfully received and
-    // evaluated this submission, so it receives both success audit events.
     await logTaskActivityForAuthUser({
       authUserId: activeUserId,
       taskId: activeTaskId,

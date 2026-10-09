@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CreditCard } from "lucide-react";
+import { Sparkles, CreditCard } from "lucide-react";
 import { SubscribeModal } from "@/app/components/students/SubscribeModal";
 
 export function SubscriptionBanner({ user }: { user: any }) {
@@ -25,25 +25,25 @@ export function SubscriptionBanner({ user }: { user: any }) {
 
   return (
     <>
-      <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center justify-between mb-6 shadow-sm animate-in fade-in slide-in-from-top-2">
+      <div className="bg-primary/10 border border-primary/20 text-primary-foreground px-4 py-3 rounded-lg flex items-center justify-between mb-6 shadow-sm animate-in fade-in slide-in-from-top-2">
         <div className="flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 animate-pulse" />
-          <div>
+          <Sparkles className="w-5 h-5 flex-shrink-0 animate-pulse text-primary" />
+          <div className="text-foreground">
             <p className="text-sm font-bold uppercase tracking-wide">
-              Subscription Expiring Soon
+              Free Trial Completing Soon
             </p>
             <p className="text-xs font-medium mt-0.5">
-              Your access pauses in {daysLeft} day{daysLeft === 1 ? "" : "s"}. Renew your plan with a valid debit/credit card.
+              Your trial week wraps up in {daysLeft} day{daysLeft === 1 ? "" : "s"}. Upgrade to a full WDC plan to keep your workspace active and retain your progress.
             </p>
           </div>
         </div>
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-destructive text-destructive-foreground px-4 py-2 rounded-md text-xs font-bold hover:bg-destructive/90 transition-colors"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-xs font-bold hover:bg-primary/90 transition-colors"
         >
           <CreditCard className="w-3.5 h-3.5" />
-          Renew Plan
+          Upgrade Account
         </button>
       </div>
 
