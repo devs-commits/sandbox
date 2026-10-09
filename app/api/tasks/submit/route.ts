@@ -112,11 +112,14 @@ export async function POST(request: Request) {
         throw new Error(`Backend API Error: ${backendResponse.status}`);
     }
 
-    const data = await backendResponse.json();
+const data = await backendResponse.json();
     
     const aiResponse = data.feedback || "Review completed."; 
-    const isPassed = data.passed || false;
-    const technicalAccuracy = data.score ?? 50;
+    
+    // 🔥 THE FIX: Strictly parse the boolean to prevent "false" strings from passing
+    const isPassed = data.passed === true || String(data.passed).toLowerCase() === 'true';
+    
+    const technicalAccuracy = data.score ?? (isPassed ? 100 : 50);
 
     // Save AI feedback to chat history
     await supabase.from('chat_history').insert({

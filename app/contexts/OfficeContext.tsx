@@ -503,13 +503,6 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
               setActiveView('desk');
             }
 
-            addChatMessage({
-              id: Date.now().toString(),
-              agentName: 'Emem',
-              message: `Task: "${newTask.title}"\nDeadline: ${newTask.deadline}\nCheck your desk. The resources have been prepared for you.`,
-              timestamp: new Date()
-            });
-
           } else if (payload.eventType === 'UPDATE') {
             setTasks(prevTasks => prevTasks.map(task => {
               if (task.id === payload.new.id.toString()) {
@@ -1160,6 +1153,12 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
           }
           pendingTaskGenerationSourceRef.current = null;
           await fetchTasks(); 
+          addChatMessage({
+            id: Date.now().toString(),
+            agentName: 'Emem',
+            message: `I have prepared your daily modules and Reality Task for Week ${currentWeek}. Check your desk. All required learning resources have been attached.`,
+            timestamp: new Date()
+          });
         }
         attempts++;
       }
