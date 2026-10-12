@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, BookOpen, User, MessageSquare, Target, Compass } from 'lucide-react';
+import { Briefcase, BookOpen, User, MessageSquare, Target, Compass, Loader2 } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
 import { useOffice } from '../../../contexts/OfficeContext';
@@ -136,6 +136,21 @@ export function OfficeDashboard() {
   }, [isTourActive, tourStep]);
 
   const renderMainContent = () => {
+    // Show loading screen if generating new tasks or doing initial fetch
+    if (isGeneratingTask || isLoadingTasks) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center h-full w-full bg-card/30 animate-in fade-in duration-500">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mb-6" />
+          <h3 className="text-xl font-bold text-foreground animate-pulse text-center px-4">
+            {generationStatusText || "Preparing your workspace..."}
+          </h3>
+          <p className="text-sm text-muted-foreground mt-3 max-w-md text-center px-4">
+            Please wait while your Lead Technical Supervisor reviews your profile and prepares your assignments.
+          </p>
+        </div>
+      );
+    }
+
     switch (activeView) {
       case 'archives':
         return <ArchivesView />;

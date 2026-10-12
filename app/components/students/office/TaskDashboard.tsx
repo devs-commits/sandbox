@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, Upload, CheckCircle, Loader2, Coffee, 
   ChevronDown, ChevronRight, Flag, Lock, Circle,
-  Menu, ChevronLeft, HardDriveDownload
+  Menu, ChevronLeft, HardDriveDownload, XCircle, AlertCircle
 } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
@@ -41,7 +41,7 @@ const getCleanDescription = (task: Task) => {
     day: 'numeric', month: 'long', year: 'numeric' 
   });
   
-const rawContent = (task as any).brief_content || task.description || '';
+  const rawContent = (task as any).brief_content || task.description || '';
 
   return rawContent
     .split('[Current Date]').join(formattedDate)
@@ -52,12 +52,27 @@ const rawContent = (task as any).brief_content || task.description || '';
     .split('[date]').join(formattedDate);
 };
 
+// --- Color Logic for Grading ---
+const getScoreColor = (score?: number, status?: string) => {
+  if (status === 'needs_revision' || (score !== undefined && score < 50)) return 'text-red-500';
+  if (score !== undefined && score >= 80) return 'text-emerald-500';
+  if (score !== undefined && score >= 50) return 'text-amber-500';
+  return 'text-emerald-500'; // Default passed color
+};
+
+const getScoreBg = (score?: number, status?: string) => {
+  if (status === 'needs_revision' || (score !== undefined && score < 50)) return 'bg-red-500/10 border-red-500/20';
+  if (score !== undefined && score >= 80) return 'bg-emerald-500/10 border-emerald-500/20';
+  if (score !== undefined && score >= 50) return 'bg-amber-500/10 border-amber-500/20';
+  return 'bg-emerald-500/10 border-emerald-500/20';
+};
+
 export function TaskDashboard() {
   const { user } = useAuth();
   const { 
     tasks = [], currentTask, setCurrentTask, 
-    isLoadingTasks, trackName, submitWork,
-    subscription 
+    isLoadingTasks, isGeneratingTask, generationStatusText,
+    trackName, submitWork, subscription 
   } = useOffice();
 
   const isPaidActive = subscription?.status === 'active';
@@ -90,6 +105,16 @@ export function TaskDashboard() {
     }
   }, [tasks, activeTask, sortedWeeks, groupedTasks]);
 
+  // Synchronize active task state when backend updates tasks array
+  useEffect(() => {
+    if (activeTask && tasks.length > 0) {
+      const updatedMatch = tasks.find(t => t.id === activeTask.id);
+      if (updatedMatch && updatedMatch.status !== activeTask.status) {
+        setActiveTask(updatedMatch);
+      }
+    }
+  }, [tasks, activeTask]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) setSubmissionFile(e.target.files[0]);
   };
@@ -105,6 +130,15 @@ export function TaskDashboard() {
     document.body.removeChild(link);
   };
 
+  const goToNextTask = () => {
+    const currentWeekTasks = groupedTasks[activeWeek || 1];
+    const currentIndex = currentWeekTasks.findIndex(t => t.id === activeTask?.id);
+    if (currentIndex !== -1 && currentIndex + 1 < currentWeekTasks.length) {
+      setActiveTask(currentWeekTasks[currentIndex + 1]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleTaskSubmit = async () => {
     if (!submissionFile && !submissionNotes) {
       toast.error("Please provide a file or a link/note before submitting.");
@@ -113,28 +147,14 @@ export function TaskDashboard() {
     if (!activeTask) return;
     
     setIsSubmitting(true);
-    const isRealityTask = activeTask.title.toLowerCase().includes('reality task') || activeTask.difficulty === 'Advanced'; 
     
     try {
-await submitWork(activeTask.id, submissionFile as any, submissionNotes);      
-      if (!isRealityTask) {
-        const { error } = await supabase.from('tasks').update({ status: 'passed', completed: true }).eq('id', activeTask.id);
-        if (!error) {
-          toast.success("Submission recorded! Next day unlocked.");
-          const currentWeekTasks = groupedTasks[activeWeek || 1];
-          const currentIndex = currentWeekTasks.findIndex(t => t.id === activeTask.id);
-          if (currentIndex !== -1 && currentIndex + 1 < currentWeekTasks.length) {
-            setActiveTask(currentWeekTasks[currentIndex + 1]);
-          }
-        }
-      } else {
-        toast.success("Reality Task submitted to Sola for grading!");
-      }
-      
+      // Send to OfficeContext which handles the AI grading & DB updates
+      await submitWork(activeTask.id, submissionFile as any, submissionNotes);      
+      toast.success("Submission graded by Sola!");
       setSubmissionFile(null);
       setSubmissionNotes('');
-      setTimeout(() => window.location.reload(), 1500);
-
+      // Removed the manual reload and forced override so the user stays on the page to view feedback
     } catch (err) {
       console.error("Submission failed:", err);
       toast.error("Submission failed. Please try again.");
@@ -143,11 +163,16 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
     }
   };
 
-  if (isLoadingTasks) {
+  if (isLoadingTasks || isGeneratingTask) {
     return (
-      <div className="flex flex-col items-center justify-center h-full w-full text-center py-12 bg-[#0A0D14] overflow-hidden relative">
-        <Loader2 className="text-primary animate-spin mb-4" size={36} />
-        <p className="text-sm text-muted-foreground">Loading learning pathway...</p>
+      <div className="flex flex-col items-center justify-center h-full w-full bg-[#0A0D14] overflow-hidden relative animate-in fade-in duration-500">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mb-6" />
+        <h3 className="text-xl font-bold text-foreground animate-pulse text-center px-4">
+          {generationStatusText || "Loading learning pathway..."}
+        </h3>
+        <p className="text-sm text-muted-foreground mt-3 max-w-md text-center px-4">
+          Please wait while your Lead Technical Supervisor prepares your workspace.
+        </p>
       </div>
     );
   }
@@ -168,7 +193,12 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
 
   const isRealityTask = activeTask?.title?.toLowerCase().includes('reality task') || activeTask?.difficulty === 'Advanced'; 
   const isCompleted = activeTask?.status === 'approved' || (activeTask?.status as string) === 'passed';
-  const isSubmitted = activeTask?.status === 'submitted' || activeTask?.status === 'under-review';
+  const isFailed = activeTask?.status === 'needs_revision';
+  const isSubmitted = activeTask?.status === 'submitted' || activeTask?.status === 'under_review';
+
+  // Extract score and feedback from activeTask explicitly
+  const taskScore = (activeTask as any)?.score;
+  const taskFeedback = (activeTask as any)?.feedback;
 
   let sharedDriveFiles: any[] = [];
   try {
@@ -239,7 +269,8 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
                           {weekTasks.slice(0, 5).map((task, i) => {
                             const isTaskDone = task.status === 'approved' || task.status === 'passed';
                             const isCurrent = activeTask?.id === task.id;
-                            return <div key={i} className={`h-1 flex-1 rounded-full ${isTaskDone ? 'bg-emerald-500/80' : isCurrent ? 'bg-primary' : 'bg-white/10'}`} />;
+                            const isTaskFailed = task.status === 'needs_revision';
+                            return <div key={i} className={`h-1 flex-1 rounded-full ${isTaskDone ? 'bg-emerald-500/80' : isTaskFailed ? 'bg-red-500/80' : isCurrent ? 'bg-primary' : 'bg-white/10'}`} />;
                           })}
                           {weekTasks.length >= 6 && (
                             <div className={`h-1 w-3 rounded-full ml-1 ${(weekTasks[weekTasks.length - 1].status === 'approved' || weekTasks[weekTasks.length - 1].status === 'passed') ? 'bg-amber-500/80' : (activeTask?.id === weekTasks[weekTasks.length - 1].id) ? 'bg-amber-500' : 'bg-white/10'}`} />
@@ -254,11 +285,14 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
                           <div className="flex flex-col gap-2 mt-1">
                             {weekTasks.slice(0, 6).map((task, i) => {
                               const isTaskDone = task.status === 'approved' || task.status === 'passed';
+                              const isTaskFailed = task.status === 'needs_revision';
                               const isCurrent = activeTask?.id === task.id;
                               const isReality = task.title.toLowerCase().includes('reality task') || i >= 5;
                               const isTaskLocked = i > 0 && !(weekTasks[i - 1].status === 'approved' || weekTasks[i - 1].status === 'passed');
+                              const miniScoreColor = getScoreColor((task as any).score, task.status);
                               
-                              if (isTaskDone) return <CheckCircle key={i} size={14} className="text-emerald-500 shrink-0" />;
+                              if (isTaskDone) return <CheckCircle key={i} size={14} className={`${miniScoreColor} shrink-0`} />;
+                              if (isTaskFailed) return <XCircle key={i} size={14} className="text-red-500 shrink-0" />;
                               if (isTaskLocked) return <Lock key={i} size={12} className="text-muted-foreground/40 shrink-0" />;
                               return <Circle key={i} size={14} className={`shrink-0 ${isCurrent ? (isReality ? 'text-amber-500 fill-amber-500/20' : 'text-primary fill-primary/20') : 'text-muted-foreground/50'}`} />;
                             })}
@@ -283,8 +317,10 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
                         {weekTasks.map((task, tIndex) => {
                           const isSelected = activeTask?.id === task.id;
                           const taskCompleted = task.status === 'approved' || (task.status as string) === 'passed';
+                          const taskFailed = task.status === 'needs_revision';
                           const isTaskLocked = tIndex > 0 && !(weekTasks[tIndex - 1].status === 'approved' || weekTasks[tIndex - 1].status === 'passed');
                           const isReality = task.title.toLowerCase().includes('reality task') || tIndex >= 5;
+                          const scoreColor = getScoreColor((task as any).score, task.status);
 
                           return (
                             <li key={task.id} className="relative z-10 w-full">
@@ -298,7 +334,9 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
                               >
                                 <div className="bg-[#0F131D] p-0.5 rounded-full z-10 shrink-0 -ml-[7px]">
                                   {taskCompleted ? (
-                                    <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                                    <CheckCircle size={14} className={`${scoreColor} shrink-0`} />
+                                  ) : taskFailed ? (
+                                    <XCircle size={14} className="text-red-500 shrink-0" />
                                   ) : isTaskLocked ? (
                                     <Lock size={12} className="text-muted-foreground shrink-0 m-[1px]" />
                                   ) : (
@@ -330,11 +368,16 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
               <div className="mb-8">
                 <div className="flex items-center gap-3 mb-3">
                   <span className={`text-[10px] font-black px-3 py-1 rounded-md uppercase tracking-wider ${isRealityTask ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
-                    {(activeTask as any).week ? `Week ${(activeTask as any).week}` : 'Task'} • {isRealityTask ? 'Reality Task' : 'Daily Module'}
+                    {(activeTask as any).week ? `Week ${(activeTask as any).week}` : 'Task'} - {isRealityTask ? 'Reality Task' : 'Daily Module'}
                   </span>
                   {isCompleted && (
-                    <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-md flex items-center gap-1 uppercase tracking-wider">
-                      <CheckCircle size={12} /> Completed
+                    <span className={`text-[10px] font-black ${getScoreBg(taskScore, activeTask.status)} ${getScoreColor(taskScore, activeTask.status)} px-3 py-1 rounded-md flex items-center gap-1 uppercase tracking-wider`}>
+                      <CheckCircle size={12} /> Passed
+                    </span>
+                  )}
+                  {isFailed && (
+                    <span className="text-[10px] font-black bg-red-500/10 text-red-500 px-3 py-1 rounded-md flex items-center gap-1 uppercase tracking-wider">
+                      <AlertCircle size={12} /> Revisions Needed
                     </span>
                   )}
                 </div>
@@ -411,31 +454,45 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
                 </div>
               )}
 
-              {/* 🔥 UNIFIED SUBMISSION UPLOAD AREA FOR ALL TASKS 🔥 */}
-              <div className="border-t border-white/10 pt-8 mt-8">
-                {isCompleted ? (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-xl flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-emerald-400 flex items-center gap-2 text-base"><CheckCircle size={18}/> Excellent Work</h4>
-                      <p className="text-xs text-emerald-500/70 mt-1 font-medium">This module is marked as complete in your progress tracker.</p>
-                    </div>
+              {/* 🔥 FEEDBACK & UNIFIED SUBMISSION AREA 🔥 */}
+              <div className="border-t border-white/10 pt-8 mt-8 space-y-6">
+                
+                {/* GRADING FEEDBACK PANEL */}
+                {(isCompleted || isFailed) && taskFeedback && (
+                  <div className={`p-6 rounded-2xl border shadow-lg ${getScoreBg(taskScore, activeTask.status)}`}>
+                     <div className="flex items-start justify-between mb-4">
+                       <h4 className={`font-black flex items-center gap-2 text-lg ${getScoreColor(taskScore, activeTask.status)}`}>
+                         {isCompleted ? <CheckCircle size={22}/> : <AlertCircle size={22} />}
+                         {isCompleted ? 'Task Approved' : 'Revisions Needed'}
+                       </h4>
+                       {taskScore !== undefined && (
+                         <span className={`text-sm font-black px-3 py-1.5 rounded-md bg-background/60 shadow-sm ${getScoreColor(taskScore, activeTask.status)}`}>
+                           Score: {taskScore}%
+                         </span>
+                       )}
+                     </div>
+                     <div className="text-sm text-foreground/90 mt-2 whitespace-pre-wrap prose prose-invert max-w-none">
+                       <ReactMarkdown>{taskFeedback}</ReactMarkdown>
+                     </div>
+                     
+                     {/* MANUAL ADVANCE BUTTON (Only if passed) */}
+                     {isCompleted && (
+                       <Button onClick={goToNextTask} className="mt-6 w-full sm:w-auto font-bold gap-2">
+                         Go to Next Task <ChevronRight size={16} />
+                       </Button>
+                     )}
                   </div>
-                ) : isSubmitted ? (
-                   <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-xl flex items-center gap-4">
-                      <Loader2 className="animate-spin text-amber-500 w-6 h-6" />
-                      <div>
-                        <h4 className="font-bold text-amber-400 text-base">Under Review</h4>
-                        <p className="text-xs text-amber-500/70 mt-1 font-medium">Sola is currently evaluating your submission.</p>
-                      </div>
-                   </div>
-                ) : (
+                )}
+
+                {/* UPLOAD FORM (Shows if pending OR if failed so they can retry) */}
+                {(!isCompleted && !isSubmitted) && (
                   <div className={`bg-[#0F131D] border p-6 md:p-8 rounded-2xl shadow-xl ${isRealityTask ? 'border-amber-500/30 shadow-amber-500/5' : 'border-primary/30 shadow-primary/5'}`}>
                     <h3 className="text-lg font-black mb-1 text-foreground flex items-center gap-2">
                       <Upload className={isRealityTask ? "text-amber-500" : "text-primary"} size={20}/> 
-                      {isRealityTask ? 'Submit Reality Task' : 'Submit Daily Deliverable'}
+                      {isFailed ? 'Submit Revision' : (isRealityTask ? 'Submit Reality Task' : 'Submit Daily Deliverable')}
                     </h3>
                     <p className="text-xs text-muted-foreground mb-6 font-medium">
-                      Upload your completed work below to proceed.
+                      {isFailed ? "Upload your corrected work below for re-evaluation." : "Upload your completed work below to proceed."}
                     </p>
                     
                     <div
@@ -466,9 +523,20 @@ await submitWork(activeTask.id, submissionFile as any, submissionNotes);
                     />
 
                     <Button onClick={handleTaskSubmit} disabled={(!submissionFile && !submissionNotes) || isSubmitting} className="w-full h-11 text-sm font-bold gap-2">
-                      {isSubmitting ? <><Loader2 className="animate-spin" size={16} /> Submitting...</> : (isRealityTask ? 'Submit to Sola & Complete Week' : 'Submit & Unlock Next Module')}
+                      {isSubmitting ? <><Loader2 className="animate-spin" size={16} /> Submitting...</> : 'Submit to Sola'}
                     </Button>
                   </div>
+                )}
+
+                {/* UNDER REVIEW STATE */}
+                {isSubmitted && (
+                   <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-xl flex items-center gap-4 shadow-lg">
+                      <Loader2 className="animate-spin text-amber-500 w-6 h-6" />
+                      <div>
+                        <h4 className="font-bold text-amber-400 text-base">Under Review</h4>
+                        <p className="text-xs text-amber-500/70 mt-1 font-medium">Sola is currently evaluating your submission.</p>
+                      </div>
+                   </div>
                 )}
               </div>
 

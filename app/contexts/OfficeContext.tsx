@@ -510,7 +510,9 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
                   ...task,
                   resources: mapResources(payload.new.resources), 
                   completed: payload.new.completed,
-                  status: payload.new.completed ? 'approved' : task.status
+                  status: payload.new.status, // Directly use the backend status (passed, needs_revision, etc)
+                  score: payload.new.score,   // ✅ Now the UI gets the score instantly
+                  feedback: payload.new.feedback // ✅ Now the UI gets the feedback instantly
                 };
               }
               return task;
