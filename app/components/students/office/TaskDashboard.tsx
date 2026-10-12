@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, Upload, CheckCircle, Loader2, Coffee, 
   ChevronDown, ChevronRight, Flag, Lock, Circle,
-  Menu, ChevronLeft, HardDriveDownload, XCircle, AlertCircle
+  Menu, ChevronLeft, HardDriveDownload, XCircle, AlertCircle,
+  Bold, Italic, List, ListOrdered, Link2
 } from 'lucide-react';
 import { Open_Sans } from 'next/font/google';
 import { Button } from '../../../components/ui/button';
@@ -57,7 +58,7 @@ const getScoreColor = (score?: number, status?: string) => {
   if (status === 'needs_revision' || (score !== undefined && score < 50)) return 'text-red-500';
   if (score !== undefined && score >= 80) return 'text-emerald-500';
   if (score !== undefined && score >= 50) return 'text-amber-500';
-  return 'text-emerald-500'; // Default passed color
+  return 'text-emerald-500'; 
 };
 
 const getScoreBg = (score?: number, status?: string) => {
@@ -85,7 +86,9 @@ export function TaskDashboard() {
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [submissionNotes, setSubmissionNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const groupedTasks = tasks.reduce((acc, task) => {
     if (task.difficulty === 'Bounty') return acc;
@@ -105,11 +108,11 @@ export function TaskDashboard() {
     }
   }, [tasks, activeTask, sortedWeeks, groupedTasks]);
 
-  // Synchronize active task state when backend updates tasks array
   useEffect(() => {
     if (activeTask && tasks.length > 0) {
       const updatedMatch = tasks.find(t => t.id === activeTask.id);
-      if (updatedMatch && updatedMatch.status !== activeTask.status) {
+      // Force UI refresh if status, score, or feedback changes from the backend
+      if (updatedMatch && (updatedMatch.status !== activeTask.status || (updatedMatch as any).score !== (activeTask as any).score)) {
         setActiveTask(updatedMatch);
       }
     }
@@ -117,6 +120,25 @@ export function TaskDashboard() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) setSubmissionFile(e.target.files[0]);
+  };
+
+  const insertFormatting = (prefix: string, suffix: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = submissionNotes.substring(start, end);
+    const beforeText = submissionNotes.substring(0, start);
+    const afterText = submissionNotes.substring(end);
+    
+    const newText = beforeText + prefix + selectedText + suffix + afterText;
+    setSubmissionNotes(newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
   };
 
   const downloadMockFile = (filename: string, content: string) => {
@@ -140,8 +162,8 @@ export function TaskDashboard() {
   };
 
   const handleTaskSubmit = async () => {
-    if (!submissionFile && !submissionNotes) {
-      toast.error("Please provide a file or a link/note before submitting.");
+    if (!submissionFile && !submissionNotes.trim()) {
+      toast.error("Please provide a file or type your submission before submitting.");
       return;
     }
     if (!activeTask) return;
@@ -149,28 +171,20 @@ export function TaskDashboard() {
     setIsSubmitting(true);
     
     try {
-      // 1. Submit the work to the backend
+      // Execute submission
       await submitWork(activeTask.id, submissionFile as any, submissionNotes);      
-      toast.success("Submission graded by Sola!");
       
-      // 2. Clear inputs immediately
+      // Clear inputs immediately
       setSubmissionFile(null);
       setSubmissionNotes('');
-      
+      toast.success("Submission successfully graded!");
+
     } catch (err) {
       console.error("Submission failed:", err);
-      toast.error("Submission failed. Please try again.");
+      toast.error("Submission failed. Please check your connection and try again.");
     } finally {
-      // 3. FORCE STATE RESET NO MATTER WHAT
+      // Force UI unfreeze no matter what
       setIsSubmitting(false);
-      
-      // 4. Force a sync to grab the new 'passed' status and score
-      setTimeout(() => {
-         const updatedTask = tasks.find(t => t.id === activeTask.id);
-         if (updatedTask) {
-             setActiveTask(updatedTask);
-         }
-      }, 800); 
     }
   };
 
@@ -205,9 +219,8 @@ export function TaskDashboard() {
   const isRealityTask = activeTask?.title?.toLowerCase().includes('reality task') || activeTask?.difficulty === 'Advanced'; 
   const isCompleted = activeTask?.status === 'approved' || (activeTask?.status as string) === 'passed';
   const isFailed = activeTask?.status === 'needs_revision';
-  const isSubmitted = activeTask?.status === 'submitted' || activeTask?.status === 'under_review';
+  const isSubmitted = isSubmitting || activeTask?.status === 'submitted' || activeTask?.status === 'under_review';
 
-  // Extract score and feedback from activeTask explicitly
   const taskScore = (activeTask as any)?.score;
   const taskFeedback = (activeTask as any)?.feedback;
 
@@ -289,7 +302,7 @@ export function TaskDashboard() {
                         </div>
                       </>
                     ) : (
-                      // 🔥 COLLAPSED VIEW: VERTICAL STACKED ICONS 🔥
+                      // COLLAPSED VIEW: VERTICAL STACKED ICONS
                       <div className="flex flex-col items-center gap-2">
                         <span className={`text-[11px] font-black tracking-widest ${isWeekCompleted ? 'text-emerald-500' : 'text-foreground'}`}>W{weekNum}</span>
                         {isWeekActive && !isWeekLocked && (
@@ -313,7 +326,7 @@ export function TaskDashboard() {
                     )}
                   </div>
 
-                  {/* 🔥 EXPANDED VIEW: TIMELINE STEPPER UI 🔥 */}
+                  {/* EXPANDED VIEW: TIMELINE STEPPER UI */}
                   <AnimatePresence>
                     {isWeekActive && !isWeekLocked && isSidebarOpen && (
                       <motion.ul 
@@ -322,7 +335,6 @@ export function TaskDashboard() {
                         exit={{ height: 0, opacity: 0 }}
                         className="relative mt-3 ml-5 space-y-1"
                       >
-                        {/* The connecting vertical line */}
                         <div className="absolute left-[6px] top-3 bottom-5 w-px bg-white/10 z-0" />
 
                         {weekTasks.map((task, tIndex) => {
@@ -358,6 +370,18 @@ export function TaskDashboard() {
                                 <span className="truncate flex-1">
                                   {isReality ? 'Reality Task' : `Day ${tIndex + 1}`}
                                 </span>
+                                
+                                {/* Status Tags inside the Sidebar! */}
+                                {taskCompleted && (
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-background/50 uppercase tracking-widest ${scoreColor}`}>
+                                    Pass
+                                  </span>
+                                )}
+                                {taskFailed && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-500 uppercase tracking-widest">
+                                    Fail
+                                  </span>
+                                )}
                               </button>
                             </li>
                           );
@@ -407,7 +431,7 @@ export function TaskDashboard() {
                 <ReactMarkdown>{getCleanDescription(activeTask)}</ReactMarkdown>
               </div>
 
-              {/* 🔥 SHARED DRIVE (AI GENERATED MOCK FILES) 🔥 */}
+              {/* SHARED DRIVE */}
               {sharedDriveFiles.length > 0 && (
                 <div className="mb-10 space-y-4">
                   <h3 className="text-sm font-black text-foreground uppercase tracking-widest border-b border-white/10 pb-2 flex items-center gap-2">
@@ -434,7 +458,7 @@ export function TaskDashboard() {
                 </div>
               )}
 
-              {/* WEB LEARNING RESOURCES (Videos/Links) */}
+              {/* WEB LEARNING RESOURCES */}
               {activeTask.resources && activeTask.resources.length > 0 && (
                 <div className="mb-10 space-y-5">
                   <h3 className="text-sm font-black text-foreground uppercase tracking-widest border-b border-white/10 pb-2">Learning Materials</h3>
@@ -465,7 +489,7 @@ export function TaskDashboard() {
                 </div>
               )}
 
-              {/* 🔥 FEEDBACK & UNIFIED SUBMISSION AREA 🔥 */}
+              {/* FEEDBACK & SUBMISSION AREA */}
               <div className="border-t border-white/10 pt-8 mt-8 space-y-6">
                 
                 {/* GRADING FEEDBACK PANEL */}
@@ -486,7 +510,6 @@ export function TaskDashboard() {
                        <ReactMarkdown>{taskFeedback}</ReactMarkdown>
                      </div>
                      
-                     {/* Show what the user submitted */}
                      {activeTask.file_url && (
                         <div className="mt-6 p-4 bg-black/20 rounded-xl border border-white/5 flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -499,9 +522,8 @@ export function TaskDashboard() {
                         </div>
                      )}
                      
-                     {/* MANUAL ADVANCE BUTTON (Only if passed) */}
                      {isCompleted && (
-                       <Button onClick={goToNextTask} className="mt-6 w-full sm:w-auto font-bold gap-2">
+                       <Button onClick={goToNextTask} className="mt-6 w-full sm:w-auto font-bold gap-2 bg-background hover:bg-white/10 text-foreground border border-white/20">
                          Go to Next Task <ChevronRight size={16} />
                        </Button>
                      )}
@@ -519,10 +541,15 @@ export function TaskDashboard() {
                       {isFailed ? "Provide your corrected work below for re-evaluation." : "Submit your completed work below to proceed."}
                     </p>
                     
-                    <div className="space-y-6">
-                      {/* OPTION 1: FILE UPLOAD */}
+                    <div className="space-y-8">
+                      {/* OPTION 1 */}
                       <div>
-                        <p className="text-sm font-bold text-foreground mb-3">Option 1: Upload a File</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-bold text-foreground">Option 1: Upload a File</p>
+                          {submissionFile && (
+                            <button onClick={() => setSubmissionFile(null)} className="text-[10px] uppercase font-bold text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-500/10">Clear File</button>
+                          )}
+                        </div>
                         <div
                           onClick={() => fileInputRef.current?.click()}
                           className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${submissionFile ? 'border-primary bg-primary/5' : 'border-white/20 hover:border-primary/50 hover:bg-white/5'}`}
@@ -544,33 +571,56 @@ export function TaskDashboard() {
                         </div>
                       </div>
 
-                      {/* OPTION 2: TEXT EDITOR */}
-                      <div>
-                        <p className="text-sm font-bold text-foreground mb-3">Option 2: Direct Text Submission</p>
-                        <Textarea
-                          placeholder="Write your complete task submission here, or paste a link to your dashboard/portfolio..."
-                          value={submissionNotes}
-                          onChange={(e) => setSubmissionNotes(e.target.value)}
-                          className="min-h-[150px] bg-background border-white/10 focus:border-primary/50 text-sm p-4 rounded-xl"
-                        />
+                      <div className="relative flex items-center py-2">
+                        <div className="flex-grow border-t border-white/10"></div>
+                        <span className="flex-shrink-0 mx-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">OR</span>
+                        <div className="flex-grow border-t border-white/10"></div>
                       </div>
 
-                      <Button onClick={handleTaskSubmit} disabled={(!submissionFile && !submissionNotes) || isSubmitting} className="w-full h-12 text-sm font-bold gap-2">
-                        {isSubmitting ? <><Loader2 className="animate-spin" size={16} /> Submitting for Grading...</> : 'Submit to Sola'}
+                      {/* OPTION 2: RICH TEXT EDITOR */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                           <p className="text-sm font-bold text-foreground">Option 2: Direct Text Submission</p>
+                           {submissionNotes && (
+                             <button onClick={() => setSubmissionNotes('')} className="text-[10px] uppercase font-bold text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-500/10">Clear Text</button>
+                           )}
+                        </div>
+                        <div className="border border-white/20 rounded-xl overflow-hidden bg-background focus-within:border-primary/50 transition-colors">
+                          <div className="bg-[#1A2235] border-b border-white/10 p-2 flex items-center gap-1">
+                            <button onClick={() => insertFormatting('**', '**')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded transition-colors" title="Bold"><Bold size={16}/></button>
+                            <button onClick={() => insertFormatting('*', '*')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded transition-colors" title="Italic"><Italic size={16}/></button>
+                            <div className="w-px h-4 bg-white/10 mx-1"></div>
+                            <button onClick={() => insertFormatting('\n- ')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded transition-colors" title="Bullet List"><List size={16}/></button>
+                            <button onClick={() => insertFormatting('\n1. ')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded transition-colors" title="Numbered List"><ListOrdered size={16}/></button>
+                            <div className="w-px h-4 bg-white/10 mx-1"></div>
+                            <button onClick={() => insertFormatting('[Link Text](https://', ')')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded transition-colors" title="Insert Link"><Link2 size={16}/></button>
+                          </div>
+                          <Textarea
+      ref={textareaRef}
+      placeholder="Type or paste your complete task submission here..."
+      value={submissionNotes}
+      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSubmissionNotes(e.target.value)} // <-- Updated type
+      className="min-h-[200px] border-none focus-visible:ring-0 rounded-none bg-transparent resize-y"
+    />
+                        </div>
+                      </div>
+
+                      <Button 
+                        onClick={handleTaskSubmit} 
+                        disabled={(!submissionFile && !submissionNotes.trim()) || isSubmitting} 
+                        className="w-full h-14 text-base font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
+                      >
+                        {isSubmitting ? (
+                          <div className="flex items-center gap-3">
+                            <Loader2 className="animate-spin" size={20} /> 
+                            <span>Submitting for Grading...</span>
+                          </div>
+                        ) : (
+                          <span>{isFailed ? 'Submit Revision to Sola' : 'Submit to Sola for Grading'}</span>
+                        )}
                       </Button>
                     </div>
                   </div>
-                )}
-
-                {/* UNDER REVIEW STATE */}
-                {isSubmitted && (
-                   <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-xl flex items-center gap-4 shadow-lg">
-                      <Loader2 className="animate-spin text-amber-500 w-6 h-6" />
-                      <div>
-                        <h4 className="font-bold text-amber-400 text-base">Under Review</h4>
-                        <p className="text-xs text-amber-500/70 mt-1 font-medium">Sola is currently evaluating your submission.</p>
-                      </div>
-                   </div>
                 )}
               </div>
             </div>

@@ -168,7 +168,7 @@ const data = await backendResponse.json();
             throw new Error(`User not found for auth_id: ${activeUserId}`);
         }
 
-        // Save historical log in submissions table
+// Save historical log in submissions table
         await supabaseAdmin
             .from('submissions')
             .insert({
@@ -176,6 +176,7 @@ const data = await backendResponse.json();
                 task_id: activeTaskId, 
                 file_url: finalFileUrl,
                 ai_feedback: aiResponse,
+                score: technicalAccuracy // 🔥 THE FIX: Explicitly save the score here so the Portfolio can fetch it
             });
 
         // 🔥 THE FIX: Push the approved task into the user's Portfolio
