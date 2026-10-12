@@ -51,6 +51,9 @@ export function OfficeDashboard() {
     chatUnreadCount,
     markChatRead,
     firstShift,
+    isGeneratingTask,     // <--- Added this
+    isLoadingTasks,       // <--- Added this
+    generationStatusText  // <--- Added this
   } = useOffice();
   const router = useRouter();
   const [showProfile, setShowProfile] = useState(false);

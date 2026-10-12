@@ -8,8 +8,8 @@ export type AgentName = 'Tolu' | 'Emem' | 'Sola' | 'Kemi';
 
 export type UserLevel = 'Level 0' | 'Level 1' | 'Level 2';
 
-// FIX 1: Added 'passed' to the allowed TaskStatus strings
-export type TaskStatus = 'pending' | 'in-progress' | 'submitted' | 'under-review' | 'approved' | 'rejected' | 'passed';
+// Add 'needs_revision', 'under_review', and 'submitted' to the list
+export type TaskStatus = 'pending' | 'in-progress' | 'under-review' | 'approved' | 'rejected' | 'passed' | 'needs_revision' | 'under_review' | 'submitted' | 'generating';
 
 export type OfficePhase = 'lobby' | 'first_shift' | 'tour' | 'team-intro' | 'working' | 'review';
 
