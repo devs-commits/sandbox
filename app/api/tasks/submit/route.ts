@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         throw new Error(`Backend API Error: ${backendResponse.status}`);
     }
 
-const data = await backendResponse.json();
+    const data = await backendResponse.json();
     
     const aiResponse = data.feedback || "Review completed."; 
     
@@ -120,7 +120,6 @@ const data = await backendResponse.json();
     let isPassed = data.passed === true || String(data.passed).toLowerCase() === 'true';
     
     // 🔥 2. LLM HALLUCINATION GUARDRAIL 🔥
-    // Force a failure if Sola's text explicitly demands revisions, even if the JSON boolean falsely claims 'true'
     const feedbackLower = aiResponse.toLowerCase();
     if (
         feedbackLower.includes("revisions needed") ||
@@ -156,38 +155,38 @@ const data = await backendResponse.json();
         })
         .eq('id', activeTaskId);
 
+    // 🔥 THE FIX: Fetch dbUser OUTSIDE the isPassed block so we can log failed submissions too
+    const { data: dbUser, error: userLookupError } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('auth_id', activeUserId)
+        .single();
+
+    if (!dbUser) {
+        throw new Error(`User not found for auth_id: ${activeUserId}`);
+    }
+
+    // 🔥 THE FIX: Save historical log in submissions table EVERY TIME (Pass or Fail)
+    await supabaseAdmin
+        .from('submissions')
+        .insert({
+            user_id: dbUser.id,
+            task_id: activeTaskId, 
+            file_url: finalFileUrl,
+            ai_feedback: aiResponse,
+            score: technicalAccuracy 
+        });
+
     if (isPassed) {
-        // Get user ID from users table
-        const { data: dbUser, error: userLookupError } = await supabaseAdmin
-            .from('users')
-            .select('id')
-            .eq('auth_id', activeUserId)
-            .single();
-
-        if (!dbUser) {
-            throw new Error(`User not found for auth_id: ${activeUserId}`);
-        }
-
-// Save historical log in submissions table
-        await supabaseAdmin
-            .from('submissions')
-            .insert({
-                user_id: dbUser.id,
-                task_id: activeTaskId, 
-                file_url: finalFileUrl,
-                ai_feedback: aiResponse,
-                score: technicalAccuracy // 🔥 THE FIX: Explicitly save the score here so the Portfolio can fetch it
-            });
-
-        // 🔥 THE FIX: Push the approved task into the user's Portfolio
+        // Push the approved task into the user's Portfolio
         if (data.portfolio_bullet) {
             await supabaseAdmin
-                .from('portfolio') // Note: Verify this matches your exact table name (e.g., 'portfolios' or 'portfolio_items')
+                .from('portfolio') 
                 .insert({
                     user_id: dbUser.id,
                     task_id: activeTaskId,
                     title: finalTaskTitle,
-                    description: data.portfolio_bullet, // Adjust column name if your schema uses 'achievement', 'summary', etc.
+                    description: data.portfolio_bullet, 
                     file_url: finalFileUrl
                 });
         }
@@ -237,6 +236,7 @@ const data = await backendResponse.json();
       attemptNumber: nextAttempt,
       status: 'success',
     });
+    
     await logTaskActivityForAuthUser({
       authUserId: activeUserId,
       taskId: activeTaskId,
