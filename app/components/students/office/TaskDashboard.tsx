@@ -152,23 +152,25 @@ export function TaskDashboard() {
       // 1. Submit the work to the backend
       await submitWork(activeTask.id, submissionFile as any, submissionNotes);      
       toast.success("Submission graded by Sola!");
+      
+      // 2. Clear inputs immediately
       setSubmissionFile(null);
       setSubmissionNotes('');
       
-      // 2. FORCE A LOCAL STATE REFRESH SO THE UI UPDATES IMMEDIATELY
-      // This explicitly updates the activeTask with the new status/score from the tasks array
+    } catch (err) {
+      console.error("Submission failed:", err);
+      toast.error("Submission failed. Please try again.");
+    } finally {
+      // 3. FORCE STATE RESET NO MATTER WHAT
+      setIsSubmitting(false);
+      
+      // 4. Force a sync to grab the new 'passed' status and score
       setTimeout(() => {
          const updatedTask = tasks.find(t => t.id === activeTask.id);
          if (updatedTask) {
              setActiveTask(updatedTask);
          }
-      }, 500); // Give React half a second to catch up with the Realtime listener
-
-    } catch (err) {
-      console.error("Submission failed:", err);
-      toast.error("Submission failed. Please try again.");
-    } finally {
-      setIsSubmitting(false); // Stop the spinner immediately!
+      }, 800); 
     }
   };
 
@@ -371,7 +373,7 @@ export function TaskDashboard() {
 
         {/* ================= RIGHT MAIN PANE ================= */}
         <main className="flex-1 h-full overflow-y-auto relative bg-[#0A0D14] custom-scrollbar">
-          {activeTask ? (
+          {activeTask && (
             <div className="max-w-4xl mx-auto py-8 px-6 md:px-10 pb-32">
               
               <div className="mb-8">
@@ -484,6 +486,19 @@ export function TaskDashboard() {
                        <ReactMarkdown>{taskFeedback}</ReactMarkdown>
                      </div>
                      
+                     {/* Show what the user submitted */}
+                     {activeTask.file_url && (
+                        <div className="mt-6 p-4 bg-black/20 rounded-xl border border-white/5 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <FileText className="text-muted-foreground" size={20} />
+                            <div>
+                              <p className="text-xs text-muted-foreground uppercase font-bold">Your Submitted Artifact</p>
+                              <a href={activeTask.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline">View File / Document</a>
+                            </div>
+                          </div>
+                        </div>
+                     )}
+                     
                      {/* MANUAL ADVANCE BUTTON (Only if passed) */}
                      {isCompleted && (
                        <Button onClick={goToNextTask} className="mt-6 w-full sm:w-auto font-bold gap-2">
@@ -493,7 +508,7 @@ export function TaskDashboard() {
                   </div>
                 )}
 
-                {/* UPLOAD FORM (Shows if pending OR if failed so they can retry) */}
+                {/* UPLOAD & TEXT EDITOR FORM */}
                 {(!isCompleted && !isSubmitted) && (
                   <div className={`bg-[#0F131D] border p-6 md:p-8 rounded-2xl shadow-xl ${isRealityTask ? 'border-amber-500/30 shadow-amber-500/5' : 'border-primary/30 shadow-primary/5'}`}>
                     <h3 className="text-lg font-black mb-1 text-foreground flex items-center gap-2">
@@ -501,39 +516,49 @@ export function TaskDashboard() {
                       {isFailed ? 'Submit Revision' : (isRealityTask ? 'Submit Reality Task' : 'Submit Daily Deliverable')}
                     </h3>
                     <p className="text-xs text-muted-foreground mb-6 font-medium">
-                      {isFailed ? "Upload your corrected work below for re-evaluation." : "Upload your completed work below to proceed."}
+                      {isFailed ? "Provide your corrected work below for re-evaluation." : "Submit your completed work below to proceed."}
                     </p>
                     
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all mb-4 ${submissionFile ? 'border-primary bg-primary/5' : 'border-white/20 hover:border-primary/50 hover:bg-white/5'}`}
-                    >
-                      {submissionFile ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <FileText className="text-primary" size={28} />
-                          <span className="text-sm text-foreground font-bold">{submissionFile.name}</span>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Click to change file</span>
+                    <div className="space-y-6">
+                      {/* OPTION 1: FILE UPLOAD */}
+                      <div>
+                        <p className="text-sm font-bold text-foreground mb-3">Option 1: Upload a File</p>
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${submissionFile ? 'border-primary bg-primary/5' : 'border-white/20 hover:border-primary/50 hover:bg-white/5'}`}
+                        >
+                          {submissionFile ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <FileText className="text-primary" size={28} />
+                              <span className="text-sm text-foreground font-bold">{submissionFile.name}</span>
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Click to change file</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="mx-auto text-muted-foreground mb-3" size={24} />
+                              <p className="text-sm font-bold text-foreground">Click to upload your file</p>
+                              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, CSV, Excel or ZIP</p>
+                            </>
+                          )}
+                          <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
                         </div>
-                      ) : (
-                        <>
-                          <Upload className="mx-auto text-muted-foreground mb-3" size={28} />
-                          <p className="text-sm font-bold text-foreground">Click to upload your file</p>
-                          <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, CSV, Excel or ZIP</p>
-                        </>
-                      )}
-                      <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
+                      </div>
+
+                      {/* OPTION 2: TEXT EDITOR */}
+                      <div>
+                        <p className="text-sm font-bold text-foreground mb-3">Option 2: Direct Text Submission</p>
+                        <Textarea
+                          placeholder="Write your complete task submission here, or paste a link to your dashboard/portfolio..."
+                          value={submissionNotes}
+                          onChange={(e) => setSubmissionNotes(e.target.value)}
+                          className="min-h-[150px] bg-background border-white/10 focus:border-primary/50 text-sm p-4 rounded-xl"
+                        />
+                      </div>
+
+                      <Button onClick={handleTaskSubmit} disabled={(!submissionFile && !submissionNotes) || isSubmitting} className="w-full h-12 text-sm font-bold gap-2">
+                        {isSubmitting ? <><Loader2 className="animate-spin" size={16} /> Submitting for Grading...</> : 'Submit to Sola'}
+                      </Button>
                     </div>
-
-                    <Textarea
-                      placeholder="Add a link to your dashboard/portfolio, or drop notes for Sola here..."
-                      value={submissionNotes}
-                      onChange={(e) => setSubmissionNotes(e.target.value)}
-                      className="min-h-[100px] mb-6 bg-background border-white/10 focus:border-primary/50 text-sm"
-                    />
-
-                    <Button onClick={handleTaskSubmit} disabled={(!submissionFile && !submissionNotes) || isSubmitting} className="w-full h-11 text-sm font-bold gap-2">
-                      {isSubmitting ? <><Loader2 className="animate-spin" size={16} /> Submitting...</> : 'Submit to Sola'}
-                    </Button>
                   </div>
                 )}
 
@@ -548,9 +573,8 @@ export function TaskDashboard() {
                    </div>
                 )}
               </div>
-
             </div>
-          ) : null}
+          )}
         </main>
       </div>
 

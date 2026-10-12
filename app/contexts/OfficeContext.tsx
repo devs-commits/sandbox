@@ -1300,9 +1300,10 @@ const mappedTasks: Task[] = data
       }
 
       if (response.ok) {
-        
+        // Log attempt
         localStorage.setItem(attemptKey, nextAttemptNumber.toString());
 
+        // Send chat message
         addChatMessage({
           id: (Date.now() + 1).toString(),
           agentName: 'Sola',
@@ -1310,9 +1311,24 @@ const mappedTasks: Task[] = data
           timestamp: new Date(),
         });
 
-        if (data.completed || data.passed) {
-          updateTaskStatus(taskId, 'approved');
+        // 🔥 THE FIX: Instantly inject the score, feedback, and file URL into the live UI state!
+        // This stops the UI from freezing and instantly reveals the dashboard grade panel.
+        const newStatus = (data.completed || data.passed) ? 'approved' : 'needs_revision';
+        
+        setTasks(prev => prev.map(t => {
+          if (t.id === taskId) {
+            return {
+              ...t,
+              status: newStatus,
+              score: data.technical_accuracy,
+              feedback: data.message || data.feedback,
+              file_url: fileUrl || t.file_url // Keep track of what they just uploaded
+            };
+          }
+          return t;
+        }));
 
+        if (data.completed || data.passed) {
           if (data.technical_accuracy !== undefined) {
             setPerformanceMetrics({
               technicalAccuracy: data.technical_accuracy,
@@ -1336,8 +1352,6 @@ const mappedTasks: Task[] = data
               verifiedBy: 'Sola'
             });
           }
-        } else {
-          updateTaskStatus(taskId, 'rejected');
         }
       } else {
         throw new Error("API Failure: " + (data.message || response.statusText));

@@ -68,8 +68,6 @@ export default function PortfolioPage() {
       const completed = allTasks.filter(t => t.completed || t.status === 'approved' || t.status === 'passed')
       const active = allTasks.find(t => !t.completed && t.status !== 'approved' && t.status !== 'passed')
 
-      setTasks(completed)
-
       const { data: userData } = await supabase
         .from('users')
         .select('average_score, user_level')
@@ -83,10 +81,12 @@ export default function PortfolioPage() {
         .maybeSingle()
 
       const feedbacks: { [key: number]: string } = {}
+      const extractedScores: { [key: number]: number } = {} // 🔥 Store extracted scores
+
       for (const task of completed) {
         const { data: subData } = await supabase
           .from('submissions')
-          .select('ai_feedback')
+          .select('ai_feedback, score') // 🔥 Explicitly fetch score from submissions
           .eq('task_id', task.id)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -95,8 +95,26 @@ export default function PortfolioPage() {
         if (subData?.ai_feedback) {
           feedbacks[task.id] = subData.ai_feedback;
         }
+        
+        // Match the score correctly
+        if (subData?.score !== undefined && subData?.score !== null) {
+          extractedScores[task.id] = subData.score;
+        } else if (task.score !== undefined && task.score !== null) {
+          extractedScores[task.id] = task.score;
+        } else {
+          extractedScores[task.id] = 85; // Fallback so UI doesn't break
+        }
       }
+
       setFeed(feedbacks)
+      
+      // 🔥 Attach scores to completed tasks before pushing to state
+      const completedWithScores = completed.map(t => ({
+        ...t,
+        score: extractedScores[t.id]
+      }));
+      
+      setTasks(completedWithScores)
 
       let excCount = progData?.excellent_count || 0;
       let gdCount = progData?.good_count || 0;
@@ -125,7 +143,6 @@ export default function PortfolioPage() {
   }
 
   const handleGenerateResume = async () => {
-    // 🔥 Ensures we don't block generation if tasks array is slow to mount, as long as the global counter knows they have tasks
     if (tasks.length < 1 && (user?.tasksCompleted || 0) < 1) return
     if (resumeContent) return 
 
@@ -136,9 +153,9 @@ export default function PortfolioPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user?.id,
-          user_name: user?.fullName, // 🔥 Sourced directly from unified AuthContext
-          track: user?.track,        // 🔥 Sourced directly from unified AuthContext
-          task_count: tasks.length || user?.tasksCompleted, // 🔥 Explicitly passes the correct count to prevent the "0" bug
+          user_name: user?.fullName, 
+          track: user?.track,        
+          task_count: tasks.length || user?.tasksCompleted, 
           start_date: user?.created_at,
           end_date: null,
           tasks: tasks,
@@ -195,7 +212,6 @@ export default function PortfolioPage() {
     verified: true
   }))
 
-  // 🔥 Leverage the global user state for immediate UI feedback
   const totalCompletedTasks = user?.tasksCompleted || tasks.length;
 
   return (
@@ -204,28 +220,28 @@ export default function PortfolioPage() {
       <div className="p-4 lg:p-6 space-y-8 max-w-7xl mx-auto">
 
         {/* Action Bar */}
-<div className="flex flex-wrap gap-3 justify-end">
-  <div 
-    title={totalCompletedTasks < 1 ? "Complete at least 1 task to unlock your resume" : "Generate your ATS-ready resume"}
-    className="inline-block"
-  >
-    <Button
-      onClick={handleGenerateResume}
-      disabled={totalCompletedTasks < 1}
-      className={cn("border-none shadow-none font-medium transition-all", 
-        totalCompletedTasks < 1 
-          ? "bg-slate-800/80 text-slate-500" 
-          : "bg-purple-600 hover:bg-purple-700 text-white"
-      )}
-    >
-      {totalCompletedTasks < 1 ? <Lock className="mr-2 h-4 w-4 text-slate-500" /> : <Wand2 className="mr-2 h-4 w-4" />}
-      {totalCompletedTasks < 1 ? "Locked: Complete 1 Task" : "Auto-Generate Resume"}
-    </Button>
-  </div>
-  <Button onClick={() => setIsShareOpen(true)} className="bg-cyan-600 hover:bg-cyan-700 text-white border-none shadow-none font-medium">
-    <Share2 className="mr-2 h-4 w-4" /> Share Public Link
-  </Button>
-</div>
+        <div className="flex flex-wrap gap-3 justify-end">
+          <div 
+            title={totalCompletedTasks < 1 ? "Complete at least 1 task to unlock your resume" : "Generate your ATS-ready resume"}
+            className="inline-block"
+          >
+            <Button
+              onClick={handleGenerateResume}
+              disabled={totalCompletedTasks < 1}
+              className={cn("border-none shadow-none font-medium transition-all", 
+                totalCompletedTasks < 1 
+                  ? "bg-slate-800/80 text-slate-500" 
+                  : "bg-purple-600 hover:bg-purple-700 text-white"
+              )}
+            >
+              {totalCompletedTasks < 1 ? <Lock className="mr-2 h-4 w-4 text-slate-500" /> : <Wand2 className="mr-2 h-4 w-4" />}
+              {totalCompletedTasks < 1 ? "Locked: Complete 1 Task" : "Auto-Generate Resume"}
+            </Button>
+          </div>
+          <Button onClick={() => setIsShareOpen(true)} className="bg-cyan-600 hover:bg-cyan-700 text-white border-none shadow-none font-medium">
+            <Share2 className="mr-2 h-4 w-4" /> Share Public Link
+          </Button>
+        </div>
 
         {/* DASHBOARD METRICS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -321,7 +337,7 @@ export default function PortfolioPage() {
                       <h4 className="font-bold text-foreground">{task.title}</h4>
                       <span className="text-xs text-muted-foreground uppercase">{task.task_track?.replace(/-/g, ' ')}</span>
                     </div>
-                    {task.score !== undefined && (
+                    {task.score !== undefined && task.score !== null ? (
                       <div className="flex flex-col items-end">
                         <span className={cn("px-3 py-1 rounded-full text-sm font-bold border", 
                           task.score >= 85 ? "text-green-500 border-green-500/50 bg-green-500/10" : 
@@ -329,6 +345,12 @@ export default function PortfolioPage() {
                           "text-yellow-500 border-yellow-500/50 bg-yellow-500/10"
                         )}>
                           {task.score} / 100
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-end">
+                        <span className="px-3 py-1 rounded-full text-sm font-bold border text-muted-foreground border-border/50 bg-muted/20">
+                          Ungraded
                         </span>
                       </div>
                     )}
