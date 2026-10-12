@@ -53,16 +53,20 @@ const getCleanDescription = (task: Task) => {
     .split('[date]').join(formattedDate);
 };
 
-// --- Color Logic for Grading ---
+// --- 🔥 FIXED Color Logic for Grading ---
 const getScoreColor = (score?: number, status?: string) => {
-  if (status === 'needs_revision' || (score !== undefined && score < 50)) return 'text-red-500';
+  if (status === 'needs_revision') return 'text-red-500';
+  if (status === 'approved' || status === 'passed') return 'text-emerald-500'; // Force green for passed
+  if (score !== undefined && score < 50) return 'text-red-500';
   if (score !== undefined && score >= 80) return 'text-emerald-500';
   if (score !== undefined && score >= 50) return 'text-amber-500';
   return 'text-emerald-500'; 
 };
 
 const getScoreBg = (score?: number, status?: string) => {
-  if (status === 'needs_revision' || (score !== undefined && score < 50)) return 'bg-red-500/10 border-red-500/20';
+  if (status === 'needs_revision') return 'bg-red-500/10 border-red-500/20';
+  if (status === 'approved' || status === 'passed') return 'bg-emerald-500/10 border-emerald-500/20'; // Force green for passed
+  if (score !== undefined && score < 50) return 'bg-red-500/10 border-red-500/20';
   if (score !== undefined && score >= 80) return 'bg-emerald-500/10 border-emerald-500/20';
   if (score !== undefined && score >= 50) return 'bg-amber-500/10 border-amber-500/20';
   return 'bg-emerald-500/10 border-emerald-500/20';
@@ -111,7 +115,6 @@ export function TaskDashboard() {
   useEffect(() => {
     if (activeTask && tasks.length > 0) {
       const updatedMatch = tasks.find(t => t.id === activeTask.id);
-      // Force UI refresh if status, score, or feedback changes from the backend
       if (updatedMatch && (updatedMatch.status !== activeTask.status || (updatedMatch as any).score !== (activeTask as any).score)) {
         setActiveTask(updatedMatch);
       }
@@ -171,10 +174,8 @@ export function TaskDashboard() {
     setIsSubmitting(true);
     
     try {
-      // Execute submission
       await submitWork(activeTask.id, submissionFile as any, submissionNotes);      
       
-      // Clear inputs immediately
       setSubmissionFile(null);
       setSubmissionNotes('');
       toast.success("Submission successfully graded!");
@@ -183,7 +184,6 @@ export function TaskDashboard() {
       console.error("Submission failed:", err);
       toast.error("Submission failed. Please check your connection and try again.");
     } finally {
-      // Force UI unfreeze no matter what
       setIsSubmitting(false);
     }
   };
@@ -371,15 +371,15 @@ export function TaskDashboard() {
                                   {isReality ? 'Reality Task' : `Day ${tIndex + 1}`}
                                 </span>
                                 
-                                {/* Status Tags inside the Sidebar! */}
+                                {/* 🔥 NEW: Show actual score in the sidebar tags! */}
                                 {taskCompleted && (
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-background/50 uppercase tracking-widest ${scoreColor}`}>
-                                    Pass
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded bg-background/50 uppercase tracking-widest ${(task as any).score >= 80 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                    {(task as any).score !== undefined ? `${(task as any).score}%` : 'PASS'}
                                   </span>
                                 )}
                                 {taskFailed && (
                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-500 uppercase tracking-widest">
-                                    Fail
+                                    FAIL
                                   </span>
                                 )}
                               </button>
@@ -405,9 +405,11 @@ export function TaskDashboard() {
                   <span className={`text-[10px] font-black px-3 py-1 rounded-md uppercase tracking-wider ${isRealityTask ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
                     {(activeTask as any).week ? `Week ${(activeTask as any).week}` : 'Task'} - {isRealityTask ? 'Reality Task' : 'Daily Module'}
                   </span>
+                  
+                  {/* 🔥 NEW: Show exact score next to the header badge */}
                   {isCompleted && (
                     <span className={`text-[10px] font-black ${getScoreBg(taskScore, activeTask.status)} ${getScoreColor(taskScore, activeTask.status)} px-3 py-1 rounded-md flex items-center gap-1 uppercase tracking-wider`}>
-                      <CheckCircle size={12} /> Passed
+                      <CheckCircle size={12} /> Passed {taskScore !== undefined ? `• ${taskScore}%` : ''}
                     </span>
                   )}
                   {isFailed && (
@@ -425,6 +427,44 @@ export function TaskDashboard() {
                   </button>
                 </div>
               </div>
+
+              {/* 🔥 MOVED GRADING FEEDBACK PANEL TO THE TOP 🔥 */}
+              {(isCompleted || isFailed) && taskFeedback && (
+                <div className={`mb-10 p-6 rounded-2xl border shadow-lg ${getScoreBg(taskScore, activeTask.status)}`}>
+                   <div className="flex items-start justify-between mb-4">
+                     <h4 className={`font-black flex items-center gap-2 text-lg ${getScoreColor(taskScore, activeTask.status)}`}>
+                       {isCompleted ? <CheckCircle size={22}/> : <AlertCircle size={22} />}
+                       {isCompleted ? 'Task Approved' : 'Revisions Needed'}
+                     </h4>
+                     {taskScore !== undefined && (
+                       <span className={`text-sm font-black px-3 py-1.5 rounded-md bg-background/60 shadow-sm ${getScoreColor(taskScore, activeTask.status)}`}>
+                         Score: {taskScore}%
+                       </span>
+                     )}
+                   </div>
+                   <div className="text-sm text-foreground/90 mt-2 whitespace-pre-wrap prose prose-invert max-w-none">
+                     <ReactMarkdown>{taskFeedback}</ReactMarkdown>
+                   </div>
+                   
+                   {activeTask.file_url && (
+                      <div className="mt-6 p-4 bg-black/20 rounded-xl border border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <FileText className="text-muted-foreground" size={20} />
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase font-bold">Your Submitted Artifact</p>
+                            <a href={activeTask.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline">View File / Document</a>
+                          </div>
+                        </div>
+                      </div>
+                   )}
+                   
+                   {isCompleted && (
+                     <Button onClick={goToNextTask} className="mt-6 w-full sm:w-auto font-bold gap-2 bg-background hover:bg-white/10 text-foreground border border-white/20">
+                       Go to Next Task <ChevronRight size={16} />
+                     </Button>
+                   )}
+                </div>
+              )}
 
               {/* INSTRUCTION BRIEF */}
               <div className="prose prose-invert max-w-none text-slate-300 mb-10 bg-white/5 p-6 md:p-8 rounded-2xl border border-white/10 shadow-inner">
@@ -489,48 +529,8 @@ export function TaskDashboard() {
                 </div>
               )}
 
-              {/* FEEDBACK & SUBMISSION AREA */}
+              {/* UPLOAD & TEXT EDITOR FORM (Only shows if they haven't passed) */}
               <div className="border-t border-white/10 pt-8 mt-8 space-y-6">
-                
-                {/* GRADING FEEDBACK PANEL */}
-                {(isCompleted || isFailed) && taskFeedback && (
-                  <div className={`p-6 rounded-2xl border shadow-lg ${getScoreBg(taskScore, activeTask.status)}`}>
-                     <div className="flex items-start justify-between mb-4">
-                       <h4 className={`font-black flex items-center gap-2 text-lg ${getScoreColor(taskScore, activeTask.status)}`}>
-                         {isCompleted ? <CheckCircle size={22}/> : <AlertCircle size={22} />}
-                         {isCompleted ? 'Task Approved' : 'Revisions Needed'}
-                       </h4>
-                       {taskScore !== undefined && (
-                         <span className={`text-sm font-black px-3 py-1.5 rounded-md bg-background/60 shadow-sm ${getScoreColor(taskScore, activeTask.status)}`}>
-                           Score: {taskScore}%
-                         </span>
-                       )}
-                     </div>
-                     <div className="text-sm text-foreground/90 mt-2 whitespace-pre-wrap prose prose-invert max-w-none">
-                       <ReactMarkdown>{taskFeedback}</ReactMarkdown>
-                     </div>
-                     
-                     {activeTask.file_url && (
-                        <div className="mt-6 p-4 bg-black/20 rounded-xl border border-white/5 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <FileText className="text-muted-foreground" size={20} />
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase font-bold">Your Submitted Artifact</p>
-                              <a href={activeTask.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-primary hover:underline">View File / Document</a>
-                            </div>
-                          </div>
-                        </div>
-                     )}
-                     
-                     {isCompleted && (
-                       <Button onClick={goToNextTask} className="mt-6 w-full sm:w-auto font-bold gap-2 bg-background hover:bg-white/10 text-foreground border border-white/20">
-                         Go to Next Task <ChevronRight size={16} />
-                       </Button>
-                     )}
-                  </div>
-                )}
-
-                {/* UPLOAD & TEXT EDITOR FORM */}
                 {(!isCompleted && !isSubmitted) && (
                   <div className={`bg-[#0F131D] border p-6 md:p-8 rounded-2xl shadow-xl ${isRealityTask ? 'border-amber-500/30 shadow-amber-500/5' : 'border-primary/30 shadow-primary/5'}`}>
                     <h3 className="text-lg font-black mb-1 text-foreground flex items-center gap-2">
@@ -596,12 +596,12 @@ export function TaskDashboard() {
                             <button onClick={() => insertFormatting('[Link Text](https://', ')')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded transition-colors" title="Insert Link"><Link2 size={16}/></button>
                           </div>
                           <Textarea
-      ref={textareaRef}
-      placeholder="Type or paste your complete task submission here..."
-      value={submissionNotes}
-      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSubmissionNotes(e.target.value)} // <-- Updated type
-      className="min-h-[200px] border-none focus-visible:ring-0 rounded-none bg-transparent resize-y"
-    />
+                            ref={textareaRef}
+                            placeholder="Type or paste your complete task submission here..."
+                            value={submissionNotes}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSubmissionNotes(e.target.value)}
+                            className="min-h-[200px] border-none focus-visible:ring-0 rounded-none bg-transparent resize-y"
+                          />
                         </div>
                       </div>
 
@@ -621,6 +621,17 @@ export function TaskDashboard() {
                       </Button>
                     </div>
                   </div>
+                )}
+
+                {/* UNDER REVIEW STATE */}
+                {isSubmitted && (
+                   <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-xl flex items-center gap-4 shadow-lg">
+                      <Loader2 className="animate-spin text-amber-500 w-6 h-6" />
+                      <div>
+                        <h4 className="font-bold text-amber-400 text-base">Under Review</h4>
+                        <p className="text-xs text-amber-500/70 mt-1 font-medium">Sola is currently evaluating your submission.</p>
+                      </div>
+                   </div>
                 )}
               </div>
             </div>
