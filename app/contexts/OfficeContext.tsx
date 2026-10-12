@@ -112,8 +112,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
   
   const [isGeneratingTask, setIsGeneratingTask] = useState(false);
   const [isProfileReady, setIsProfileReady] = useState(false);
-  const [generationStatusText, setGenerationStatusText] = useState("Fetch Missing Task");
-  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+const [generationStatusText, setGenerationStatusText] = useState("Preparing your workspace...");  const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true);
   
   const [activeView, setActiveView] = useState<'desk' | 'meeting' | 'archives' | 'bounty'>('desk');
@@ -497,7 +496,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
             pendingTaskGenerationSourceRef.current = null;
 
             setIsGeneratingTask(false);
-            setGenerationStatusText("Fetch Missing Task");
+            setGenerationStatusText("Preparing your workspace...");
             clearTaskGenerationTyping();
             if (typeof window !== 'undefined' && window.innerWidth < 1024 && taskGenerationInFlightRef.current) {
               setActiveView('desk');
@@ -1116,7 +1115,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       if (!response.ok || data.success === false) {
         clearInterval(loadingInterval);
         setIsGeneratingTask(false);
-        setGenerationStatusText("Fetch Missing Task");
+        setGenerationStatusText("Preparing your workspace...");
         pendingTaskGenerationSourceRef.current = null;
         taskGenerationInFlightRef.current = false;
         clearTaskGenerationTyping();
@@ -1167,7 +1166,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
 
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
-      setGenerationStatusText("Fetch Missing Task");
+      setGenerationStatusText("Preparing your workspace...");
       taskGenerationInFlightRef.current = false;
       clearTaskGenerationTyping();
 
@@ -1176,7 +1175,7 @@ export function OfficeProvider({ children }: OfficeProviderProps) {
       pendingTaskGenerationSourceRef.current = null;
       clearInterval(loadingInterval);
       setIsGeneratingTask(false);
-      setGenerationStatusText("Fetch Missing Task"); 
+      setGenerationStatusText("Preparing your workspace...");
       taskGenerationInFlightRef.current = false;
       clearTaskGenerationTyping();
       
