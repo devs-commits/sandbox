@@ -116,8 +116,21 @@ const data = await backendResponse.json();
     
     const aiResponse = data.feedback || "Review completed."; 
     
-    // 🔥 THE FIX: Strictly parse the boolean to prevent "false" strings from passing
-    const isPassed = data.passed === true || String(data.passed).toLowerCase() === 'true';
+    // 1. Initial Boolean Parse
+    let isPassed = data.passed === true || String(data.passed).toLowerCase() === 'true';
+    
+    // 🔥 2. LLM HALLUCINATION GUARDRAIL 🔥
+    // Force a failure if Sola's text explicitly demands revisions, even if the JSON boolean falsely claims 'true'
+    const feedbackLower = aiResponse.toLowerCase();
+    if (
+        feedbackLower.includes("revisions needed") ||
+        feedbackLower.includes("limit reached") ||
+        feedbackLower.includes("contradicts the assignment") ||
+        feedbackLower.includes("incorrect") ||
+        (data.score !== undefined && data.score < 50)
+    ) {
+        isPassed = false;
+    }
     
     const technicalAccuracy = data.score ?? (isPassed ? 100 : 50);
 
