@@ -149,17 +149,26 @@ export function TaskDashboard() {
     setIsSubmitting(true);
     
     try {
-      // Send to OfficeContext which handles the AI grading & DB updates
+      // 1. Submit the work to the backend
       await submitWork(activeTask.id, submissionFile as any, submissionNotes);      
       toast.success("Submission graded by Sola!");
       setSubmissionFile(null);
       setSubmissionNotes('');
-      // Removed the manual reload and forced override so the user stays on the page to view feedback
+      
+      // 2. FORCE A LOCAL STATE REFRESH SO THE UI UPDATES IMMEDIATELY
+      // This explicitly updates the activeTask with the new status/score from the tasks array
+      setTimeout(() => {
+         const updatedTask = tasks.find(t => t.id === activeTask.id);
+         if (updatedTask) {
+             setActiveTask(updatedTask);
+         }
+      }, 500); // Give React half a second to catch up with the Realtime listener
+
     } catch (err) {
       console.error("Submission failed:", err);
       toast.error("Submission failed. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Stop the spinner immediately!
     }
   };
 

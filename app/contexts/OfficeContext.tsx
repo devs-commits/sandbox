@@ -398,23 +398,26 @@ const [generationStatusText, setGenerationStatusText] = useState("Preparing your
       if (error) {
         console.error("Error fetching tasks:", error);
       } else if (data) {
-        const mappedTasks: Task[] = data
-          .filter((t: any) => t.status !== 'generating' && t.title !== 'Generating Assignment...')
-          .map((t: any) => ({
-          id: t.id.toString(),
-          title: t.title,
-          description: t.brief_content,
-          type: t.task_track || trackName,
-          deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
-          created_at: t.created_at,
-          file_url: t.file_url,
-          status: t.completed ? 'approved' : t.status || 'pending',
-          attachments: t.attachments || [],
-          clientConstraints: t.client_constraints || undefined,
-          resources: mapResources(t.resources),
-          difficulty: t.difficulty,
-          week: t.task_number || t.week 
-          }));
+        // Inside fetchTasks in OfficeContext.tsx
+const mappedTasks: Task[] = data
+  .filter((t: any) => t.status !== 'generating' && t.title !== 'Generating Assignment...')
+  .map((t: any) => ({
+    id: t.id.toString(),
+    title: t.title,
+    description: t.brief_content,
+    type: t.task_track || trackName,
+    deadline: t.ai_persona_config?.deadline_display || t.deadline_display || t.deadline || 'Flexible',
+    created_at: t.created_at,
+    file_url: t.file_url,
+    status: t.completed ? 'approved' : t.status || 'pending',
+    attachments: t.attachments || [],
+    clientConstraints: t.client_constraints || undefined,
+    resources: mapResources(t.resources),
+    difficulty: t.difficulty,
+    week: t.task_number || t.week,
+    score: t.score,           // <--- ADD THIS
+    feedback: t.feedback      // <--- ADD THIS
+  }));
 
         setTasks(mappedTasks);
         if (mappedTasks.length > 0) {
